@@ -1,0 +1,189 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-montserrat);
+  --font-heading: var(--font-syncopate);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+}
+
+:root, .dark {
+  /* VORDIA DESIGN TOKENS */
+  --vordia-blue: #1E7BFF;
+  --vordia-dark: #050B18;
+  --vordia-deep: #0A1631;
+  --vordia-white: #F5F7FA;
+  --vordia-gray: #8D97A7;
+  --vordia-success: #22C55E;
+  --vordia-warning: #F59E0B;
+  --vordia-error: #EF4444;
+
+  /* Tailwind mappings */
+  --radius: 16px;
+  --background: var(--vordia-dark);
+  --foreground: var(--vordia-white);
+  --card: #0C1327;
+  --card-foreground: var(--vordia-white);
+  --popover: var(--vordia-deep);
+  --popover-foreground: var(--vordia-white);
+  --primary: var(--vordia-blue);
+  --primary-foreground: #FFFFFF;
+  --secondary: transparent;
+  --secondary-foreground: var(--vordia-gray);
+  --muted: var(--vordia-deep);
+  --muted-foreground: var(--vordia-gray);
+  --accent: #102A63;
+  --accent-foreground: #FFFFFF;
+  --destructive: var(--vordia-error);
+  --border: #24314D;
+  --input: var(--vordia-deep);
+  --ring: var(--vordia-blue);
+  
+  --chart-1: #1E7BFF;
+  --chart-2: #5CA6FF;
+  --chart-3: #B8D4FF;
+  --chart-4: #22C55E;
+  --chart-5: #F59E0B;
+
+  --sidebar: var(--vordia-dark);
+  --sidebar-foreground: var(--vordia-white);
+  --sidebar-primary: var(--vordia-blue);
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #102A63;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #24314D;
+  --sidebar-ring: var(--vordia-blue);
+}
+
+@keyframes progress-indefinite {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.animate-progress-indefinite {
+  width: 50%;
+  animation: progress-indefinite 1.5s infinite linear;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* 1. Elimina cualquier capa oscura (overlay) que intente ponerse sobre el mapa */
+[data-state="open"] > .fixed.inset-0 {
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+    pointer-events: none; /* Permite hacer clic en el mapa incluso con el panel abierto */
+}
+
+/* 2. Asegura que el punto seleccionado no se vea "sucio" por el foco del navegador */
+.leaflet-interactive:focus {
+    outline: none !important;
+}
+
+/* 3. Estilo extra para que los puntos rojos resalten con sombra */
+.leaflet-interactive {
+    filter: drop-shadow(0px 2px 3px rgba(0,0,0,0.2));
+}
+
+/* Estilos de Impresión para Comprobantes y Recibos */
+@media print {
+  @page {
+    margin: 0.8cm;
+    size: auto;
+  }
+  .no-print {
+    display: none !important;
+  }
+  body:has(.print-portal-content) * {
+    visibility: hidden !important;
+  }
+  body:has(.print-portal-content) .print-portal-content,
+  body:has(.print-portal-content) .print-portal-content * {
+    visibility: visible !important;
+  }
+  .print-portal-content {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 40px 15px 20px 15px !important;
+    background: white !important;
+    z-index: 99999 !important;
+    display: block !important;
+  }
+  .print-portal-content .printable-receipt {
+    width: 100% !important;
+    max-width: 650px !important;
+    margin: 0 auto !important;
+    box-shadow: none !important;
+  }
+}
+
+/* Printable document previews: force white bg + dark text even in dark theme */
+.printable-receipt {
+  background: white !important;
+  color: #1e293b !important;
+  border-color: #cbd5e1 !important;
+}
+.printable-receipt * {
+  color: inherit;
+  border-color: inherit;
+}
+.printable-receipt .text-foreground,
+.printable-receipt .text-muted-foreground {
+  color: #475569 !important;
+}
+.printable-receipt h2,
+.printable-receipt h3,
+.printable-receipt strong,
+.printable-receipt .font-black,
+.printable-receipt .font-bold {
+  color: #0f172a !important;
+}
