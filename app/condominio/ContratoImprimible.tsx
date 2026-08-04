@@ -37,14 +37,19 @@ export const ContratoImprimible = ({ contractData, dataUnidad, localNisAnde, isP
     const anioHoy = fechaHoy.getFullYear();
 
     const content = (
-        <div 
-            id={isPreview ? undefined : "imprimible-contrato"} 
-            className={isPreview 
-                ? "bg-card text-black p-8 sm:p-12 border border-border shadow-md rounded-2xl text-[13px] leading-relaxed font-serif text-justify max-w-[850px] mx-auto select-text print:hidden" 
-                : "hidden print:block bg-card text-black text-[13px] leading-relaxed font-serif text-justify"
-            } 
-            style={{ WebkitPrintColorAdjust: 'exact', colorAdjust: 'exact' }}
-        >
+            <div 
+                id={isPreview ? undefined : "imprimible-contrato"} 
+                className={isPreview 
+                    ? "text-black p-8 sm:p-16 text-[13px] leading-relaxed font-serif text-justify w-full mx-auto select-text print:hidden" 
+                    : "hidden print:block bg-white text-black text-[13px] leading-relaxed font-serif text-justify"
+                } 
+                style={{ 
+                    backgroundColor: 'white', // Forzamos blanco siempre
+                    color: 'black',           // Forzamos negro siempre
+                    WebkitPrintColorAdjust: 'exact', 
+                    colorAdjust: 'exact' 
+                }}
+            >
             
             <h1 className="text-center font-bold text-lg mb-6 uppercase">CONTRATO DE LOCACIÓN</h1>
 

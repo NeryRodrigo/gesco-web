@@ -121,7 +121,7 @@ export function FacturaReporte({ facturaData, onSaved }: FacturaReporteProps) {
     await handleSaveToBackend();
     const subIva10Calc = Math.round(facturaData.items.reduce((s, i) => s + i.iva10, 0) / 11);
     
-    let mensaje = `*COMPROBANTE LEGAL / FACTURA - GESCO*\n\n`;
+    let mensaje = `*COMPROBANTE LEGAL / FACTURA - VORDIA*\n\n`;
     mensaje += `*Emisor:* ${facturaData.nombreEmpresa || "Marcelo David Ortigoza Maidana"}\n`;
     if (facturaData.rucEmpresa) mensaje += `*RUC:* ${facturaData.rucEmpresa}\n`;
     mensaje += `*Comprobante N°:* ${numero || "S/N"}\n`;
@@ -530,3 +530,4 @@ export function FacturaReporte({ facturaData, onSaved }: FacturaReporteProps) {
     </div>
   );
 }
+

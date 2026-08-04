@@ -310,6 +310,8 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
 
     return totalDeuda;
   };
+
+  
   
   const [loading, setLoading] = useState(true);
   const [unidades, setUnidades] = useState<Unidad[]>([]);
@@ -409,6 +411,10 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
       );
     });
   }, [allUnitsFlat, searchTerm]);
+
+  const totalGlobalDeuda = useMemo(() => {
+    return filteredUnits.reduce((acc, unit) => acc + calcularDeudaUnidad(unit), 0);
+  }, [filteredUnits]);
 
   const groupedUnits = useMemo(() => {
     if (groupBy === "none") return null;
@@ -621,56 +627,66 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
       <div className="max-w-[1600px] mx-auto space-y-12">
         
         {/* PANEL HEADER */}
-        <div className="bg-card p-8 rounded-[2rem] shadow-sm border border-border flex flex-col md:flex-row justify-between items-center gap-6 no-print">
-          <div className="flex items-center gap-6">
-            <div className="bg-primary p-4 rounded-3xl shadow-xl shadow-primary/20 text-white">
-              <Building2 className="w-10 h-10" />
+        <div className="bg-card p-4 md:p-8 rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-border flex flex-col lg:flex-row justify-between items-center gap-6 no-print">
+          <div className="flex items-center gap-4 md:gap-6">
+            <div className="bg-primary p-3 md:p-4 rounded-2xl md:rounded-3xl shadow-xl shadow-primary/20 text-white">
+              <Building2 className="w-6 h-6 md:w-10 md:h-10" />
             </div>
             <div>
-              <h1 className="text-4xl font-heading font-bold uppercase tracking-tighter text-primary leading-none">Panel de Condominios</h1>
-              <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.2em] mt-1">Gestión Inmobiliaria Integral - Aguz 1, 2 y 3</p>
+              <h1 className="text-xl md:text-4xl font-heading font-bold uppercase tracking-tighter text-primary leading-none">Condominios</h1>
+              <p className="text-muted-foreground text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] mt-1">Aguz 1, 2 y 3</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-             <Button 
-               onClick={() => {
-                 const verif = verificarPermisoGranular("condo_morosidad");
-                 if (!verif.permitido) {
-                   setAlertaRestriccion({
-                     visible: true,
-                     mensaje: verif.mensaje,
-                     permisoNombre: verif.permisoNombre || "Gestión de Morosidad y Avisos"
-                   });
-                   return;
-                 }
-                 setIsAlertasModalOpen(true);
-               }}
-               className="h-11 px-5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center gap-2 shadow-md shadow-amber-500/20"
-             >
-               🔔 ALERTAS (5 DÍAS)
-             </Button>
-             <Button 
-               onClick={() => {
-                 const verif = verificarPermisoGranular("condo_recibos");
-                 if (!verif.permitido) {
-                   setAlertaRestriccion({
-                     visible: true,
-                     mensaje: verif.mensaje,
-                     permisoNombre: verif.permisoNombre || "Imprimir Recibos de Dinero"
-                   });
-                   return;
-                 }
-                 window.print();
-               }}
-               variant="outline" 
-               className="h-11 px-6 rounded-xl border-border font-bold text-xs hover:bg-secondary"
-             >
-               <Printer className="w-4 h-4 mr-2" /> IMPRIMIR
-             </Button>
-             <Button variant="outline" className="h-11 px-6 rounded-xl border-border font-bold text-xs hover:bg-secondary">
-               <FileSpreadsheet className="w-4 h-4 mr-2" /> EXCEL
-             </Button>
+          {/* Botones: Se apilan en móvil */}
+          {/*
+          <div className="flex flex-wrap justify-center gap-2 w-full md:w-auto">
+            <Button className="flex-1 md:flex-none h-10 px-4 rounded-xl bg-amber-500 text-[10px] font-bold">🔔 ALERTAS</Button>
+            <Button variant="outline" className="flex-1 md:flex-none h-10 px-4 rounded-xl text-[10px] font-bold"><Printer className="w-4 h-4 mr-2"/> PDF</Button>
           </div>
+          */}
+          <div className="flex flex-wrap justify-center gap-2 w-full md:w-auto">
+            <Button 
+              onClick={() => {
+                const verif = verificarPermisoGranular("condo_morosidad");
+                if (!verif.permitido) {
+                  setAlertaRestriccion({
+                    visible: true,
+                    mensaje: verif.mensaje,
+                    permisoNombre: verif.permisoNombre || "Gestión de Morosidad y Avisos"
+                  });
+                  return;
+                }
+                setIsAlertasModalOpen(true);
+              }}
+              className="flex-1 md:flex-none h-11 px-5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-[10px] md:text-xs flex items-center justify-center gap-2 shadow-md shadow-amber-500/20"
+            >
+              🔔 ALERTAS (5 DÍAS)
+            </Button>
+
+            <Button 
+              onClick={() => {
+                const verif = verificarPermisoGranular("condo_recibos");
+                if (!verif.permitido) {
+                  setAlertaRestriccion({
+                    visible: true,
+                    mensaje: verif.mensaje,
+                    permisoNombre: verif.permisoNombre || "Imprimir Recibos de Dinero"
+                  });
+                  return;
+                }
+                window.print();
+              }}
+              variant="outline" 
+              className="flex-1 md:flex-none h-11 px-6 rounded-xl border-border font-bold text-[10px] md:text-xs hover:bg-secondary flex items-center justify-center"
+            >
+              <Printer className="w-4 h-4 mr-2" /> PDF / IMPRIMIR
+            </Button>
+
+            <Button variant="outline" className="flex-1 md:flex-none h-11 px-6 rounded-xl border-border font-bold text-[10px] md:text-xs hover:bg-secondary flex items-center justify-center">
+              <FileSpreadsheet className="w-4 h-4 mr-2" /> EXCEL
+            </Button>
+          </div>
+
         </div>
 
         {/* SEARCH BAR */}
@@ -909,6 +925,33 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
                     renderGroupedRows()
                   )}
                 </TableBody>
+                {/* --- INICIO DEL PIE DE TABLA --- */}
+                <tfoot className="bg-secondary/10 border-t-2 border-border font-sans">
+                  <TableRow>
+                    {/* Unimos todas las columnas excepto la última para el texto de "TOTAL" */}
+                    <TableCell 
+                      colSpan={columnOrder.length - 1} 
+                      className="py-6 text-right text-[10px] font-black uppercase text-muted-foreground tracking-widest"
+                    >
+                      Total Deuda Acumulada:
+                    </TableCell>
+                    
+                    {/* La última columna muestra el monto en rojo y grande para que resalte */}
+                    <TableCell className="py-6 text-right">
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="text-2xl font-heading font-bold text-red-600 tracking-tighter">
+                          {formatCurrency(
+                            // Si tienes los datos del dashboard usa ese, sino calculamos del filtro actual
+                            dashboardData?.summary.totalMorosos ?? 
+                            filteredUnits.reduce((acc, unit) => acc + calcularDeudaUnidad(unit), 0)
+                          )}
+                        </span>
+                        
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                </tfoot>
+                {/* --- FIN DEL PIE DE TABLA --- */}
               </Table>
             </div>
           </Card>
@@ -1076,7 +1119,7 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
                     const detail = pagos.map(p => `• ${p.tipoPago} (${meses[p.mesPagado - 1]}/${p.anioPagado}): ${new Intl.NumberFormat('es-PY').format(p.montoPagado)} Gs.`).join("\n");
                     const total = pagos.reduce((acc, p) => acc + p.montoPagado + p.mora + p.saldoPendiente, 0);
                     
-                    const text = `*COMPROBANTE DE COBRO CONSOLIDADO - GESCO*\n\nEstimado inquilino *${selectedUnit.tenant || "Inquilino Desconocido"}*,\nSe ha registrado con éxito su pago del duplex *${selectedUnit.code}*.\n\n*Detalles del Pago:*\n${detail}\n\n*Total Abonado:* ${new Intl.NumberFormat('es-PY').format(total)} Gs.\n*Número de Factura:* ${pagos[0]?.numeroFactura || "N/A"}\n*Método de Pago:* ${pagos[0]?.metodoPago || "N/A"}\n\n_¡Muchas gracias por su puntualidad!_`;
+                    const text = `*COMPROBANTE DE COBRO CONSOLIDADO - VORDIA*\n\nEstimado inquilino *${selectedUnit.tenant || "Inquilino Desconocido"}*,\nSe ha registrado con éxito su pago del duplex *${selectedUnit.code}*.\n\n*Detalles del Pago:*\n${detail}\n\n*Total Abonado:* ${new Intl.NumberFormat('es-PY').format(total)} Gs.\n*Número de Factura:* ${pagos[0]?.numeroFactura || "N/A"}\n*Método de Pago:* ${pagos[0]?.metodoPago || "N/A"}\n\n_¡Muchas gracias por su puntualidad!_`;
                     
                     const url = `https://api.whatsapp.com/send?phone=${phoneNormalized}&text=${encodeURIComponent(text)}`;
                     window.open(url, "_blank");
@@ -1120,4 +1163,5 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
     </div>
   );
 }
+
 

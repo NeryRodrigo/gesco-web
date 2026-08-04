@@ -37,6 +37,29 @@ export default function HistoricoContratosPage({ empresaId }: HistoricoContratos
   } | null>(null);
   const [anulando, setAnulando] = useState(false);
 
+  const getStatusBadge = (estado: string) => {
+    switch (estado) {
+      case "Ocupado":
+        return <Badge className="bg-emerald-500 text-white font-black border-none">OCUPADO</Badge>;
+      case "Temporal":
+        return <Badge className="bg-amber-500 text-white font-black border-none">DESALOJO TEMPORAL</Badge>;
+      case "Definitivo":
+        return <Badge className="bg-slate-500 text-white font-black border-none">DEFINITIVO</Badge>;
+      default:
+        return <Badge variant="outline">{estado}</Badge>;
+    }
+  };
+
+  const getMorosidadBadge = (esMoroso: boolean) => {
+    if (esMoroso) {
+      return <Badge className="bg-red-100 text-red-700 border-red-200 font-bold flex gap-1 items-center">
+        <AlertCircle className="w-3 h-3" /> MOROSO
+      </Badge>;
+    }
+    return <Badge className="bg-blue-100 text-blue-700 border-blue-200 font-bold">AL DÍA</Badge>;
+  };
+
+
   const fetchHistorico = async () => {
     setLoading(true);
     try {
@@ -161,114 +184,62 @@ export default function HistoricoContratosPage({ empresaId }: HistoricoContratos
           {filteredContratos.map((hc: any) => (
             <div
               key={hc.contratoId}
-              className="bg-card p-6 md:p-7 rounded-[2rem] border border-border shadow-sm hover:shadow-md transition-all space-y-5"
+              className={`bg-card p-6 rounded-[2rem] border-2 transition-all ${
+                hc.estadoHistorico === 'Definitivo' ? 'opacity-75 border-slate-100' : 'border-border shadow-sm'
+              }`}
             >
-              {/* ENCABEZADO DE LA TARJETA */}
               <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
                 <div className="flex flex-wrap items-center gap-3">
                   {hc.unidad && (
-                    <span className="bg-blue-600 text-white text-xs font-black px-3.5 py-1.5 rounded-full uppercase tracking-wider shadow-sm flex items-center gap-1.5">
-                      <Building2 className="w-3.5 h-3.5" />
+                    <span className="bg-primary text-white text-[10px] font-black px-3 py-1 rounded-full uppercase">
                       {formatDuplex(hc.unidad.codigoUnidad)}
                     </span>
                   )}
-                  <span className="bg-muted text-foreground text-xs font-black px-3 py-1.5 rounded-full uppercase tracking-wider">
-                    Contrato #{hc.contratoId}
-                  </span>
-                  <h4 className="font-black italic text-xl text-foreground">
-                    {hc.inquilino?.razonSocial || "Inquilino"}
-                  </h4>
-                  <span className="text-xs font-bold text-muted-foreground">
-                    CI/RUC: {hc.inquilino?.documento || "N/A"}
-                  </span>
+                  <h4 className="font-black italic text-xl">{hc.inquilino?.razonSocial}</h4>
+                  {getStatusBadge(hc.estadoHistorico)}
+                  {getMorosidadBadge(hc.esMoroso)}
                 </div>
 
-                <div className="flex items-center gap-2.5">
-                  <Badge className="bg-muted text-muted-foreground font-bold text-[10px] uppercase px-3 py-1">
-                    Finalizado / Desalojado
-                  </Badge>
-                  <button
-                    onClick={() =>
-                      setConfirmAnularContrato({
-                        contratoId: hc.contratoId,
-                        nombre: hc.inquilino?.razonSocial || "Inquilino"
-                      })
-                    }
-                    className="bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border border-red-200 text-xs font-black uppercase px-3.5 py-1.5 rounded-full transition-all flex items-center gap-1.5 shadow-sm"
-                    title="Revertir desalojo y devolver todo al estado anterior"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" /> Anular Desalojo
-                  </button>
+                <div className="flex items-center gap-2">
+                  {/* El botón de anular solo aparece si NO es Definitivo y NO es Ocupado */}
+                  {hc.estadoHistorico === "Temporal" && (
+                    <button
+                      onClick={() => setConfirmAnularContrato({ contratoId: hc.contratoId, nombre: hc.inquilino.razonSocial })}
+                      className="bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white border border-amber-200 text-[10px] font-black uppercase px-4 py-2 rounded-xl transition-all flex items-center gap-2"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" /> Reestablecer / Anular Desalojo
+                    </button>
+                  )}
+                  
+                  {hc.estadoHistorico === "Definitivo" && (
+                    <span className="text-[10px] font-bold text-slate-400 uppercase italic bg-slate-50 px-3 py-1 rounded-lg">
+                      Registro Cerrado (Cerrado)
+                    </span>
+                  )}
                 </div>
               </div>
 
-              {/* DETALLES EN CUADRICULA */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-4">
                 <div>
-                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-wider flex items-center gap-1 mb-1">
-                    <Phone className="w-3 h-3" /> Teléfono / Email
-                  </p>
-                  <p className="text-sm font-bold text-foreground">{hc.inquilino?.telefono || "N/A"}</p>
-                  <p className="text-xs text-muted-foreground">{hc.inquilino?.email || ""}</p>
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Inquilino</p>
+                  <p className="text-sm font-bold">{hc.inquilino?.documento}</p>
+                  <p className="text-xs text-muted-foreground">{hc.inquilino?.telefono}</p>
                 </div>
-
                 <div>
-                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-wider flex items-center gap-1 mb-1">
-                    <Calendar className="w-3 h-3" /> Fecha Ingreso
-                  </p>
-                  <p className="text-sm font-bold text-foreground">
-                    {hc.fechaIngreso ? new Date(hc.fechaIngreso).toLocaleDateString("es-PY") : "-"}
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Periodo</p>
+                  <p className="text-xs font-bold">
+                    {new Date(hc.fechaInicioContrato).toLocaleDateString()} al {hc.fechaFinContrato ? new Date(hc.fechaFinContrato).toLocaleDateString() : 'Activo'}
                   </p>
                 </div>
-
                 <div>
-                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-wider flex items-center gap-1 mb-1">
-                    <Calendar className="w-3 h-3" /> Inicio — Fin Contrato
-                  </p>
-                  <p className="text-sm font-bold text-foreground">
-                    {hc.fechaInicioContrato
-                      ? new Date(hc.fechaInicioContrato).toLocaleDateString("es-PY")
-                      : "-"}{" "}
-                    —{" "}
-                    {hc.fechaFinContrato
-                      ? new Date(hc.fechaFinContrato).toLocaleDateString("es-PY")
-                      : "-"}
-                  </p>
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Mensualidad</p>
+                  <p className="text-sm font-bold text-emerald-600">Gs. {Number(hc.montoMensualAlquiler).toLocaleString()}</p>
                 </div>
-
                 <div>
-                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-wider flex items-center gap-1 mb-1">
-                    <DollarSign className="w-3 h-3" /> Alquiler / Garantía
-                  </p>
-                  <p className="text-sm font-bold text-emerald-600">
-                    Gs. {Number(hc.montoMensualAlquiler || 0).toLocaleString("es-PY")}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Garantía: Gs. {Number(hc.depositoGarantia || 0).toLocaleString("es-PY")}
-                  </p>
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Ubicación</p>
+                  <p className="text-sm font-bold">{hc.unidad?.nombreCondominio}</p>
                 </div>
               </div>
-
-              {/* OBSERVACIONES Y VEHÍCULO */}
-              {(hc.observaciones || hc.vehiculoInfo) && (
-                <div className="pt-3 border-t border-border flex flex-col sm:flex-row gap-6 text-xs text-muted-foreground">
-                  {hc.vehiculoInfo && (
-                    <p className="flex items-center gap-1.5">
-                      <Car className="w-4 h-4 text-muted-foreground shrink-0" />
-                      <strong className="font-bold text-foreground">Vehículo:</strong> {hc.vehiculoInfo}
-                    </p>
-                  )}
-                  {hc.observaciones && (
-                    <p className="flex items-start gap-1.5 italic">
-                      <FileText className="w-4 h-4 text-muted-foreground shrink-0 not-italic mt-0.5" />
-                      <span>
-                        <strong className="font-bold text-foreground not-italic">Observaciones:</strong>{" "}
-                        {hc.observaciones}
-                      </span>
-                    </p>
-                  )}
-                </div>
-              )}
             </div>
           ))}
         </div>

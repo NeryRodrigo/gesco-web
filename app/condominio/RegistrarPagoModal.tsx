@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { 
@@ -791,12 +791,17 @@ export function RegistrarPagoModal({
                   {/* HEADER RECIBO */}
                   <div className="flex justify-between items-start border-b border-border pb-4 mb-6">
                     <div>
-                      <h2 className="text-xl font-black tracking-tight text-foreground">GESCO REAL ESTATE</h2>
-                      <p className="text-[10px] text-muted-foreground uppercase font-bold">Gestión de Alquileres y Administración</p>
-                      <p className="text-[9px] text-muted-foreground">Luque - Paraguay</p>
+                      <div className="flex items-center gap-3">
+                        <img src="/images/LOGO VORDIA - OFICIAL.png" alt="VORDIA" className="w-12 h-12 object-contain" />
+                        <div>
+                          <h2 className="text-xl font-black tracking-tight text-foreground">VORDIA</h2>
+                          <p className="text-[10px] text-muted-foreground uppercase font-bold">Gestión de Alquileres y Administración</p>
+                          <p className="text-[9px] text-muted-foreground">Luque - Paraguay</p>
+                        </div>
+                      </div>
                     </div>
                     <div className="text-right border-l border-border pl-6">
-                      <h3 className="text-sm font-black text-foreground uppercase">RECIBO DE DINERO</h3>
+                      <h3 className="text-sm font-black text-foreground uppercase">{tipoComprobante === "Factura" ? "FACTURA LEGAL" : "RECIBO DE DINERO"}</h3>
                       <p className="text-sm font-black text-primary italic mt-1 flex items-center justify-end gap-1">
                         Gs. 
                         <input 
@@ -862,7 +867,7 @@ export function RegistrarPagoModal({
                     <div className="text-center">
                       <div className="border-b border-border h-8" />
                       <p className="text-[9px] font-black uppercase text-muted-foreground mt-2">Recibí Conforme</p>
-                      <p className="text-[9px] text-muted-foreground font-bold mt-0.5">Administración Gesco</p>
+                      <p className="text-[9px] text-muted-foreground font-bold mt-0.5">Administración Vordia</p>
                     </div>
                   </div>
                 </div>
@@ -883,3 +888,4 @@ export function RegistrarPagoModal({
     </Dialog>
   );
 }
+

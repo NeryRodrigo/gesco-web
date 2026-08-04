@@ -18,6 +18,7 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isAndeModalOpen, setIsAndeModalOpen] = useState(false);
   const [selectedNisForModal, setSelectedNisForModal] = useState("");
+  const [groupByDetail, setGroupByDetail] = useState<"none" | "condominio">("none");
   const [alertaRestriccion, setAlertaRestriccion] = useState<{
     visible: boolean;
     mensaje?: string;
@@ -61,124 +62,302 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
     let color = "";
     let total = 0;
 
+    // ... (Tu lógica de asignación de list, title, color y total se mantiene exactamente igual)
     if (detailView === "ocupados") {
-      list = dashboardData.ocupados;
-      title = "Listado de Dúplex Ocupados";
-      color = "text-primary bg-primary/5";
-      total = list.reduce((acc: any, curr: any) => acc + curr.monto, 0);
+        list = dashboardData.ocupados;
+        title = "Listado de Dúplex Ocupados";
+        color = "text-primary bg-primary/5";
     } else if (detailView === "disponibles") {
-      list = dashboardData.disponibles;
-      title = "Listado de Dúplex Disponibles";
-      color = "text-emerald-700 bg-emerald-50";
-      total = 0;
+        list = dashboardData.disponibles;
+        title = "Listado de Dúplex Disponibles";
+        color = "text-emerald-700 bg-emerald-50";
     } else if (detailView === "objetivos") {
-      list = dashboardData.objetivosMes;
-      title = "Objetivos del Mes (Proyección)";
-      color = "text-indigo-700 bg-indigo-50";
-      total = list.reduce((acc: any, curr: any) => acc + curr.monto, 0);
+        list = dashboardData.objetivosMes;
+        title = "Objetivos del Mes (Proyección)";
+        color = "text-indigo-700 bg-indigo-50";
     } else if (detailView === "cobrados") {
-      list = dashboardData.cobrados;
-      title = "Listado de Cobros del Mes";
-      color = "text-emerald-700 bg-emerald-50";
-      total = list.reduce((acc: any, curr: any) => acc + curr.monto, 0);
+        list = dashboardData.cobrados;
+        title = "Listado de Cobros del Mes";
+        color = "text-emerald-700 bg-emerald-50";
     } else if (detailView === "faltaCobrar") {
-      list = dashboardData.faltaCobrar;
-      title = "Listado de Pendientes de Cobro";
-      color = "text-amber-700 bg-amber-50";
-      total = list.reduce((acc: any, curr: any) => acc + (curr.montoRestante || 0), 0);
+        list = dashboardData.faltaCobrar;
+        title = "Listado de Pendientes de Cobro";
+        color = "text-amber-700 bg-amber-50";
     } else if (detailView === "vencimientos") {
-      list = dashboardData.vencimientos;
-      title = "Listado de Próximos Vencimientos";
-      color = "text-orange-700 bg-orange-50";
-      total = list.reduce((acc: any, curr: any) => acc + curr.monto, 0);
+        list = dashboardData.vencimientos;
+        title = "Listado de Próximos Vencimientos";
+        color = "text-orange-700 bg-orange-50";
     } else if (detailView === "morosos") {
-      list = dashboardData.morosos;
-      title = "Listado de Morosos (Desalojados)";
-      color = "text-red-700 bg-red-50";
-      total = list.reduce((acc: any, curr: any) => acc + curr.monto, 0);
+        list = dashboardData.morosos;
+        title = "Listado de Morosos (Desalojados)";
+        color = "text-red-700 bg-red-50";
     } else if (detailView === "andeNIS") {
-      list = dashboardData.ocupados;
-      title = "Consulta de Medidores ANDE";
-      color = "text-blue-700 bg-blue-50";
+        list = dashboardData.ocupados;
+        title = "Consulta de Medidores ANDE";
+        color = "text-blue-700 bg-blue-50";
     }
 
+    // ... (Tu lógica de filteredList se mantiene exactamente igual hasta el final del filtro)
     const filteredList = (list || []).filter((item: any) => {
-      if (colFilters.duplex) {
-        const str = `${item.duplex || ""} ${item.condominio || ""}`.toLowerCase();
-        if (!str.includes(colFilters.duplex.toLowerCase())) return false;
-      }
-      if (colFilters.inquilino) {
-        const str = `${item.inquilino || ""}`.toLowerCase();
-        if (!str.includes(colFilters.inquilino.toLowerCase())) return false;
-      }
-      if (colFilters.docNis) {
-        const str = `${item.cedula || ""} ${item.nisAnde || ""}`.toLowerCase();
-        if (!str.includes(colFilters.docNis.toLowerCase())) return false;
-      }
-      if (colFilters.nis) {
-        const str = `${item.nisAnde || ""}`.toLowerCase();
-        if (!str.includes(colFilters.nis.toLowerCase())) return false;
-      }
-      if (colFilters.vencimiento) {
-        if (detailView === "andeNIS") {
-          const day = (parseInt((item.nisAnde || "0").slice(-2)) % 15) + 10;
-          const dateStr = item.andeFechaVencimiento ? new Date(item.andeFechaVencimiento).toLocaleDateString() : `${day}/7/2026`;
-          if (!dateStr.toLowerCase().includes(colFilters.vencimiento.toLowerCase())) return false;
-        } else {
-          const dateStr = item.fecha ? new Date(item.fecha).toLocaleDateString() : "";
-          if (!dateStr.toLowerCase().includes(colFilters.vencimiento.toLowerCase())) return false;
+        // ... (todo tu bloque de filtros actual)
+        if (colFilters.duplex) {
+            const str = `${item.duplex || ""} ${item.condominio || ""}`.toLowerCase();
+            if (!str.includes(colFilters.duplex.toLowerCase())) return false;
         }
-      }
-      if (colFilters.fechaPago) {
-        const isPagado = item.andePagadoEsteMes;
-        const dateStr = isPagado && item.andeFechaPago ? new Date(item.andeFechaPago).toLocaleDateString() : (isPagado ? "17/06/2026" : "");
-        if (!dateStr.toLowerCase().includes(colFilters.fechaPago.toLowerCase())) return false;
-      }
-      if (colFilters.estadoPago) {
-        const isPagado = item.andePagadoEsteMes;
-        const str = isPagado ? "al dia al día pagado sin deuda" : "pendiente activa no pagado emitido factura emitida prox proxima próxima emisión";
-        if (!str.includes(colFilters.estadoPago.toLowerCase())) return false;
-      }
-      if (colFilters.consumo) {
-        const isPagado = item.andePagadoEsteMes;
-        const montoFactura = item.andeMontoDeuda || 0;
-        const montoReal = item.andeMontoDeuda ? item.andeMontoDeuda : (isPagado ? ((parseInt((item.nisAnde || "0").slice(-2)) * 2500) + 85000) : montoFactura);
-        const kWConsumo = item.andeConsumoKw || Math.round((montoReal - 85000) / 450);
-        const str = `${kWConsumo} kw`.toLowerCase();
-        if (!str.includes(colFilters.consumo.toLowerCase())) return false;
-      }
-      if (colFilters.monto) {
-        const isPagado = item.andePagadoEsteMes;
-        const montoFactura = item.andeMontoDeuda || 0;
-        const montoReal = item.andeMontoDeuda ? item.andeMontoDeuda : (isPagado ? ((parseInt((item.nisAnde || "0").slice(-2)) * 2500) + 85000) : montoFactura);
-        const val = item.montoRestante || (detailView === "andeNIS" ? montoReal : item.monto) || 0;
-        if (!val.toString().includes(colFilters.monto) && !val.toLocaleString().includes(colFilters.monto)) return false;
-      }
-      if (colFilters.factura) {
-        const str = `${item.factura || item.numeroFactura || item.estadoFactura || ""}`.toLowerCase();
-        if (!str.includes(colFilters.factura.toLowerCase())) return false;
-      }
-      if (colFilters.interes) {
-        const val = item.interesAcumulado || 0;
-        if (!val.toString().includes(colFilters.interes) && !val.toLocaleString().includes(colFilters.interes)) return false;
-      }
-      return true;
+        if (colFilters.inquilino) {
+          const str = `${item.inquilino || ""}`.toLowerCase();
+          if (!str.includes(colFilters.inquilino.toLowerCase())) return false;
+        }
+        if (colFilters.docNis) {
+          const str = `${item.cedula || ""} ${item.nisAnde || ""}`.toLowerCase();
+          if (!str.includes(colFilters.docNis.toLowerCase())) return false;
+        }
+        if (colFilters.nis) {
+          const str = `${item.nisAnde || ""}`.toLowerCase();
+          if (!str.includes(colFilters.nis.toLowerCase())) return false;
+        }
+        if (colFilters.vencimiento) {
+          if (detailView === "andeNIS") {
+            const day = (parseInt((item.nisAnde || "0").slice(-2)) % 15) + 10;
+            const dateStr = item.andeFechaVencimiento ? new Date(item.andeFechaVencimiento).toLocaleDateString() : `${day}/7/2026`;
+            if (!dateStr.toLowerCase().includes(colFilters.vencimiento.toLowerCase())) return false;
+          } else {
+            const dateStr = item.fecha ? new Date(item.fecha).toLocaleDateString() : "";
+            if (!dateStr.toLowerCase().includes(colFilters.vencimiento.toLowerCase())) return false;
+          }
+        }
+        if (colFilters.fechaPago) {
+          const isPagado = item.andePagadoEsteMes;
+          const dateStr = isPagado && item.andeFechaPago ? new Date(item.andeFechaPago).toLocaleDateString() : (isPagado ? "17/06/2026" : "");
+          if (!dateStr.toLowerCase().includes(colFilters.fechaPago.toLowerCase())) return false;
+        }
+        if (colFilters.estadoPago) {
+          const isPagado = item.andePagadoEsteMes;
+          const str = isPagado ? "al dia al día pagado sin deuda" : "pendiente activa no pagado emitido factura emitida prox proxima próxima emisión";
+          if (!str.includes(colFilters.estadoPago.toLowerCase())) return false;
+        }
+        if (colFilters.consumo) {
+          const isPagado = item.andePagadoEsteMes;
+          const montoFactura = item.andeMontoDeuda || 0;
+          const montoReal = item.andeMontoDeuda ? item.andeMontoDeuda : (isPagado ? ((parseInt((item.nisAnde || "0").slice(-2)) * 2500) + 85000) : montoFactura);
+          const kWConsumo = item.andeConsumoKw || Math.round((montoReal - 85000) / 450);
+          const str = `${kWConsumo} kw`.toLowerCase();
+          if (!str.includes(colFilters.consumo.toLowerCase())) return false;
+        }
+        if (colFilters.monto) {
+          const isPagado = item.andePagadoEsteMes;
+          const montoFactura = item.andeMontoDeuda || 0;
+          const montoReal = item.andeMontoDeuda ? item.andeMontoDeuda : (isPagado ? ((parseInt((item.nisAnde || "0").slice(-2)) * 2500) + 85000) : montoFactura);
+          const val = item.montoRestante || (detailView === "andeNIS" ? montoReal : item.monto) || 0;
+          if (!val.toString().includes(colFilters.monto) && !val.toLocaleString().includes(colFilters.monto)) return false;
+        }
+        if (colFilters.factura) {
+          const str = `${item.factura || item.numeroFactura || item.estadoFactura || ""}`.toLowerCase();
+          if (!str.includes(colFilters.factura.toLowerCase())) return false;
+        }
+        if (colFilters.interes) {
+          const val = item.interesAcumulado || 0;
+          if (!val.toString().includes(colFilters.interes) && !val.toLocaleString().includes(colFilters.interes)) return false;
+        }
+        return true;
     });
 
+    // Recalcular total para el footer global
     if (detailView === "ocupados" || detailView === "objetivos" || detailView === "cobrados" || detailView === "vencimientos" || detailView === "morosos") {
-      total = filteredList.reduce((acc: any, curr: any) => acc + (curr.monto || 0), 0);
+        total = filteredList.reduce((acc: any, curr: any) => acc + (curr.monto || 0), 0);
     } else if (detailView === "faltaCobrar") {
-      total = filteredList.reduce((acc: any, curr: any) => acc + (curr.montoRestante || 0), 0);
+        total = filteredList.reduce((acc: any, curr: any) => acc + (curr.montoRestante || 0), 0);
     } else if (detailView === "andeNIS") {
-      total = filteredList.reduce((acc: any, curr: any) => {
-        const isPagado = curr.andePagadoEsteMes;
-        const montoFactura = curr.andeMontoDeuda || 0;
-        const montoReal = curr.andeMontoDeuda ? curr.andeMontoDeuda : (isPagado ? ((parseInt((curr.nisAnde || "0").slice(-2)) * 2500) + 85000) : montoFactura);
-        return acc + (isPagado ? 0 : montoReal);
-      }, 0);
-    } else if (detailView === "disponibles") {
-      total = 0;
+        total = filteredList.reduce((acc: any, curr: any) => {
+          const isPagado = curr.andePagadoEsteMes;
+          const montoFactura = curr.andeMontoDeuda || 0;
+          const montoReal = curr.andeMontoDeuda ? curr.andeMontoDeuda : (isPagado ? ((parseInt((curr.nisAnde || "0").slice(-2)) * 2500) + 85000) : montoFactura);
+          return acc + (isPagado ? 0 : montoReal);
+        }, 0);
     }
+
+    // Lógica de Agrupación por Condominio
+    const groups: Record<string, any[]> = {};
+    if (groupByDetail === "condominio") {
+        filteredList.forEach(item => {
+            const key = item.condominio || "Sin Condominio";
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(item);
+        });
+    }
+
+    // Función auxiliar para renderizar una fila (para no repetir código)
+    const renderRow = (item: any, idx: any) => (
+        <tr key={idx} className="hover:bg-muted/50 transition-colors h-[56px]">
+            <td className="px-8 py-4">
+              <p className="font-black italic uppercase text-foreground text-sm tracking-tighter">{formatDuplex(item.duplex)}</p>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase">{item.condominio}</p>
+            </td>
+            <td className="px-8 py-4">
+              <p className={`font-bold text-sm ${detailView === 'disponibles' ? 'text-emerald-500' : 'text-muted-foreground'}`}>{item.inquilino}</p>
+              {detailView === "ocupados" && item.ocupantes && (
+                <p className="text-[10px] text-muted-foreground">{item.ocupantes} ocupantes</p>
+              )}
+            </td>
+            {/* ... (Aquí van TODAS las celdas <td> que ya tienes en tu código original, cópialas tal cual) ... */}
+            {detailView === "ocupados" && (
+                <td className="px-8 py-4 text-center">
+                <p className="text-xs font-bold text-muted-foreground">{item.cedula}</p>
+                <p className="text-[10px] text-muted-foreground">NIS: {item.nisAnde}</p>
+                </td>
+            )}
+            {detailView === "faltaCobrar" && (
+                <td className="px-8 py-4 text-center">
+                <p className="text-xs font-bold text-muted-foreground">{item.cedula}</p>
+                </td>
+            )}
+            {detailView === "disponibles" && (
+                <td className="px-8 py-4 text-center">
+                <p className="text-xs font-bold text-muted-foreground">NIS: {item.nisAnde}</p>
+                </td>
+            )}
+            {detailView === "andeNIS" && (() => {
+                if (!item.nisAnde || item.nisAnde === "N/A" || item.nisAnde === "SIN NIS") {
+                return (
+                    <>
+                    <td className="px-8 py-4 text-center">
+                        <Badge className="bg-muted text-muted-foreground font-black px-3 border-none uppercase tracking-widest">-</Badge>
+                    </td>
+                    <td className="px-8 py-4 text-center"><span className="text-muted-foreground">-</span></td>
+                    <td className="px-8 py-4 text-center"><span className="text-muted-foreground">-</span></td>
+                    <td className="px-8 py-4 text-center"><span className="text-muted-foreground">-</span></td>
+                    <td className="px-8 py-4 text-center"><span className="text-muted-foreground">-</span></td>
+                    <td className="px-8 py-4 text-center"><span className="text-muted-foreground">-</span></td>
+                    <td className="px-8 py-4 text-right"><p className="font-black italic text-muted-foreground">-</p></td>
+                    <td className="px-8 py-4 text-right"></td>
+                    </>
+                );
+                }
+                
+                const day = (parseInt(item.nisAnde.slice(-2)) % 15) + 10;
+                const date = item.andeFechaVencimiento ? new Date(item.andeFechaVencimiento) : (() => {
+                const d = new Date();
+                d.setDate(day);
+                return d;
+                })();
+                const isPagado = item.andePagadoEsteMes;
+                const isVencido = new Date() > date && !isPagado;
+                const montoFactura = item.andeMontoDeuda || 0;
+                const montoReal = item.andeMontoDeuda ? item.andeMontoDeuda : (isPagado ? ((parseInt(item.nisAnde.slice(-2)) * 2500) + 85000) : montoFactura);
+                const kWConsumo = item.andeConsumoKw || Math.round((montoReal - 85000) / 450);
+                
+                return (
+                <>
+                    <td className="px-8 py-4 text-center">
+                    <div className="flex flex-col items-center gap-1.5">
+                        <Badge className="bg-muted text-muted-foreground font-black px-3 border-none uppercase tracking-widest">{item.nisAnde}</Badge>
+                        {item.andeFacturaEmitida ? (
+                        <Badge className="bg-emerald-50 text-emerald-600 text-[9px] font-bold px-2 py-0.5 border border-emerald-200 uppercase tracking-tighter">FACTURA EMITIDA</Badge>
+                        ) : (
+                        <Badge className="bg-amber-50 text-amber-600 text-[9px] font-bold px-2 py-0.5 border border-amber-200 uppercase tracking-tighter" title="La factura de este mes aún no ha sido emitida por la ANDE">PRÓX. EMISIÓN</Badge>
+                        )}
+                    </div>
+                    </td>
+                    <td className="px-8 py-4 text-center">
+                    <p className={`text-[10px] font-bold ${isVencido ? 'text-red-500 bg-red-50 py-1 px-2 rounded-md inline-block' : 'text-muted-foreground'}`}>
+                        {date.toLocaleDateString('es-PY')}
+                    </p>
+                    </td>
+                    <td className="px-8 py-4 text-center">
+                    {isPagado && item.andeFechaPago ? (
+                        <p className="text-[10px] font-bold text-muted-foreground bg-muted py-1 px-2 rounded-md inline-block">
+                        {new Date(item.andeFechaPago).toLocaleString('es-PY', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                    ) : (
+                        <span className="text-muted-foreground font-bold text-[10px]">—</span>
+                    )}
+                    </td>
+                    <td className="px-8 py-4 text-center">
+                    {isPagado ? (
+                        <div className="flex flex-col items-center">
+                        <div className="flex items-center justify-center gap-1 text-emerald-500 font-bold text-xs"><Check className="w-4 h-4"/> Al Día</div>
+                        <span className="text-[9px] text-muted-foreground font-medium">Sin Deuda ANDE</span>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center">
+                        <div className="flex items-center justify-center gap-1 text-red-500 font-bold text-xs"><X className="w-4 h-4"/> Pendiente</div>
+                        <span className="text-[9px] text-red-400 font-medium">Factura Activa</span>
+                        </div>
+                    )}
+                    </td>
+                    <td className="px-8 py-4 text-center">
+                    <p className="font-bold text-[10px] text-muted-foreground">{kWConsumo} kW</p>
+                    </td>
+                    <td className="px-8 py-4 text-right">
+                    <p className={`font-black italic ${isPagado ? 'text-emerald-500' : 'text-red-600'}`}>
+                        Gs. {montoReal.toLocaleString()}
+                    </p>
+                    {isPagado && (
+                        <p className="text-[9px] font-bold text-emerald-400 mt-1">Abonado (Gs. 0)</p>
+                    )}
+                    </td>
+                    <td className="px-8 py-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                            {(isPagado || item.andeFacturaEmitida) && (
+                            <button
+                                onClick={() => {
+                                const verif = verificarPermisoGranular("panel_factura_pdf");
+                                if (!verif.permitido) {
+                                    setAlertaRestriccion({
+                                    visible: true,
+                                    mensaje: verif.mensaje || "🚫 Acceso Restringido en Módulo de Panel: No cuentas con el permiso para 'Descargar Factura PDF de ANDE'. Este comportamiento ha sido denegado para tu perfil.",
+                                    permisoNombre: "Panel • Descargar Factura PDF de ANDE"
+                                    });
+                                    return;
+                                }
+                                window.open(`http://localhost:5034/api/Ande/factura-pdf/${item.nisAnde}?inquilino=${encodeURIComponent(item.inquilino || "")}&duplex=${encodeURIComponent(item.duplex || "")}`, '_blank');
+                                }}
+                                className="bg-yellow-400 text-black border border-yellow-500 shadow-sm text-[9px] font-black italic px-3 py-2 rounded-lg hover:scale-105 hover:bg-yellow-500 transition-all">
+                                FACTURA PDF
+                            </button>
+                            )}
+                        </div>
+                    </td>
+                </>
+                );
+            })()}
+            {detailView !== "andeNIS" && (
+                <td className="px-8 py-4 text-right">
+                <p className={`font-black italic ${detailView === 'morosos' ? 'text-red-600' : detailView === 'faltaCobrar' ? 'text-amber-600' : detailView === 'disponibles' ? 'text-muted-foreground' : 'text-blue-600'}`}>
+                    {detailView === 'faltaCobrar' ? formatCurrency(item.montoRestante || 0) : detailView === 'disponibles' ? 'A DEFINIR' : formatCurrency(item.monto)}
+                </p>
+                </td>
+            )}
+            {detailView === "morosos" && (
+                <td className="px-8 py-4 text-right">
+                <p className="font-black italic text-red-400">
+                    {formatCurrency(item.interesAcumulado || 0)}
+                </p>
+                </td>
+            )}
+            {detailView === "cobrados" && (
+                <>
+                <td className="px-8 py-4 text-center">
+                    <Badge className={`${item.facturaEmitida ? 'bg-emerald-100 text-emerald-700' : 'bg-muted text-muted-foreground'} border-none font-black italic text-[9px] uppercase`}>
+                    {item.estadoFactura}
+                    </Badge>
+                </td>
+                <td className="px-8 py-4 text-center">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase">
+                    {item.fecha ? new Date(item.fecha).toLocaleDateString('es-PY') : '-'}
+                    </p>
+                </td>
+                </>
+            )}
+            {detailView === "vencimientos" && (
+                <td className="px-8 py-4 text-center">
+                <p className="text-xs font-bold text-red-500 uppercase bg-red-50 py-1 px-3 rounded-lg inline-block">
+                    {item.fecha ? new Date(item.fecha).toLocaleDateString('es-PY') : '-'}
+                </p>
+                </td>
+            )}
+        </tr>
+    );
 
     return (
       <Card className="border-none shadow-2xl rounded-[2rem] bg-card overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500 mb-12 mt-4">
@@ -193,6 +372,21 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
             <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">Detalle de operaciones por unidad · Filtrado por columna</p>
           </div>
           <div className="flex items-center gap-2">
+            {/* NUEVO BOTÓN: Agrupar por Condominio */}
+            <div className="flex items-center gap-1 bg-card/50 p-1 rounded-full border border-black/5 mr-2">
+               <span className="text-[9px] font-black uppercase px-2 opacity-60">Agrupar:</span>
+               <button 
+                 onClick={() => setGroupByDetail(groupByDetail === "none" ? "condominio" : "none")}
+                 className={`text-[10px] font-black uppercase px-4 py-2 rounded-full transition-all ${
+                   groupByDetail === "condominio" 
+                   ? "bg-primary text-white shadow-md" 
+                   : "bg-card text-foreground hover:bg-muted"
+                 }`}
+               >
+                 {groupByDetail === "condominio" ? "✅ Condominio" : "Ninguno"}
+               </button>
+            </div>
+
             {Object.keys(colFilters).some(k => colFilters[k]) && (
               <button 
                 onClick={() => setColFilters({})} 
@@ -202,6 +396,8 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
                 <X className="w-3.5 h-3.5 text-red-500" /> Limpiar Filtros
               </button>
             )}
+            
+            {/* ... (Tus botones de ANDE, Actualizar y Cerrar se mantienen igual) ... */}
             <button
               onClick={() => {
                 const verif = verificarPermisoGranular("panel_consultar_ande");
@@ -249,7 +445,7 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
               <span>Actualizar</span>
             </button>
             <button 
-              onClick={() => { setDetailView("none"); setColFilters({}); }} 
+              onClick={() => { setDetailView("none"); setColFilters({}); setGroupByDetail("none"); }} 
               className="p-2 rounded-full hover:bg-black/10 transition-colors ml-2 bg-black/5"
               title="Cerrar vista de detalle"
             >
@@ -261,6 +457,7 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
           <div className="overflow-x-auto">
             <table className="w-full text-left font-sans">
               <thead className="bg-muted text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border">
+                {/* ... (Tu TableHead se mantiene igual) ... */}
                 <tr>
                   <th className="px-8 py-4">Dúplex / Condominio</th>
                   <th className="px-8 py-4">
@@ -291,7 +488,7 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
                     <th className="px-8 py-4 text-right"></th>
                   )}
                   {detailView === "morosos" && (
-                    <th className="px-8 py-4 text-right">Interés Acum.</th>
+                    <th className="px-8 py-4 text-right">Interés Acum..</th>
                   )}
                   {detailView === "cobrados" && (
                     <>
@@ -305,354 +502,226 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
                     </>
                   )}
                 </tr>
+                {/* FILTROS DE COLUMNA */}
                 <tr className="bg-background/50 border-b border-border">
-                  <th className="px-4 py-2">
-                    <input
-                      type="text"
-                      placeholder="🔍 Filtrar dúplex..."
-                      value={colFilters.duplex || ""}
-                      onChange={(e) => setColFilters({ ...colFilters, duplex: e.target.value })}
-                      className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs"
-                    />
-                  </th>
-                  <th className="px-4 py-2">
-                    <input
-                      type="text"
-                      placeholder={detailView === "disponibles" ? "🔍 Filtrar estado..." : "🔍 Filtrar inquilino..."}
-                      value={colFilters.inquilino || ""}
-                      onChange={(e) => setColFilters({ ...colFilters, inquilino: e.target.value })}
-                      className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs"
-                    />
-                  </th>
-                  {detailView === "ocupados" && (
                     <th className="px-4 py-2">
-                      <input
+                        <input
                         type="text"
-                        placeholder="🔍 Doc / NIS..."
-                        value={colFilters.docNis || ""}
-                        onChange={(e) => setColFilters({ ...colFilters, docNis: e.target.value })}
-                        className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-center"
-                      />
+                        placeholder="🔍 Filtrar dúplex..."
+                        value={colFilters.duplex || ""}
+                        onChange={(e) => setColFilters({ ...colFilters, duplex: e.target.value })}
+                        className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs"
+                        />
                     </th>
-                  )}
-                  {detailView === "faltaCobrar" && (
                     <th className="px-4 py-2">
-                      <input
+                        <input
                         type="text"
-                        placeholder="🔍 Documento..."
-                        value={colFilters.docNis || ""}
-                        onChange={(e) => setColFilters({ ...colFilters, docNis: e.target.value })}
-                        className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-center"
-                      />
+                        placeholder={detailView === "disponibles" ? "🔍 Filtrar estado..." : "🔍 Filtrar inquilino..."}
+                        value={colFilters.inquilino || ""}
+                        onChange={(e) => setColFilters({ ...colFilters, inquilino: e.target.value })}
+                        className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs"
+                        />
                     </th>
-                  )}
-                  {detailView === "disponibles" && (
+                    {detailView === "ocupados" && (
+                        <th className="px-4 py-2">
+                        <input
+                            type="text"
+                            placeholder="🔍 Doc / NIS..."
+                            value={colFilters.docNis || ""}
+                            onChange={(e) => setColFilters({ ...colFilters, docNis: e.target.value })}
+                            className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-center"
+                        />
+                        </th>
+                    )}
+                    {detailView === "faltaCobrar" && (
+                        <th className="px-4 py-2">
+                        <input
+                            type="text"
+                            placeholder="🔍 Documento..."
+                            value={colFilters.docNis || ""}
+                            onChange={(e) => setColFilters({ ...colFilters, docNis: e.target.value })}
+                            className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-center"
+                        />
+                        </th>
+                    )}
+                    {detailView === "disponibles" && (
+                        <th className="px-4 py-2">
+                        <input
+                            type="text"
+                            placeholder="🔍 NIS..."
+                            value={colFilters.nis || ""}
+                            onChange={(e) => setColFilters({ ...colFilters, nis: e.target.value })}
+                            className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-center"
+                        />
+                        </th>
+                    )}
+                    {detailView === "andeNIS" && (
+                        <>
+                        <th className="px-4 py-2">
+                            <input
+                            type="text"
+                            placeholder="🔍 NIS..."
+                            value={colFilters.nis || ""}
+                            onChange={(e) => setColFilters({ ...colFilters, nis: e.target.value })}
+                            className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-center"
+                            />
+                        </th>
+                        <th className="px-4 py-2">
+                            <input
+                            type="text"
+                            placeholder="🔍 Vencimiento..."
+                            value={colFilters.vencimiento || ""}
+                            onChange={(e) => setColFilters({ ...colFilters, vencimiento: e.target.value })}
+                            className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-center"
+                            />
+                        </th>
+                        <th className="px-4 py-2">
+                            <input
+                            type="text"
+                            placeholder="🔍 Fecha pago..."
+                            value={colFilters.fechaPago || ""}
+                            onChange={(e) => setColFilters({ ...colFilters, fechaPago: e.target.value })}
+                            className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-center"
+                            />
+                        </th>
+                        <th className="px-4 py-2">
+                            <input
+                            type="text"
+                            placeholder="🔍 Al Día / Pend..."
+                            value={colFilters.estadoPago || ""}
+                            onChange={(e) => setColFilters({ ...colFilters, estadoPago: e.target.value })}
+                            className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-center"
+                            />
+                        </th>
+                        <th className="px-4 py-2">
+                            <input
+                            type="text"
+                            placeholder="🔍 Consumo..."
+                            value={colFilters.consumo || ""}
+                            onChange={(e) => setColFilters({ ...colFilters, consumo: e.target.value })}
+                            className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-center"
+                            />
+                        </th>
+                        </>
+                    )}
                     <th className="px-4 py-2">
-                      <input
+                        <input
                         type="text"
-                        placeholder="🔍 NIS..."
-                        value={colFilters.nis || ""}
-                        onChange={(e) => setColFilters({ ...colFilters, nis: e.target.value })}
-                        className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-center"
-                      />
-                    </th>
-                  )}
-                  {detailView === "andeNIS" && (
-                    <>
-                      <th className="px-4 py-2">
-                        <input
-                          type="text"
-                          placeholder="🔍 NIS..."
-                          value={colFilters.nis || ""}
-                          onChange={(e) => setColFilters({ ...colFilters, nis: e.target.value })}
-                          className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-center"
-                        />
-                      </th>
-                      <th className="px-4 py-2">
-                        <input
-                          type="text"
-                          placeholder="🔍 Vencimiento..."
-                          value={colFilters.vencimiento || ""}
-                          onChange={(e) => setColFilters({ ...colFilters, vencimiento: e.target.value })}
-                          className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-center"
-                        />
-                      </th>
-                      <th className="px-4 py-2">
-                        <input
-                          type="text"
-                          placeholder="🔍 Fecha pago..."
-                          value={colFilters.fechaPago || ""}
-                          onChange={(e) => setColFilters({ ...colFilters, fechaPago: e.target.value })}
-                          className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-center"
-                        />
-                      </th>
-                      <th className="px-4 py-2">
-                        <input
-                          type="text"
-                          placeholder="🔍 Al Día / Pend..."
-                          value={colFilters.estadoPago || ""}
-                          onChange={(e) => setColFilters({ ...colFilters, estadoPago: e.target.value })}
-                          className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-center"
-                        />
-                      </th>
-                      <th className="px-4 py-2">
-                        <input
-                          type="text"
-                          placeholder="🔍 Consumo..."
-                          value={colFilters.consumo || ""}
-                          onChange={(e) => setColFilters({ ...colFilters, consumo: e.target.value })}
-                          className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-center"
-                        />
-                      </th>
-                    </>
-                  )}
-                  <th className="px-4 py-2">
-                    <input
-                      type="text"
-                      placeholder="🔍 Monto..."
-                      value={colFilters.monto || ""}
-                      onChange={(e) => setColFilters({ ...colFilters, monto: e.target.value })}
-                      className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-right"
-                    />
-                  </th>
-                  {detailView === "andeNIS" && (
-                    <th className="px-4 py-2 text-center">
-                      <button
-                        onClick={() => setColFilters({})}
-                        className="bg-muted hover:bg-slate-300 text-foreground text-[9px] font-black uppercase px-2 py-1 rounded transition-colors w-full"
-                        title="Limpiar todos los filtros"
-                      >
-                        Limpiar
-                      </button>
-                    </th>
-                  )}
-                  {detailView === "morosos" && (
-                    <th className="px-4 py-2">
-                      <input
-                        type="text"
-                        placeholder="🔍 Interés..."
-                        value={colFilters.interes || ""}
-                        onChange={(e) => setColFilters({ ...colFilters, interes: e.target.value })}
+                        placeholder="🔍 Monto..."
+                        value={colFilters.monto || ""}
+                        onChange={(e) => setColFilters({ ...colFilters, monto: e.target.value })}
                         className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-right"
-                      />
-                    </th>
-                  )}
-                  {detailView === "cobrados" && (
-                    <>
-                      <th className="px-4 py-2">
-                        <input
-                          type="text"
-                          placeholder="🔍 Factura..."
-                          value={colFilters.factura || ""}
-                          onChange={(e) => setColFilters({ ...colFilters, factura: e.target.value })}
-                          className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-center"
                         />
-                      </th>
-                      <th className="px-4 py-2">
-                        <input
-                          type="text"
-                          placeholder="🔍 Fecha..."
-                          value={colFilters.fecha || ""}
-                          onChange={(e) => setColFilters({ ...colFilters, fecha: e.target.value })}
-                          className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-center"
-                        />
-                      </th>
-                    </>
-                  )}
-                  {detailView === "vencimientos" && (
-                    <th className="px-4 py-2">
-                      <input
-                        type="text"
-                        placeholder="🔍 Vencimiento..."
-                        value={colFilters.vencimiento || ""}
-                        onChange={(e) => setColFilters({ ...colFilters, vencimiento: e.target.value })}
-                        className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-center"
-                      />
                     </th>
-                  )}
+                    {detailView === "andeNIS" && (
+                        <th className="px-4 py-2 text-center">
+                        <button
+                            onClick={() => setColFilters({})}
+                            className="bg-muted hover:bg-slate-300 text-foreground text-[9px] font-black uppercase px-2 py-1 rounded transition-colors w-full"
+                            title="Limpiar todos los filtros"
+                        >
+                            Limpiar
+                        </button>
+                        </th>
+                    )}
+                    {detailView === "morosos" && (
+                        <th className="px-4 py-2">
+                        <input
+                            type="text"
+                            placeholder="🔍 Interés..."
+                            value={colFilters.interes || ""}
+                            onChange={(e) => setColFilters({ ...colFilters, interes: e.target.value })}
+                            className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-right"
+                        />
+                        </th>
+                    )}
+                    {detailView === "cobrados" && (
+                        <>
+                        <th className="px-4 py-2">
+                            <input
+                            type="text"
+                            placeholder="🔍 Factura..."
+                            value={colFilters.factura || ""}
+                            onChange={(e) => setColFilters({ ...colFilters, factura: e.target.value })}
+                            className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-center"
+                            />
+                        </th>
+                        <th className="px-4 py-2">
+                            <input
+                            type="text"
+                            placeholder="🔍 Fecha..."
+                            value={colFilters.fecha || ""}
+                            onChange={(e) => setColFilters({ ...colFilters, fecha: e.target.value })}
+                            className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-center"
+                            />
+                        </th>
+                        </>
+                    )}
+                    {detailView === "vencimientos" && (
+                        <th className="px-4 py-2">
+                        <input
+                            type="text"
+                            placeholder="🔍 Vencimiento..."
+                            value={colFilters.vencimiento || ""}
+                            onChange={(e) => setColFilters({ ...colFilters, vencimiento: e.target.value })}
+                            className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-center"
+                        />
+                        </th>
+                    )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border bg-background">
                 {filteredList.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="px-8 py-12 text-center text-muted-foreground font-bold text-sm">
-                      No se encontraron registros que coincidan con los filtros aplicados.
+                    <td colSpan={12} className="px-8 py-12 text-center text-muted-foreground font-bold text-sm">
+                      No se encontraron registros.
                     </td>
                   </tr>
+                ) : groupByDetail === "none" ? (
+                  // MODO NORMAL: Lista plana
+                  filteredList.map((item, idx) => renderRow(item, idx))
                 ) : (
-                  filteredList.map((item, idx) => (
-                  <tr 
-                    key={idx} 
-                    className="hover:bg-muted/50 transition-colors h-[56px]"
-                  >
-                    <td className="px-8 py-4">
-                      <p className="font-black italic uppercase text-foreground text-sm tracking-tighter">{formatDuplex(item.duplex)}</p>
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase">{item.condominio}</p>
-                    </td>
-                    <td className="px-8 py-4">
-                      <p className={`font-bold text-sm ${detailView === 'disponibles' ? 'text-emerald-500' : 'text-muted-foreground'}`}>{item.inquilino}</p>
-                      {detailView === "ocupados" && item.ocupantes && (
-                        <p className="text-[10px] text-muted-foreground">{item.ocupantes} ocupantes</p>
-                      )}
-                    </td>
-                    {detailView === "ocupados" && (
-                      <td className="px-8 py-4 text-center">
-                        <p className="text-xs font-bold text-muted-foreground">{item.cedula}</p>
-                        <p className="text-[10px] text-muted-foreground">NIS: {item.nisAnde}</p>
-                      </td>
-                    )}
-                    {detailView === "faltaCobrar" && (
-                      <td className="px-8 py-4 text-center">
-                        <p className="text-xs font-bold text-muted-foreground">{item.cedula}</p>
-                      </td>
-                    )}
-                    {detailView === "disponibles" && (
-                      <td className="px-8 py-4 text-center">
-                        <p className="text-xs font-bold text-muted-foreground">NIS: {item.nisAnde}</p>
-                      </td>
-                    )}
-                    {detailView === "andeNIS" && (() => {
-                      if (!item.nisAnde || item.nisAnde === "N/A" || item.nisAnde === "SIN NIS") {
-                        return (
-                          <>
-                            <td className="px-8 py-4 text-center">
-                              <Badge className="bg-muted text-muted-foreground font-black px-3 border-none uppercase tracking-widest">-</Badge>
-                            </td>
-                            <td className="px-8 py-4 text-center"><span className="text-muted-foreground">-</span></td>
-                            <td className="px-8 py-4 text-center"><span className="text-muted-foreground">-</span></td>
-                            <td className="px-8 py-4 text-center"><span className="text-muted-foreground">-</span></td>
-                            <td className="px-8 py-4 text-center"><span className="text-muted-foreground">-</span></td>
-                            <td className="px-8 py-4 text-center"><span className="text-muted-foreground">-</span></td>
-                            <td className="px-8 py-4 text-right"><p className="font-black italic text-muted-foreground">-</p></td>
-                            <td className="px-8 py-4 text-right"></td>
-                          </>
-                        );
-                      }
-                      
-                      const day = (parseInt(item.nisAnde.slice(-2)) % 15) + 10;
-                      const date = item.andeFechaVencimiento ? new Date(item.andeFechaVencimiento) : (() => {
-                        const d = new Date();
-                        d.setDate(day);
-                        return d;
-                      })();
-                      const isPagado = item.andePagadoEsteMes;
-                      const isVencido = new Date() > date && !isPagado;
-                      const montoFactura = item.andeMontoDeuda || 0;
-                      const montoReal = item.andeMontoDeuda ? item.andeMontoDeuda : (isPagado ? ((parseInt(item.nisAnde.slice(-2)) * 2500) + 85000) : montoFactura);
-                      const kWConsumo = item.andeConsumoKw || Math.round((montoReal - 85000) / 450);
-                      
-                      return (
-                        <>
-                          <td className="px-8 py-4 text-center">
-                            <div className="flex flex-col items-center gap-1.5">
-                              <Badge className="bg-muted text-muted-foreground font-black px-3 border-none uppercase tracking-widest">{item.nisAnde}</Badge>
-                              {item.andeFacturaEmitida ? (
-                                <Badge className="bg-emerald-50 text-emerald-600 text-[9px] font-bold px-2 py-0.5 border border-emerald-200 uppercase tracking-tighter">FACTURA EMITIDA</Badge>
-                              ) : (
-                                <Badge className="bg-amber-50 text-amber-600 text-[9px] font-bold px-2 py-0.5 border border-amber-200 uppercase tracking-tighter" title="La factura de este mes aún no ha sido emitida por la ANDE">PRÓX. EMISIÓN</Badge>
-                              )}
-                            </div>
+                  // MODO AGRUPADO: Por Condominio
+                  Object.keys(groups).map((condoName) => {
+                    const groupItems = groups[condoName];
+                    const groupSubtotal = groupItems.reduce((acc, curr) => {
+                        if (detailView === "faltaCobrar") return acc + (curr.montoRestante || 0);
+                        if (detailView === "andeNIS") {
+                            const isPagado = curr.andePagadoEsteMes;
+                            const montoFactura = curr.andeMontoDeuda || 0;
+                            const montoReal = curr.andeMontoDeuda ? curr.andeMontoDeuda : (isPagado ? ((parseInt((curr.nisAnde || "0").slice(-2)) * 2500) + 85000) : montoFactura);
+                            return acc + (isPagado ? 0 : montoReal);
+                        }
+                        return acc + (curr.monto || 0);
+                    }, 0);
+
+                    return (
+                      <React.Fragment key={condoName}>
+                        {/* Fila separadora de Condominio */}
+                        <tr className="bg-muted/40 border-y border-border/50">
+                          <td colSpan={12} className="px-8 py-2.5">
+                             <div className="flex justify-between items-center">
+                                <div className="flex items-center gap-2">
+                                  <Home className="w-3.5 h-3.5 text-primary" />
+                                  <span className="text-[11px] font-black uppercase italic tracking-wider text-primary">
+                                    CONDOMINIO: {condoName}
+                                  </span>
+                                  <Badge className="bg-primary/10 text-primary border-none text-[9px] font-bold">
+                                    {groupItems.length} UNIDADES
+                                  </Badge>
+                                </div>
+                                <span className="text-[10px] font-black text-muted-foreground uppercase">
+                                  Subtotal Grupo: <span className="text-foreground">{formatCurrency(groupSubtotal)}</span>
+                                </span>
+                             </div>
                           </td>
-                          <td className="px-8 py-4 text-center">
-                            <p className={`text-[10px] font-bold ${isVencido ? 'text-red-500 bg-red-50 py-1 px-2 rounded-md inline-block' : 'text-muted-foreground'}`}>
-                                {date.toLocaleDateString('es-PY')}
-                            </p>
-                          </td>
-                          <td className="px-8 py-4 text-center">
-                            {isPagado && item.andeFechaPago ? (
-                              <p className="text-[10px] font-bold text-muted-foreground bg-muted py-1 px-2 rounded-md inline-block">
-                                {new Date(item.andeFechaPago).toLocaleString('es-PY', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                              </p>
-                            ) : (
-                              <span className="text-muted-foreground font-bold text-[10px]">—</span>
-                            )}
-                          </td>
-                          <td className="px-8 py-4 text-center">
-                            {isPagado ? (
-                              <div className="flex flex-col items-center">
-                                <div className="flex items-center justify-center gap-1 text-emerald-500 font-bold text-xs"><Check className="w-4 h-4"/> Al Día</div>
-                                <span className="text-[9px] text-muted-foreground font-medium">Sin Deuda ANDE</span>
-                              </div>
-                            ) : (
-                              <div className="flex flex-col items-center">
-                                <div className="flex items-center justify-center gap-1 text-red-500 font-bold text-xs"><X className="w-4 h-4"/> Pendiente</div>
-                                <span className="text-[9px] text-red-400 font-medium">Factura Activa</span>
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-8 py-4 text-center">
-                            <p className="font-bold text-[10px] text-muted-foreground">{kWConsumo} kW</p>
-                          </td>
-                          <td className="px-8 py-4 text-right">
-                            <p className={`font-black italic ${isPagado ? 'text-emerald-500' : 'text-red-600'}`}>
-                              Gs. {montoReal.toLocaleString()}
-                            </p>
-                            {isPagado && (
-                                <p className="text-[9px] font-bold text-emerald-400 mt-1">Abonado (Gs. 0)</p>
-                            )}
-                          </td>
-                          <td className="px-8 py-4 text-right">
-                              <div className="flex items-center justify-end gap-1.5">
-                                 {(isPagado || item.andeFacturaEmitida) && (
-                                    <button
-                                      onClick={() => {
-                                        const verif = verificarPermisoGranular("panel_factura_pdf");
-                                        if (!verif.permitido) {
-                                          setAlertaRestriccion({
-                                            visible: true,
-                                            mensaje: verif.mensaje || "🚫 Acceso Restringido en Módulo de Panel: No cuentas con el permiso para 'Descargar Factura PDF de ANDE'. Este comportamiento ha sido denegado para tu perfil.",
-                                            permisoNombre: "Panel • Descargar Factura PDF de ANDE"
-                                          });
-                                          return;
-                                        }
-                                        window.open(`http://localhost:5034/api/Ande/factura-pdf/${item.nisAnde}?inquilino=${encodeURIComponent(item.inquilino || "")}&duplex=${encodeURIComponent(item.duplex || "")}`, '_blank');
-                                      }}
-                                      className="bg-yellow-400 text-black border border-yellow-500 shadow-sm text-[9px] font-black italic px-3 py-2 rounded-lg hover:scale-105 hover:bg-yellow-500 transition-all">
-                                       FACTURA PDF
-                                    </button>
-                                 )}
-                              </div>
-                          </td>
-                        </>
-                      );
-                    })()}
-                    {detailView !== "andeNIS" && (
-                      <td className="px-8 py-4 text-right">
-                        <p className={`font-black italic ${detailView === 'morosos' ? 'text-red-600' : detailView === 'faltaCobrar' ? 'text-amber-600' : detailView === 'disponibles' ? 'text-muted-foreground' : 'text-blue-600'}`}>
-                          {detailView === 'faltaCobrar' ? formatCurrency(item.montoRestante || 0) : detailView === 'disponibles' ? 'A DEFINIR' : formatCurrency(item.monto)}
-                        </p>
-                      </td>
-                    )}
-                    {detailView === "morosos" && (
-                      <td className="px-8 py-4 text-right">
-                        <p className="font-black italic text-red-400">
-                          {formatCurrency(item.interesAcumulado || 0)}
-                        </p>
-                      </td>
-                    )}
-                    {detailView === "cobrados" && (
-                      <>
-                        <td className="px-8 py-4 text-center">
-                          <Badge className={`${item.facturaEmitida ? 'bg-emerald-100 text-emerald-700' : 'bg-muted text-muted-foreground'} border-none font-black italic text-[9px] uppercase`}>
-                            {item.estadoFactura}
-                          </Badge>
-                        </td>
-                        <td className="px-8 py-4 text-center">
-                          <p className="text-[10px] font-bold text-muted-foreground uppercase">
-                            {item.fecha ? new Date(item.fecha).toLocaleDateString('es-PY') : '-'}
-                          </p>
-                        </td>
-                      </>
-                    )}
-                    {detailView === "vencimientos" && (
-                      <td className="px-8 py-4 text-center">
-                        <p className="text-xs font-bold text-red-500 uppercase bg-red-50 py-1 px-3 rounded-lg inline-block">
-                          {item.fecha ? new Date(item.fecha).toLocaleDateString('es-PY') : '-'}
-                        </p>
-                      </td>
-                    )}
-                  </tr>
-                )))}
+                        </tr>
+                        {/* Filas del grupo */}
+                        {groupItems.map((item, idx) => renderRow(item, `${condoName}-${idx}`))}
+                      </React.Fragment>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
@@ -684,18 +753,18 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
           <Card 
             key={i} 
             onClick={() => toggleDetail(metric.id)}
-            className={`border border-border shadow-sm transition-all duration-200 hover:shadow-xl hover:shadow-primary/5 cursor-pointer ${detailView === metric.id ? 'ring-1 ring-primary scale-102' : 'hover:-translate-y-1'} rounded-2xl bg-card overflow-hidden group`}
+            className={`border border-border shadow-sm transition-all duration-200 ${detailView === metric.id ? 'ring-2 ring-primary' : ''} rounded-2xl bg-card overflow-hidden group`}
           >
-            <CardContent className="p-4 md:p-5 relative flex flex-col items-center text-center justify-center min-h-[140px]">
-              <div className={`w-12 h-12 rounded-xl ${metric.bg} ${metric.color} flex items-center justify-center mb-3 group-hover:scale-105 transition-transform`}>
-                <metric.icon className="w-5 h-5 stroke-[2px]" />
+            <CardContent className="p-3 md:p-5 relative flex flex-col items-center text-center justify-center min-h-[110px] md:min-h-[140px]">
+              <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl ${metric.bg} ${metric.color} flex items-center justify-center mb-2 md:mb-3`}>
+                <metric.icon className="w-4 h-4 md:w-5 md:h-5 stroke-[2px]" />
               </div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1 font-sans">
+              <p className="text-[9px] md:text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1 font-sans">
                 {metric.label}
               </p>
-              <h3 className="text-2xl md:text-3xl font-heading font-bold text-foreground">
+              <h3 className="text-sm md:text-2xl font-heading font-bold text-foreground leading-none">
                 {metric.value}
-                <span className="text-sm font-sans text-muted-foreground ml-1">{metric.suffix}</span>
+                <span className="text-[8px] md:text-sm font-sans text-muted-foreground ml-1">{metric.suffix}</span>
               </h3>
             </CardContent>
           </Card>

@@ -1,6 +1,7 @@
-﻿"use client";
+"use client";
 import React, { useState } from "react";
 import { ContratoImprimible, descargarContratoDoc } from "./ContratoImprimible";
+import { PagareImprimible } from "./PagareImprimible";
 import { ConfirmActionModal, ConfirmActionModalProps } from "@/components/ui/confirm-action-modal";
 import { verificarPermisoGranular, ModalAccesoRestringido } from "@/app/login/PermisosGranularesMatriz";
 import { 
@@ -169,13 +170,22 @@ interface EditItem {
     icon?: React.ElementType;
 }
 
+const formatCodigoFicha = (codigo?: string) => {
+  if (!codigo) return "";
+  return codigo.replace(/\b(?:Dúplex|Duplex|D)\s*-?\s*(\d+)\b/gi, (_, num) => {
+    const n = parseInt(num, 10);
+    return `DUPLEX-${n < 10 ? "0" + n : n}`;
+  });
+};
+
 export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: DetalleUnidadModalProps) {
-  const [activeTab, setActiveTab] = useState<"ficha" | "pagos" | "gastos" | "documentos" | "historico">("ficha");
+  const [activeTab, setActiveTab] = useState<"ficha" | "pagos" | "gastos" | "documentos" | "historico" | "comprobantes">("ficha");
   const [isEditing, setIsEditing] = useState(false);
   const [isRenewing, setIsRenewing] = useState(false);
   const [showRenewedPreviewModal, setShowRenewedPreviewModal] = useState(false);
   const [historicoContratos, setHistoricoContratos] = useState<any[]>([]);
   const [isContratando, setIsContratando] = useState(false);
+  const [isPrintingPagare, setIsPrintingPagare] = useState(false);
   const [isGenerarContratoModalOpen, setIsGenerarContratoModalOpen] = useState(false);
   const [localNisAnde, setLocalNisAnde] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -208,6 +218,16 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
     }, 150);
   };
 
+  const handlePrintPagare = () => {
+    setIsPrintingPagare(true);
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        setIsPrintingPagare(false);
+      }, 500);
+    }, 150);
+  };
+
   React.useEffect(() => {
     if (isOpen) {
       fetch("http://localhost:5034/api/Plantillas")
@@ -217,42 +237,121 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
     }
   }, [isOpen]);
 
-  const handleDescargarWord = async () => {
-    if (!selectedPlantillaId || selectedPlantillaId === 0) {
-      toast.error("Seleccione una plantilla de documento primero.");
-      return;
-    }
-    setIsGeneratingDoc(true);
-    try {
-      const loc = encodeURIComponent((contractData?.inquilino?.razonSocial || contractData?.inquilino?.nombre || unidad?.tenant || "Sin Nombre") as string);
-      const dup = encodeURIComponent(unidad?.code || "");
-      const mon = contractData?.montoMensualAlquiler || 0;
-      const cId = contractData?.contratoId || 0;
+  const convertirNumeroALetras = (num: number): string => {
+      const unidades = ["", "UN", "DOS", "TRES", "CUATRO", "CINCO", "SEIS", "SIETE", "OCHO", "NUEVE"];
+      const decenas = ["DIEZ", "ONCE", "DOCE", "TRECE", "CATORCE", "QUINCE", "DIECISEIS", "DIECISIETE", "DIECIOCHO", "DIECINUEVE"];
+      const decenas2 = ["", "DIEZ", "VEINTE", "TREINTA", "CUARENTA", "CINCUENTA", "SESENTA", "SETENTA", "OCHENTA", "NOVENTA"];
+      const centenas = ["", "CIENTO", "DOSCIENTOS", "TRESCIENTOS", "CUATROCIENTOS", "QUINIENTOS", "SEISCIENTOS", "SETECIENTOS", "OCHOCIENTOS", "NOVECIENTOS"];
 
-      const url = `http://localhost:5034/api/Plantillas/generar/${selectedPlantillaId}?contratoId=${cId}&locatario=${loc}&duplex=${dup}&monto=${mon}`;
-      
-      const response = await fetch(url);
-      if (!response.ok) {
-        toast.error("Error al generar documento Word");
-        return;
-      }
-      const blob = await response.blob();
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = downloadUrl;
-      const selectedObj = plantillasList.find((p: any) => p.plantillaId === Number(selectedPlantillaId));
-      a.download = `${selectedObj?.nombre || "Documento"}_${unidad?.code || "Duplex"}.docx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      toast.success("Documento Word (.docx) generado y descargado con éxito");
-    } catch (e) {
-      toast.error("Error de conexión al generar el documento");
-    } finally {
-      setIsGeneratingDoc(false);
-    }
+      const leerCentenas = (n: number):string => {
+          if (n === 100) return "CIEN";
+          if (n < 10) return unidades[n];
+          if (n < 20) return decenas[n - 10];
+          if (n < 100) {
+              let d = Math.floor(n / 10);
+              let u = n % 10;
+              return decenas2[d] + (u > 0 ? " Y " + unidades[u] : "");
+          }
+          let c = Math.floor(n / 100);
+          let resto = n % 100;
+          return centenas[c] + (resto > 0 ? " " + leerCentenas(resto) : "");
+      };
+
+      const leerMiles = (n: number):string => {
+          let mil = Math.floor(n / 1000);
+          let resto = n % 1000;
+          let str = "";
+          if (mil === 1) str = "MIL";
+          else if (mil > 1) str = leerCentenas(mil) + " MIL";
+          return str + (resto > 0 ? " " + leerCentenas(resto) : "");
+      };
+
+      const leerMillones = (n: number):string => {
+          let millon = Math.floor(n / 1000000);
+          let resto = n % 1000000;
+          let str = "";
+          if (millon === 1) str = "UN MILLÓN";
+          else if (millon > 1) str = leerCentenas(millon) + " MILLONES";
+          return str + (resto > 0 ? " " + leerMiles(resto) : "");
+      };
+
+      if (num === 0) return "CERO";
+      if (num < 1000) return leerCentenas(num);
+      if (num < 1000000) return leerMiles(num);
+      return leerMillones(num);
   };
 
+  const handleDescargarWord = async () => {
+      if (!selectedPlantillaId || selectedPlantillaId === 0) {
+          toast.error("Seleccione una plantilla primero.");
+          return;
+      }
+
+      setIsGeneratingDoc(true);
+      try {
+          const montoGarantia = Number(contractData?.depositoGarantia || 0);
+          const montoLetras = convertirNumeroALetras(montoGarantia);
+          const hoy = new Date();
+
+          // --- LÓGICA PARA EXTRAER SOLO EL DÍGITO ---
+          // Si unidad?.code es "D-02", extraemos "02"
+          const codigoOriginal = unidad?.code || "";
+          const matchDigitos = codigoOriginal.match(/\d+/); 
+          const soloDigito = matchDigitos ? matchDigitos[0] : ""; 
+
+          const params = new URLSearchParams({
+              FechaFirma: hoy.toLocaleDateString('es-PY'), 
+              DiaEntrega: hoy.getDate().toString(),
+              MesEntrega: hoy.toLocaleDateString('es-PY', { month: 'long' }),
+              AnioEntrega: hoy.getFullYear().toString(),
+
+              // Ahora {Duplex} en el Word solo tendrá el número (ej: 02)
+              Duplex: soloDigito, 
+              
+              NisAnde: `${localNisAnde || unidad?.nisAnde || "________________"}`,
+              MontoPagare: montoGarantia.toLocaleString('es-PY'),
+              MontoPagareLetras: `GUARANÍES ${montoLetras}`,
+              Locatario: `${contractData?.inquilino?.razonSocial || ""}`,
+              CedulaLocatario: `${contractData?.inquilino?.documento || ""}`,
+              DomicilioLocatario: "Melo de Portugal c/ Amistad, Luque",
+              TelefonoLocatario: `${contractData?.inquilino?.telefono || ""}`,
+              Codeudor: `${contractData?.codeudorNombre || "...................."}`,
+              CedulaCodeudor: `${contractData?.codeudorCedula || "...................."}`,
+              DomicilioCodeudor: `${contractData?.codeudorDireccion || "...................."}`,
+              TelefonoCodeudor: `${contractData?.codeudorTelefono || "...................."}`,
+          });
+
+          const url = `http://localhost:5034/api/Plantillas/generar/${selectedPlantillaId}?${params.toString()}`;
+          
+          const response = await fetch(url);
+          if (!response.ok) throw new Error();
+
+          const blob = await response.blob();
+          const downloadUrl = window.URL.createObjectURL(blob);
+
+          // --- LÓGICA PARA EL NOMBRE DEL ARCHIVO ---
+          const plantillaSeleccionada = plantillasList.find(p => p.plantillaId === Number(selectedPlantillaId));
+          const nombreDocumento = plantillaSeleccionada 
+              ? plantillaSeleccionada.nombre.replace(/\s+/g, '_') 
+              : "Documento";
+
+          const a = document.createElement("a");
+          a.href = downloadUrl;
+          
+          // El archivo se llamará: NOMBRE_DE_PLANTILLA_Duplex-02.docx
+          a.download = `${nombreDocumento}_Duplex-${soloDigito}.docx`;
+          
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          toast.success(`¡${plantillaSeleccionada?.nombre || "Documento"} descargado!`);
+      } catch (e) {
+          toast.error("Error al generar el documento");
+      } finally {
+          setIsGeneratingDoc(false);
+      }
+  };
+  
   // Estados para OCR / Escaneo de Contrato
   const [isScanning, setIsScanning] = useState(false);
   const [ocrData, setOcrData] = useState<{
@@ -894,6 +993,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
           numeroFactura: createdPago.numeroFactura,
           comprobanteUrl: createdPago.comprobanteUrl,
           inquilinoNombre: contractData?.inquilino?.razonSocial || contractData?.inquilino?.nombre || dataInquilino.nombre || "Cliente",
+          inquilinoEmail: contractData?.inquilino?.email || dataInquilino?.correo || "",
           inquilinoDocumento: contractData?.inquilino?.ruc || contractData?.inquilino?.cedula || dataInquilino.cedula || "Sin Documento",
           unidadCodigo: dataUnidad.codigo || "",
           condominioNombre: dataUnidad.condominio || "Condominio"
@@ -1566,7 +1666,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                     <Badge className="bg-primary/10 text-primary font-black italic rounded-lg px-2 py-0.5 text-[10px] uppercase tracking-wider border-none">
                       Ficha de Inquilino
                     </Badge>
-                    <span className="text-muted-foreground font-bold uppercase tracking-widest text-[10px]">Unidad {dataUnidad.codigo}</span>
+                    <span className="text-muted-foreground font-bold uppercase tracking-widest text-[10px]">Unidad {formatCodigoFicha(dataUnidad.codigo)}</span>
                   </div>
                   {(isEditing || isContratando) ? (
                     <Input 
@@ -1713,7 +1813,8 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                 { id: "ficha", label: "Ficha Detallada", icon: Info },
                 { id: "pagos", label: "Historial Pagos", icon: DollarSign },
                 { id: "gastos", label: "Mantenimiento", icon: AlertCircle },
-                { id: "documentos", label: "Documentos", icon: FileText }
+                { id: "documentos", label: "Documentos", icon: FileText },
+                { id: "comprobantes", label: "Facturas y Recibos", icon: Receipt }
               ] as const).map((tab) => (
                 <button 
                   key={tab.id}
@@ -1773,8 +1874,8 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                                 { label: "Cédula", value: dataInquilino.cedula, key: "documento", parent: "inquilino" },
                                 { label: "Teléfono", value: dataInquilino.telefono, key: "telefono", parent: "inquilino" },
                                 { label: "Correo Electrónico", value: dataInquilino.correo, key: "email", parent: "inquilino" },
-                                { label: "Monto Alquiler", value: dataInquilino.montoMensual, key: "montoMensualAlquiler", type: "number", highlight: "text-blue-600" },
-                                { label: "Depósito / Garantía", value: dataInquilino.garantia, key: "depositoGarantia", type: "number" },
+                                { label: "Monto Alquiler", value: dataInquilino.montoMensual, key: "montoMensualAlquiler", type: "text", highlight: "text-blue-600" },
+                                { label: "Depósito / Garantía", value: dataInquilino.garantia, key: "depositoGarantia", type: "text" },
                                 { label: "Vehículo", value: dataInquilino.vehiculo, key: "vehiculoInfo", icon: Car },
                                 { label: "Contrato Inicio", value: contractData?.fechaInicioContrato ? new Date(contractData.fechaInicioContrato).toISOString().split('T')[0] : "", key: "fechaInicioContrato", type: "date" },
                                 { label: "Contrato Fin", value: contractData?.fechaFinContrato ? new Date(contractData.fechaFinContrato).toISOString().split('T')[0] : "", key: "fechaFinContrato", type: "date", highlight: "text-orange-600" },
@@ -1786,13 +1887,22 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                                         {(isEditing || isContratando) ? (
                                             <Input 
                                                 type={item.type || "text"}
+                                                inputMode={(item.label.includes("Monto") || item.label.includes("Garantía")) ? "numeric" : undefined}
                                                 value={
                                                     item.type === "date" 
                                                     ? (((item.parent ? (contractData?.[item.parent] as Persona)?.[item.key] : (contractData as Record<string, unknown>)?.[item.key]) as string)?.split('T')[0] ?? "")
                                                     : (((item.parent ? (contractData?.[item.parent] as Persona)?.[item.key] : (contractData as Record<string, unknown>)?.[item.key]) ?? "") as string | number)
                                                 }
                                                 onChange={(e) => {
-                                                    const val = item.type === "number" ? Number(e.target.value) : e.target.value;
+                                                    let val: string | number = e.target.value;
+                                                    //const val = item.type === "number" ? Number(e.target.value) : e.target.value;
+                                                    // LÓGICA DE LIBERTAD PARA CAMPOS NUMÉRICOS
+                                                    if (item.label.includes("Monto") || item.label.includes("Garantía")) {
+                                                        // Limpiamos todo lo que no sea número
+                                                        const cleanVal = val.replace(/\D/g, "");
+                                                        // Guardamos como número para la base de datos
+                                                        val = cleanVal === "" ? 0 : Number(cleanVal);
+                                                    }
                                                     setContractData(prev => {
                                                         if (!prev) return null;
                                                         if (item.parent === "inquilino") {
@@ -1808,7 +1918,9 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                                             />
                                         ) : (
                                             <p className={`text-sm font-black italic uppercase ${item.highlight || 'text-foreground'}`}>
-                                                {item.type === "number" ? formatCurrency(item.value as number) : (item.value || "N/A")}
+                                                {/*item.type === "number" ? formatCurrency(item.value as number) : (item.value || "N/A")*/
+                                                  (item.label.includes("Monto") || item.label.includes("Garantía")) ? formatCurrency(item.value as number) : (item.value || "N/A")
+                                                }
                                             </p>
                                         )}
                                     </div>
@@ -1849,7 +1961,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                             <div className="flex justify-between items-end border-b border-border pb-4">
                                 <div className="space-y-1">
                                     <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Código Dúplex</p>
-                                    <p className="text-3xl font-black italic text-primary">{dataUnidad.codigo}</p>
+                                    <p className="text-3xl font-black italic text-primary">{formatCodigoFicha(dataUnidad.codigo)}</p>
                                 </div>
                                 <div className="text-right space-y-1">
                                     <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Estado Actual</p>
@@ -2136,6 +2248,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                                                           numeroFactura: pData.numeroFactura,
                                                           comprobanteUrl: pData.comprobanteUrl,
                                                           inquilinoNombre: contractData?.inquilino?.razonSocial || contractData?.inquilino?.nombre || dataInquilino.nombre || "Cliente",
+                                                          inquilinoEmail: contractData?.inquilino?.email || dataInquilino?.correo || "",
                                                           inquilinoDocumento: contractData?.inquilino?.ruc || contractData?.inquilino?.cedula || dataInquilino.cedula || "Sin Documento",
                                                           unidadCodigo: dataUnidad.codigo || "",
                                                           condominioNombre: dataUnidad.condominio || "Condominio"
@@ -2462,7 +2575,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-xl font-black italic uppercase tracking-tighter text-foreground">Histórico de Inquilinos y Contratos</h3>
-                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Registro de todos los inquilinos y contratos pasados de la unidad {dataUnidad.codigo}</p>
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Registro de todos los inquilinos y contratos pasados de la unidad {formatCodigoFicha(dataUnidad.codigo)}</p>
                   </div>
                 </div>
 
@@ -2541,10 +2654,207 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
               </div>
             )}
 
+            {activeTab === "comprobantes" && (
+              <div className="animate-in fade-in duration-500 space-y-8">
+                <div className="flex justify-between items-center bg-card p-6 rounded-[2rem] shadow-sm border border-border">
+                  <div className="flex items-center gap-6">
+                    <div className="bg-emerald-50 p-4 rounded-2xl text-emerald-600">
+                      <Receipt className="w-8 h-8" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black italic uppercase tracking-tighter text-foreground">Facturación y Recibos</h3>
+                      <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest">Listado de comprobantes emitidos agrupados por cliente</p>
+                    </div>
+                  </div>
+                </div>
+
+                {(() => {
+                  const allClientsData: { nombre: string, facturas: Pago[], recibos: Pago[] }[] = [];
+                  
+                  const processContract = (c: Contrato | any) => {
+                    if (!c || !c.pagos || c.pagos.length === 0) return;
+                    const clienteNombre = c.inquilino?.razonSocial || c.inquilino?.nombre || "Cliente Desconocido";
+                    const facturas = c.pagos.filter((p: Pago) => p.facturaEmitida);
+                    const recibos = c.pagos.filter((p: Pago) => !p.facturaEmitida);
+                    
+                    if (facturas.length > 0 || recibos.length > 0) {
+                      allClientsData.push({ nombre: clienteNombre, facturas, recibos });
+                    }
+                  };
+
+                  if (contractData) processContract(contractData);
+                  if (historicoContratos) {
+                    historicoContratos.forEach(processContract);
+                  }
+
+                  if (allClientsData.length === 0) {
+                    return (
+                      <div className="bg-card p-12 rounded-[2rem] border border-border text-center shadow-sm">
+                        <Receipt className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
+                        <h4 className="text-lg font-black italic uppercase text-foreground">Sin Comprobantes</h4>
+                        <p className="text-sm font-bold text-muted-foreground">No hay pagos ni comprobantes registrados para esta unidad.</p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-8">
+                      {allClientsData.map((clientData, idx) => (
+                        <div key={idx} className="bg-card rounded-[2rem] shadow-sm border border-border overflow-hidden">
+                          <div className="bg-secondary/50 p-4 border-b border-border flex items-center gap-3">
+                            <div className="bg-primary/10 text-primary p-2 rounded-xl">
+                              <User className="w-5 h-5" />
+                            </div>
+                            <h4 className="font-black italic uppercase text-lg tracking-tighter text-foreground">{clientData.nombre}</h4>
+                          </div>
+
+                          <div className="p-6 grid grid-cols-1 xl:grid-cols-2 gap-8">
+                            {/* FACTURAS */}
+                            <div>
+                              <h5 className="font-black uppercase text-muted-foreground text-xs tracking-widest mb-4 flex items-center gap-2">
+                                <FileText className="w-4 h-4 text-emerald-500" /> Facturas Emitidas ({clientData.facturas.length})
+                              </h5>
+                              {clientData.facturas.length === 0 ? (
+                                <p className="text-[10px] font-bold text-muted-foreground italic">No hay facturas emitidas para este cliente.</p>
+                              ) : (
+                                <div className="border border-border rounded-xl overflow-hidden max-h-80 overflow-y-auto">
+                                  <Table>
+                                    <TableHeader className="bg-muted/50 sticky top-0">
+                                      <TableRow className="hover:bg-transparent">
+                                        <TableHead className="text-[9px] font-black uppercase py-2">Fecha</TableHead>
+                                        <TableHead className="text-[9px] font-black uppercase py-2">Nro</TableHead>
+                                        <TableHead className="text-[9px] font-black uppercase py-2 text-right">Monto</TableHead>
+                                        <TableHead className="text-[9px] font-black uppercase py-2 text-center">Acc.</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {clientData.facturas.sort((a,b) => new Date(b.fechaPago).getTime() - new Date(a.fechaPago).getTime()).map(pago => (
+                                        <TableRow key={pago.pagoId || Math.random()}>
+                                          <TableCell className="text-[10px] font-bold text-muted-foreground py-2">
+                                            {new Date(pago.fechaPago).toLocaleDateString()}
+                                          </TableCell>
+                                          <TableCell className="text-[10px] font-black italic py-2">
+                                            {pago.numeroFactura || pago.nroComprobante || "-"}
+                                          </TableCell>
+                                          <TableCell className="text-[10px] font-black italic text-right py-2 text-emerald-600">
+                                            {formatCurrency(pago.montoPagado)}
+                                          </TableCell>
+                                          <TableCell className="py-1 text-center">
+                                              <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-6 w-6 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md"
+                                                onClick={() => {
+                                                  setComprobantePagoData({
+                                                    pagoId: pago.pagoId || Date.now(),
+                                                    tipoPago: pago.tipoPago || "Alquiler",
+                                                    mesPagado: pago.mesPagado,
+                                                    anioPagado: pago.anioPagado,
+                                                    montoPagado: pago.montoPagado,
+                                                    metodoPago: pago.metodoPago || "Efectivo",
+                                                    fechaPago: pago.fechaPago,
+                                                    facturaEmitida: pago.facturaEmitida,
+                                                    numeroFactura: pago.numeroFactura,
+                                                    comprobanteUrl: (pago as any).comprobanteUrl,
+                                                    inquilinoNombre: clientData.nombre,
+                                                    inquilinoEmail: "",
+                                                    inquilinoDocumento: "",
+                                                    unidadCodigo: dataUnidad.codigo || "",
+                                                    condominioNombre: dataUnidad.condominio || "Condominio"
+                                                  });
+                                                  setIsPreviewComprobanteOpen(true);
+                                                }}
+                                              >
+                                                <Printer className="w-3 h-3" />
+                                              </Button>
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* RECIBOS */}
+                            <div>
+                              <h5 className="font-black uppercase text-muted-foreground text-xs tracking-widest mb-4 flex items-center gap-2">
+                                <Receipt className="w-4 h-4 text-blue-500" /> Recibos Emitidos ({clientData.recibos.length})
+                              </h5>
+                              {clientData.recibos.length === 0 ? (
+                                <p className="text-[10px] font-bold text-muted-foreground italic">No hay recibos emitidos para este cliente.</p>
+                              ) : (
+                                <div className="border border-border rounded-xl overflow-hidden max-h-80 overflow-y-auto">
+                                  <Table>
+                                    <TableHeader className="bg-muted/50 sticky top-0">
+                                      <TableRow className="hover:bg-transparent">
+                                        <TableHead className="text-[9px] font-black uppercase py-2">Fecha</TableHead>
+                                        <TableHead className="text-[9px] font-black uppercase py-2">Método</TableHead>
+                                        <TableHead className="text-[9px] font-black uppercase py-2 text-right">Monto</TableHead>
+                                        <TableHead className="text-[9px] font-black uppercase py-2 text-center">Acc.</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {clientData.recibos.sort((a,b) => new Date(b.fechaPago).getTime() - new Date(a.fechaPago).getTime()).map(pago => (
+                                        <TableRow key={pago.pagoId || Math.random()}>
+                                          <TableCell className="text-[10px] font-bold text-muted-foreground py-2">
+                                            {new Date(pago.fechaPago).toLocaleDateString()}
+                                          </TableCell>
+                                          <TableCell className="text-[10px] font-black italic py-2">
+                                            {pago.metodoPago || "-"}
+                                          </TableCell>
+                                          <TableCell className="text-[10px] font-black italic text-right py-2 text-blue-600">
+                                            {formatCurrency(pago.montoPagado)}
+                                          </TableCell>
+                                          <TableCell className="py-1 text-center">
+                                              <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-6 w-6 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md"
+                                                onClick={() => {
+                                                  setComprobantePagoData({
+                                                    pagoId: pago.pagoId || Date.now(),
+                                                    tipoPago: pago.tipoPago || "Alquiler",
+                                                    mesPagado: pago.mesPagado,
+                                                    anioPagado: pago.anioPagado,
+                                                    montoPagado: pago.montoPagado,
+                                                    metodoPago: pago.metodoPago || "Efectivo",
+                                                    fechaPago: pago.fechaPago,
+                                                    facturaEmitida: pago.facturaEmitida,
+                                                    numeroFactura: pago.numeroFactura,
+                                                    comprobanteUrl: (pago as any).comprobanteUrl,
+                                                    inquilinoNombre: clientData.nombre,
+                                                    inquilinoEmail: "",
+                                                    inquilinoDocumento: "",
+                                                    unidadCodigo: dataUnidad.codigo || "",
+                                                    condominioNombre: dataUnidad.condominio || "Condominio"
+                                                  });
+                                                  setIsPreviewComprobanteOpen(true);
+                                                }}
+                                              >
+                                                <Printer className="w-3 h-3" />
+                                              </Button>
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
           </div>
 
           <DialogFooter className="p-8 pt-4 border-t border-border bg-card flex items-center justify-between shrink-0">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest italic">Expediente OIMA Condominios v2.0</p>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest italic">Expediente VORDIA Condominios v2.0</p>
             <div className="flex gap-3">
                 <Button onClick={onClose} variant="ghost" className="font-black italic text-xs text-muted-foreground uppercase tracking-widest">SALIR</Button>
             </div>
@@ -2556,7 +2866,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
       <Dialog open={isRegisteringPayment} onOpenChange={setIsRegisteringPayment}>
         <DialogContent className="sm:max-w-[450px] p-8 rounded-[2rem] bg-card border-none shadow-2xl">
           <DialogHeader className="sr-only">
-            <DialogTitle>Registrar Cobro - Unidad {dataUnidad.codigo}</DialogTitle>
+            <DialogTitle>Registrar Cobro - Unidad {formatCodigoFicha(dataUnidad.codigo)}</DialogTitle>
           </DialogHeader>
           <div className="space-y-6">
             <div className="flex items-center gap-4">
@@ -2565,7 +2875,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                 </div>
                 <div>
                     <h3 className="text-xl font-black italic uppercase tracking-tighter text-foreground">Registrar Cobro</h3>
-                    <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">Unidad {dataUnidad.codigo}</p>
+                    <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">Unidad {formatCodigoFicha(dataUnidad.codigo)}</p>
                 </div>
             </div>
 
@@ -2726,7 +3036,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                     <DialogTitle className="text-xl font-black italic uppercase tracking-tighter">
                       {serviceModalMode === "edit" ? "Editar" : "Registrar"} {serviceType}
                     </DialogTitle>
-                    <p className="text-white/70 text-[10px] font-bold uppercase tracking-widest">Unidad {dataUnidad.codigo}</p>
+                    <p className="text-white/70 text-[10px] font-bold uppercase tracking-widest">Unidad {formatCodigoFicha(dataUnidad.codigo)}</p>
                 </div>
             </div>
           </div>
@@ -2871,7 +3181,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                   Editar cobro Ã‚Â· {cobroServicioTipo}
                 </DialogTitle>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-white/80">
-                  Unidad {dataUnidad.codigo}
+                  Unidad {formatCodigoFicha(dataUnidad.codigo)}
                 </p>
               </div>
             </div>
@@ -3140,7 +3450,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
               </div>
               <div>
                 <h3 className="font-black italic uppercase text-foreground tracking-tighter text-xl">Datos Contrato Extraídos</h3>
-                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Motor OCR Inteligente Gesco</p>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Motor OCR Inteligente VORDIA</p>
               </div>
             </div>
 
@@ -3196,6 +3506,12 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
         </DialogContent>
       </Dialog>
       {isPrintingContract && <ContratoImprimible contractData={contractData} dataUnidad={dataUnidad} localNisAnde={localNisAnde} />}
+      {isPrintingPagare && (
+        <PagareImprimible 
+            contractData={contractData} 
+            dataUnidad={dataUnidad} 
+        />
+      )}
       <ComprobantePreviewModal
         isOpen={isPreviewComprobanteOpen}
         onClose={() => setIsPreviewComprobanteOpen(false)}
@@ -3433,7 +3749,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
           </DialogContent>
         </Dialog>
       )}
-      {/* MODAL DE RESTRICCIÓN DE SEGURIDAD GESCO */}
+      {/* MODAL DE RESTRICCIÓN DE SEGURIDAD VORDIA */}
       <ModalAccesoRestringido
         isOpen={alertaRestriccion.visible}
         onClose={() => setAlertaRestriccion({ visible: false })}
@@ -3443,4 +3759,5 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
     </Dialog>
   );
 }
+
 

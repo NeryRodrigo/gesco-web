@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { 
@@ -185,7 +185,7 @@ export function ActividadesVista({ empresaId }: { empresaId: number }) {
           <input 
             type="text" 
             placeholder="Buscar actividades por título, descripción, responsable o estado..." 
-            className="w-full pl-16 pr-6 py-5 bg-[#F8F9FA] rounded-2xl border-none font-bold text-sm focus:ring-2 focus:ring-primary/10 transition-all text-foreground"
+            className="w-full pl-16 pr-6 py-5 bg-[#F8F9FA] rounded-2xl border-none font-bold text-sm focus:ring-2 focus:ring-primary/10 transition-all text-slate-900"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -304,7 +304,7 @@ export function ActividadesVista({ empresaId }: { empresaId: number }) {
                   value={titulo}
                   onChange={(e) => setTitulo(e.target.value)}
                   placeholder="Ej: Mantenimiento de Acondicionadores"
-                  className="h-12 rounded-xl font-bold border-border bg-[#F8F9FA] text-foreground"
+                  className="h-12 rounded-xl font-bold border-border bg-[#F8F9FA] text-slate-900"
                   required
                 />
               </div>
@@ -315,7 +315,7 @@ export function ActividadesVista({ empresaId }: { empresaId: number }) {
                   value={descripcion}
                   onChange={(e) => setDescripcion(e.target.value)}
                   placeholder="Detalles sobre las tareas a realizar..."
-                  className="w-full p-4 rounded-xl font-bold border border-border bg-[#F8F9FA] h-24 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/10"
+                  className="w-full p-4 rounded-xl font-bold border border-border bg-[#F8F9FA] h-24 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary/10"
                 />
               </div>
 
@@ -328,7 +328,7 @@ export function ActividadesVista({ empresaId }: { empresaId: number }) {
                       type="date"
                       value={fecha}
                       onChange={(e) => setFecha(e.target.value)}
-                      className="h-12 pl-12 rounded-xl font-bold border-border bg-[#F8F9FA] text-foreground"
+                      className="h-12 pl-12 rounded-xl font-bold border-border bg-[#F8F9FA] text-slate-900"
                       required
                     />
                   </div>
@@ -339,7 +339,7 @@ export function ActividadesVista({ empresaId }: { empresaId: number }) {
                   <select
                     value={estado}
                     onChange={(e) => setEstado(e.target.value)}
-                    className="w-full h-12 px-4 rounded-xl font-bold border border-border bg-[#F8F9FA] text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/10"
+                    className="w-full h-12 px-4 rounded-xl font-bold border border-border bg-[#F8F9FA] text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary/10"
                   >
                     <option value="Disponible">Disponible</option>
                     <option value="en Proceso">En Proceso</option>
@@ -356,7 +356,7 @@ export function ActividadesVista({ empresaId }: { empresaId: number }) {
                     placeholder="Escribir nombre del responsable..." 
                     value={responsable}
                     onChange={(e) => setResponsable(e.target.value)}
-                    className="w-full h-12 pl-12 rounded-xl font-bold border border-border bg-[#F8F9FA] text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/10"
+                    className="w-full h-12 pl-12 rounded-xl font-bold border border-border bg-[#F8F9FA] text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary/10"
                   />
                 </div>
               </div>
