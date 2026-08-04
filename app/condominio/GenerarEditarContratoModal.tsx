@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import {
@@ -78,6 +78,13 @@ export function GenerarEditarContratoModal({
       return val.substring(0, 10);
     }
   };
+
+  const GsIcon = ({ className }: { className?: string }) => (
+    <span className={`flex items-center justify-center font-black italic text-[10px] leading-none select-none ${className}`}>
+      Gs
+    </span>
+  );
+
 
   useEffect(() => {
     if (isOpen) {
@@ -215,6 +222,45 @@ export function GenerarEditarContratoModal({
     } catch (e) {
       console.error("Error generando Word:", e);
       toast.error("Error generando el documento Word.");
+    } finally {
+      setIsGeneratingDoc(false);
+    }
+  };
+
+  const handleDescargarTodosZip = async () => {
+    const success = await saveContractChanges();
+    if (!success) return;
+
+    setIsGeneratingDoc(true);
+    try {
+      const loc = encodeURIComponent(nombreCompleto.trim() || "Sin Nombre");
+      const dup = encodeURIComponent(unidad.code || "");
+      const mon = Number(montoMensual || 0);
+      const cId = contractData?.contratoId || 0;
+
+      const response = await fetch(
+        `http://localhost:5034/api/Plantillas/generar-zip/${cId}?locatario=${loc}&duplex=${dup}&monto=${mon}`
+      );
+
+      if (!response.ok) {
+        throw new Error("No se pudo generar el ZIP de documentos en el servidor.");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Documentos_Alquiler_${unidad.code || "Duplex"}_${nombreCompleto.replace(/\s+/g, "_")}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success("¡Todos los documentos prellenados se descargaron en un archivo .ZIP!");
+      onClose();
+    } catch (e) {
+      console.error("Error al descargar todos los documentos:", e);
+      toast.error("Error al descargar el ZIP de documentos.");
     } finally {
       setIsGeneratingDoc(false);
     }
@@ -421,12 +467,17 @@ export function GenerarEditarContratoModal({
                   Alquiler Mensual (Gs)
                 </Label>
                 <div className="relative">
+                  {/*
                   <DollarSign className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-600" />
+                  */}
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center border border-muted-foreground/30 rounded-md bg-muted/50">
+                    <GsIcon className="text-muted-foreground" />
+                  </div>    
                   <Input
                     type="number"
                     value={montoMensual}
                     onChange={(e) => setMontoMensual(Number(e.target.value))}
-                    className="pl-10 rounded-xl border-border bg-emerald-50/40 text-emerald-700 font-black text-base"
+                    className="pl-10 rounded-xl border-border font-bold"
                   />
                 </div>
               </div>
@@ -436,7 +487,9 @@ export function GenerarEditarContratoModal({
                   Depósito de Garantía (Gs)
                 </Label>
                 <div className="relative">
-                  <DollarSign className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center border border-muted-foreground/30 rounded-md bg-muted/50">
+                    <GsIcon className="text-muted-foreground" />
+                  </div>
                   <Input
                     type="number"
                     value={garantia}
@@ -511,46 +564,102 @@ export function GenerarEditarContratoModal({
             </div>
           </div>
 
-          {/* SECCIÓN 4: PLANTILLA DE CONTRATO WORD */}
-          <div className="bg-amber-50/60 p-5 rounded-2xl border border-amber-200/70 space-y-3">
-            <h4 className="text-xs font-black uppercase text-amber-800 tracking-wider flex items-center gap-2">
-              <FileCheck className="w-4 h-4 text-amber-600" /> Plantilla de Documento Legal Oficial (.DOCX)
+          {/* SECCIÓN 4: GENERAR DOCUMENTOS INDIVIDUALES */}
+          <div className="bg-slate-50 dark:bg-slate-900/40 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <h4 className="text-xs font-black uppercase text-blue-600 tracking-wider flex items-center gap-2">
+              <FileCheck className="w-4 h-4 text-blue-500" /> Documentos Oficiales de Alquiler (.DOCX)
             </h4>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <select
-                value={selectedPlantillaId}
-                onChange={(e) => setSelectedPlantillaId(Number(e.target.value))}
-                className="bg-card border border-amber-300 text-foreground text-xs rounded-xl px-3.5 py-3 font-bold uppercase outline-none focus:border-amber-500 flex-1"
-              >
-                <option value={0}>— Seleccionar Plantilla Word —</option>
-                {plantillasList.map((p: any) => (
-                  <option key={p.plantillaId} value={p.plantillaId}>
-                    {p.nombre} ({p.tipo})
-                  </option>
-                ))}
-              </select>
+            <p className="text-[10px] text-muted-foreground font-semibold">
+              Genera y descarga de manera individual cada documento autocompletado para este inquilino:
+            </p>
+            <div className="space-y-2">
+              {plantillasList.length === 0 ? (
+                <p className="text-[10px] text-muted-foreground italic">Cargando plantillas de documentos...</p>
+              ) : (
+                plantillasList.map((p: any) => (
+                  <div key={p.plantillaId} className="flex items-center justify-between p-3 bg-white dark:bg-card border border-border rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-black text-xs shrink-0">
+                        DOC
+                      </div>
+                      <div className="text-left">
+                        <p className="text-xs font-bold text-foreground">{p.nombre}</p>
+                        <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-wider">{p.tipo}</p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        const success = await saveContractChanges();
+                        if (!success) return;
+                        
+                        setIsGeneratingDoc(true);
+                        try {
+                          const loc = encodeURIComponent(nombreCompleto.trim() || "Sin Nombre");
+                          const dup = encodeURIComponent(unidad.code || "");
+                          const mon = Number(montoMensual || 0);
+                          const cId = contractData?.contratoId || 0;
+
+                          const response = await fetch(
+                            `http://localhost:5034/api/Plantillas/generar/${p.plantillaId}?contratoId=${cId}&locatario=${loc}&duplex=${dup}&monto=${mon}`
+                          );
+
+                          if (!response.ok) {
+                            throw new Error("No se pudo generar el documento.");
+                          }
+
+                          const blob = await response.blob();
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = `${p.nombre.replace(/\s+/g, "_")}_${unidad.code || "Duplex"}_${nombreCompleto.replace(/\s+/g, "_")}.docx`;
+                          document.body.appendChild(a);
+                          a.click();
+                          a.remove();
+                          window.URL.revokeObjectURL(url);
+                          toast.success(`Documento "${p.nombre}" generado y descargado con éxito.`);
+                        } catch (err) {
+                          console.error(err);
+                          toast.error(`Error al generar el documento "${p.nombre}".`);
+                        } finally {
+                          setIsGeneratingDoc(false);
+                        }
+                      }}
+                      className="h-8 px-3 rounded-lg text-[10px] font-black uppercase text-blue-600 border-blue-200 hover:bg-blue-50"
+                    >
+                      Generar
+                    </Button>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
         ) : (
-          <div className="p-6 overflow-y-auto max-h-[64vh] bg-muted">
-            <ContratoImprimible
-              contractData={liveContractData}
-              dataUnidad={unidad}
-              localNisAnde={unidad?.nisAnde || ""}
-              isPreview={true}
-            />
+          <div className="p-8 overflow-y-auto max-h-[64vh] bg-[#0f172a] flex justify-center border-t border-white/5">
+            <div className="bg-white shadow-[0_20px_50px_rgba(0,0,0,0.5)] w-full max-w-[800px] min-h-[1000px] rounded-sm ring-1 ring-black/10">
+              <ContratoImprimible
+                contractData={liveContractData}
+                dataUnidad={unidad}
+                localNisAnde={unidad?.nisAnde || ""}
+                isPreview={true}
+              />
+            </div>
           </div>
+
         )}
 
         {/* ELEMENTO IMPRIMIBLE LEGAL (Oculto en pantalla, se imprime a página completa) */}
-        <ContratoImprimible
-          contractData={liveContractData}
-          dataUnidad={unidad}
-          localNisAnde={unidad?.nisAnde || ""}
-          isPreview={false}
-        />
-
+        <div className="hidden print:block bg-white text-black p-0 m-0">
+          <ContratoImprimible
+            contractData={liveContractData}
+            dataUnidad={unidad}
+            localNisAnde={unidad?.nisAnde || ""}
+            isPreview={false}
+          />
+        </div>
         {/* FOOTER */}
         <DialogFooter className="bg-muted p-6 px-8 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3">
           <Button
@@ -593,12 +702,12 @@ export function GenerarEditarContratoModal({
             </Button>
 
             <Button
-              onClick={handleGuardarYDescargarWord}
+              onClick={handleDescargarTodosZip}
               disabled={loadingSave || isGeneratingDoc}
               className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs uppercase rounded-xl px-5 h-11 shadow-lg shadow-amber-500/20"
             >
               <Download className="w-4 h-4 mr-1.5 stroke-[2.5]" />
-              {isGeneratingDoc ? "Generando..." : "Guardar y Descargar Word"}
+              {isGeneratingDoc ? "Generando..." : "Descargar todos los documentos"}
             </Button>
           </div>
         </DialogFooter>
@@ -615,12 +724,14 @@ export function GenerarEditarContratoModal({
               </DialogTitle>
             </DialogHeader>
 
-            <div className="flex-1 overflow-y-auto border border-border rounded-xl p-4 bg-muted my-2">
-              <ContratoImprimible
-                contractData={liveContractData}
-                dataUnidad={unidad}
-                isPreview={true}
-              />
+            <div className="flex-1 overflow-y-auto border border-white/10 rounded-xl p-8 bg-[#0f172a] flex justify-center my-2">
+              <div className="bg-white shadow-2xl w-full max-w-[700px] rounded-sm">
+                <ContratoImprimible
+                  contractData={liveContractData}
+                  dataUnidad={unidad}
+                  isPreview={true}
+                />
+              </div>
             </div>
 
             <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2 border-t border-border">

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -241,3 +241,4 @@ export function CRMClientesPage({ empresaId }: { empresaId: number }) {
   );
 }
 
+export default CRMClientesPage;

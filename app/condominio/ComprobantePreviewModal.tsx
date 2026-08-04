@@ -1,6 +1,6 @@
-﻿"use client";
+"use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Printer, X, Save, FileText, Receipt, Check, DollarSign, Trash2, MessageCircle, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,9 @@ import { numberToWords } from "@/lib/numberToWords";
 import { toast } from "sonner";
 import { ConfirmActionModal } from "@/components/ui/confirm-action-modal";
 import { PrintPortal } from "@/components/ui/print-portal";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
+
 
 interface ComprobantePreviewModalProps {
   isOpen: boolean;
@@ -25,15 +28,24 @@ interface ComprobantePreviewModalProps {
     numeroFactura?: string;
     comprobanteUrl?: string;
     inquilinoNombre: string;
+    inquilinoEmail?: string;
     inquilinoDocumento: string;
     unidadCodigo: string;
     condominioNombre?: string;
     items?: Array<{ cantidad?: number; descripcion: string; precioUnitario: number; exenta?: number; iva5?: number; iva10?: number; }>;
+    contrato?: {
+    inquilino?: {
+      telefono?: string | null;
+      email?: string | null;
+    }
+  };
   } | null;
   onSaved?: () => void;
 }
 
 export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: ComprobantePreviewModalProps) {
+  const receiptRef = useRef<HTMLDivElement>(null);
+  const [isMobile, setIsMobile] = useState(false); // Estado para detectar móvil
   const [tipoEmision, setTipoEmision] = useState<"recibo" | "factura">("recibo");
   
   // Editable fields
@@ -59,6 +71,8 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
     setNumeroFactura(pagoData.numeroFactura || "001-001 0001229");
     setMontoRecibo(pagoData.montoPagado || 0);
 
+
+
     // Default calculations
     const defaultWords = numberToWords(pagoData.montoPagado || 0);
     const mesNombre = new Date(2000, (pagoData.mesPagado || 1) - 1, 1).toLocaleString('es-ES', { month: 'long' });
@@ -73,12 +87,19 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
         console.error("Error parsing comprobante metadata:", e);
       }
     }
+    setEmailDestino(pagoData.inquilinoEmail || parsedMeta.emailInquilino || "");
 
     setRucInquilino(parsedMeta.rucInquilino || (pagoData.inquilinoDocumento && pagoData.inquilinoDocumento !== "Sin Documento" ? pagoData.inquilinoDocumento : "N/D"));
     setNombreInquilino(parsedMeta.nombreInquilino || pagoData.inquilinoNombre || "Cliente");
     setDireccionCliente(parsedMeta.direccion || "Merlo de Portugal y Capitán Pedro Mayor Echauri");
     setDescripcionFactura(parsedMeta.descripcion || defaultDesc);
     setMontoLetras(parsedMeta.montoLetras || defaultWords);
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+      const isMobileDevice = /android|iPhone|iPad|iPod/i.test(userAgent);
+      setIsMobile(isMobileDevice);
+    };
+    checkMobile();
   }, [pagoData, isOpen]);
 
   if (!pagoData) return null;
@@ -157,7 +178,47 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
 
   const handleShareWhatsApp = async () => {
     if (!pagoData) return;
-    setIsSaving(true);
+    const loadingToast = toast.loading("Generando comprobante...");
+
+    try {
+      const pdfBlob = await generatePDFBlob();
+      if (!pdfBlob) {
+        toast.dismiss(loadingToast);
+        toast.error("No se pudo generar el PDF");
+        return;
+      }
+
+      // 1. Descarga inmediata
+      const fileName = `Comprobante_${nombreInquilino.replace(/\s/g, "_")}.pdf`;
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // 2. Preparar WhatsApp
+      let tel = pagoData.contrato?.inquilino?.telefono || "";
+      tel = tel.replace(/\D/g, "");
+      if (tel.startsWith("0")) tel = "595" + tel.substring(1);
+      if (tel !== "" && !tel.startsWith("595")) tel = "595" + tel;
+
+      const texto = `*COMPROBANTE DE PAGO - VORDIA*\n\nHola *${nombreInquilino}*, adjunto tu comprobante de pago.\n\n*Total:* ${new Intl.NumberFormat("es-PY").format(total)} Gs.`;
+
+      // 3. Abrir WhatsApp (Asegúrate de permitir pop-ups en el navegador)
+      const whatsappUrl = `https://web.whatsapp.com/send?phone=${tel}&text=${encodeURIComponent(texto)}`;
+      window.open(whatsappUrl, "_blank");
+
+      toast.dismiss(loadingToast);
+      toast.success("PDF descargado. Arrástrelo al chat de WhatsApp.");
+
+    } catch (error) {
+      toast.dismiss(loadingToast);
+      console.error(error);
+    }
+    
+    /*setIsSaving(true);
 
     const metadata = {
       rucInquilino,
@@ -186,7 +247,7 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
     }
 
     const fechaFormateada = new Date(pagoData.fechaPago).toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" });
-    let mensaje = `*COMPROBANTE LEGAL / ${tipoEmision === "factura" ? "FACTURA" : "RECIBO"} - GESCO*\n\n`;
+    let mensaje = `*COMPROBANTE LEGAL / ${tipoEmision === "factura" ? "FACTURA" : "RECIBO"} - VORDIA*\n\n`;
     mensaje += `*Emisor:* Marcelo David Ortigoza Maidana\n`;
     mensaje += `*RUC:* 3389403-5\n`;
     mensaje += `*Comprobante N°:* ${numeroFactura || "S/N"}\n`;
@@ -214,12 +275,29 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
       description: "En la ventana de impresión, elige 'Guardar como PDF' para adjuntarlo al chat de WhatsApp."
     });
 
-    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
+    const url = `https://web.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
     window.open(url, "_blank");
 
     setTimeout(() => {
       window.print();
-    }, 600);
+    }, 1000);*/
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /*
+    toast.info("Generando PDF para WhatsApp...");
+    const pdf = await generatePDF();
+    if (pdf) {
+      const fileName = `${tipoEmision.toUpperCase()}_${nombreInquilino.replace(/\s/g, "_")}.pdf`;
+      pdf.save(fileName); // Descarga el PDF automáticamente
+
+      const fechaFormateada = new Date().toLocaleDateString();
+      const texto = `*COMPROBANTE LEGAL - VORDIA*\n\nEstimado/a *${nombreInquilino}*,\nAdjuntamos su *${tipoEmision.toUpperCase()} N° ${numeroFactura}* correspondiente al pago de fecha ${fechaFormateada}.\n\n*Monto:* ${new Intl.NumberFormat("es-PY").format(total)} Gs.\n\n_Favor adjuntar el archivo descargado a esta conversación._`;
+      
+      const whatsappUrl = `https://web.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
+      window.open(whatsappUrl, "_blank");
+      toast.success("PDF descargado. Ahora arrástrelo al chat de WhatsApp.");
+    }*/
+
   };
 
   const confirmSendEmail = async () => {
@@ -269,166 +347,212 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
   const total = montoRecibo || pagoData.montoPagado || 0;
   const liqIva10 = Math.round(total / 11);
 
+  // --- FUNCIÓN PARA GENERAR PDF ---
+  const generatePDFBlob = async () => {
+    /*if (!receiptRef.current) return null;
+    const canvas = await html2canvas(receiptRef.current, { scale: 2, useCORS: true });
+    const imgData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF("p", "mm", "a4");
+    const imgProps = pdf.getImageProperties(imgData);
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+    pdf.addImage(imgData, "PNG", 0, 10, pdfWidth, pdfHeight);
+    //return pdf;
+    return pdf.output('blob');*/
+    try {
+      if (!receiptRef.current) {
+        console.error("Referencia al recibo no encontrada.");
+        return null;
+      }
+
+      // 1. Aumentamos un poco el tiempo de espera para asegurar que el DOM esté listo
+      await new Promise(r => setTimeout(r, 600));
+
+      // 2. Capturamos con html2canvas
+      const canvas = await html2canvas(receiptRef.current, {
+        scale: 2, // Bajamos de 3 a 2 para evitar errores de memoria/firma, 2 es suficiente para A4
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+        
+      });
+
+      // 3. CAMBIO CLAVE: Usamos JPEG en lugar de PNG
+      // El segundo parámetro (0.95) es la calidad (95%)
+      const imgData = canvas.toDataURL("image/jpeg", 0.95);
+
+      // Validación de seguridad
+      if (imgData === "data:," || imgData.length < 500) {
+        console.error("La imagen generada está vacía.");
+        return null;
+      }
+
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+        compress: true // Comprimimos para que el PDF no pese demasiado
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      // 4. Añadimos la imagen especificando 'JPEG'
+      // El parámetro 'NONE' evita compresiones extra que puedan dar errores de firma
+      pdf.addImage(imgData, "JPEG", 0, 5, pdfWidth, pdfHeight, undefined, 'NONE');
+
+      return pdf.output('blob');
+    } catch (err) {
+      console.error("Error detallado al generar PDF:", err);
+      toast.error("Error al procesar la imagen del comprobante.");
+      return null;
+    }
+    
+  };
+
   const receiptContent = (
-    <div className="bg-card w-full max-w-[650px] font-sans text-[#0f172a] leading-tight shadow-2xl rounded-none border-[1.5px] border-slate-900 p-0 printable-receipt shrink-0">
-      {/* HEADER (2 COLUMNAS DIVIDIDAS POR BORDE) */}
-      <div className="flex items-stretch border-b-[1.5px] border-slate-900">
-        {/* COLUMNA IZQUIERDA: DATOS EMISOR */}
-        <div className="flex-1 p-4 pr-6 border-r-[1.5px] border-slate-900 flex flex-col justify-between">
-          <div>
-            <h1 className="text-[20px] font-bold tracking-tight text-[#1e293b] mb-1.5 font-serif">
-              Marcelo David Ortigoza Maidana
-            </h1>
-            <div className="text-[8px] leading-[1.35] text-foreground uppercase font-semibold space-y-0.5">
-              <p>ACTIVIDADES PROFESIONALES, CIENTÍFICAS Y TÉCNICAS - OTROS ALOJAMIENTOS DE CORTO PLAZO.</p>
-              <p>ACTIVIDADES DE SERVICIOS DE ARQUITECTURA E INGENIERÍA.</p>
-              <p>COMERCIO AL POR MAYOR DE MERCANCÍAS A CAMBIO DE UNA RETRIBUCIÓN O POR CONTRATA.</p>
-              <p>INTERMEDIACIÓN EN LA COMPRA, VENTA Y ARRENDAMIENTO DE INMUEBLES.</p>
-            </div>
-          </div>
-          <div className="text-[9.5px] text-foreground mt-4 font-medium space-y-0.5">
-            <p>Merlo de Portugal y Capitán Pedro Mayor Echauri - Cel.: (0994) 254 655</p>
-            <p>Luque - Paraguay</p>
-          </div>
-        </div>
-
-        {/* COLUMNA DERECHA: TIMBRADO Y N° COMPROBANTE */}
-        <div className="w-[230px] shrink-0 p-3.5 px-4 text-center flex flex-col justify-between items-center bg-card">
-          <div className="text-[8.5px] leading-[1.4] text-foreground font-bold uppercase tracking-wide">
-            <p>TIMBRADO Nº 18093421</p>
-            <p>Fecha Inicio Vigencia: 11/Junio/2025</p>
-            <p>Fecha Fin Vigencia: 30/Junio/2026</p>
-          </div>
-          <div className="mt-3">
-            <p className="text-[13px] font-black text-foreground tracking-wide">RUC: 3389403-5</p>
-            <h2 className="text-[24px] font-black tracking-wider text-foreground leading-none mt-1 uppercase">
-              {tipoEmision === "factura" ? "FACTURA" : "RECIBO"}
-            </h2>
-            <p className="text-[13px] font-black text-foreground mt-1.5 tracking-wider">
-              Nº {numeroFactura || "001-001 0001229"}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* FILA 2: FECHA DE EMISIÓN Y CONDICIÓN DE VENTA */}
-      <div className="flex items-stretch border-b-[1.5px] border-slate-900 text-[10.5px]">
-        <div className="flex-1 px-4 py-2 border-r-[1.5px] border-slate-900 font-bold uppercase flex items-center gap-2">
-          <span className="text-foreground">FECHA DE EMISIÓN:</span>
-          <span className="font-bold text-slate-950 lowercase">
-            {new Date(pagoData.fechaPago).toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" })}
-          </span>
-        </div>
-        <div className="shrink-0 px-5 py-2 flex items-center gap-5 font-bold uppercase tracking-wider text-[10px] text-foreground">
-          <span>COND. DE VENTA</span>
-          <span>CONTADO ☑</span>
-          <span>CRÉDITO ☐</span>
-        </div>
-      </div>
-
-      {/* FILA 3: RUC CLIENTE Y NOTA DE REMISIÓN */}
-      <div className="flex items-stretch border-b-[1.5px] border-slate-900 text-[10.5px]">
-        <div className="w-1/2 px-4 py-2 border-r-[1.5px] border-slate-900 font-bold uppercase flex items-center gap-2">
-          <span className="text-foreground">RUC:</span>
-          <span className="font-bold text-slate-950">{rucInquilino || "N/D"}</span>
-        </div>
-        <div className="w-1/2 px-4 py-2 font-bold uppercase flex items-center gap-2 text-foreground">
-          <span>NOTA DE REMISIÓN:</span>
-        </div>
-      </div>
-
-      {/* FILA 4: NOMBRE O RAZÓN SOCIAL */}
-      <div className="px-4 py-2 border-b-[1.5px] border-slate-900 font-bold text-[10.5px] uppercase flex items-center gap-2">
-        <span className="text-foreground">NOMBRE O RAZÓN SOCIAL:</span>
-        <span className="font-bold text-slate-950 text-[11.5px]">{nombreInquilino || pagoData.inquilinoNombre}</span>
-      </div>
-
-      {/* FILA 5: DIRECCIÓN Y TELÉFONO */}
-      <div className="flex items-stretch border-b-[1.5px] border-slate-900 text-[10.5px]">
-        <div className="flex-1 px-4 py-2 border-r-[1.5px] border-slate-900 font-bold uppercase flex items-center gap-2">
-          <span className="text-foreground">DIRECCIÓN:</span>
-          <span className="font-bold text-slate-950 uppercase">
-            {direccionCliente}
-          </span>
-        </div>
-        <div className="w-[220px] shrink-0 px-4 py-2 font-bold uppercase flex items-center gap-2 text-foreground">
-          <span>TELÉFONO:</span>
-        </div>
-      </div>
-
-      {/* TABLA PRINCIPAL DE ÍTEMS */}
+    <div ref={receiptRef} className="bg-white w-[650px] min-h-[850px] font-sans text-black leading-tight shadow-none rounded-none border-[2px] border-black p-0 printable-receipt shrink-0 flex flex-col">
+      
+      {/* SECCIÓN 1: CABECERA (Usamos tabla para mayor estabilidad de líneas) */}
       <table className="w-full border-collapse">
-        <thead>
-          <tr className="border-b-[1.5px] border-slate-900 bg-card text-slate-950">
-            <th rowSpan={2} className="py-2 px-2 text-center font-black text-[9.5px] uppercase border-r-[1.5px] border-slate-900 w-[45px]">CANT.</th>
-            <th rowSpan={2} className="py-2 px-3 text-center font-black text-[9.5px] uppercase border-r-[1.5px] border-slate-900">D E S C R I P C I Ó N</th>
-            <th rowSpan={2} className="py-2 px-2 text-center font-black text-[9.5px] uppercase border-r-[1.5px] border-slate-900 w-[90px]">PRECIO<br/>UNITARIO</th>
-            <th rowSpan={2} className="py-2 px-2 text-center font-black text-[9.5px] uppercase border-r-[1.5px] border-slate-900 w-[70px]">EXENTAS</th>
-            <th colSpan={2} className="py-1 text-center font-black text-[9px] uppercase border-b-[1.5px] border-slate-900">VALOR DE VENTA</th>
-          </tr>
-          <tr className="border-b-[1.5px] border-slate-900 bg-card text-slate-950">
-            <th className="py-1 px-2 text-center font-black text-[9px] uppercase border-r-[1.5px] border-slate-900 w-[70px]">5%</th>
-            <th className="py-1 px-2 text-center font-black text-[9px] uppercase w-[85px]">10%</th>
-          </tr>
-        </thead>
         <tbody>
-          <tr className="border-b border-border">
-            <td className="py-2.5 px-2 text-center border-r-[1.5px] border-slate-900 font-bold text-[11px] text-foreground">1</td>
-            <td className="py-2.5 px-3 border-r-[1.5px] border-slate-900 font-bold text-[11px] text-foreground">{descripcionFactura}</td>
-            <td className="py-2.5 px-2 text-right border-r-[1.5px] border-slate-900 font-bold text-[11px] text-foreground">{formatCurrency(total)}</td>
-            <td className="py-2.5 px-2 text-right border-r-[1.5px] border-slate-900 font-medium text-[11px] text-foreground"></td>
-            <td className="py-2.5 px-2 text-right border-r-[1.5px] border-slate-900 font-medium text-[11px] text-foreground"></td>
-            <td className="py-2.5 px-3 text-right font-bold text-[11px] text-foreground">{formatCurrency(total)}</td>
+          <tr>
+            <td className="w-[65%] p-4 border-b-[2px] border-r-[2px] border-black align-top">
+              <h1 className="text-[18px] font-bold text-black mb-1 font-serif leading-none">Marcelo David Ortigoza Maidana</h1>
+              <div className="text-[7.5px] uppercase font-bold text-black space-y-0.5 mt-2">
+                <p>ACTIVIDADES PROFESIONALES, CIENTÍFICAS Y TÉCNICAS - OTROS ALOJAMIENTOS.</p>
+                <p>ACTIVIDADES DE SERVICIOS DE ARQUITECTURA E INGENIERÍA.</p>
+                <p>INTERMEDIACIÓN EN LA COMPRA, VENTA Y ARRENDAMIENTO DE INMUEBLES.</p>
+              </div>
+              <p className="text-[9px] mt-4 font-bold text-black uppercase">Merlo de Portugal y Capitán Pedro Mayor Echauri - Cel.: (0994) 254 655</p>
+              <p className="text-[9px] font-bold text-black uppercase">Luque - Paraguay</p>
+            </td>
+            <td className="w-[35%] p-3 border-b-[2px] border-black text-center align-top">
+              <div className="text-[8px] font-bold uppercase text-black">
+                <p className="tracking-widest">TIMBRADO Nº 18093421</p>
+                <p>Vigencia: 30/JUNIO/2026</p>
+              </div>
+              <div className="mt-4 text-black">
+                <p className="text-[12px] font-black">RUC: 3389403-5</p>
+                <h2 className="text-[26px] font-black uppercase leading-none my-1">{tipoEmision}</h2>
+                <p className="text-[12px] font-black tracking-widest">Nº {numeroFactura}</p>
+              </div>
+            </td>
           </tr>
-          {Array.from({ length: 3 }).map((_, i) => (
-            <tr key={`empty-${i}`} className="border-b border-border">
-              <td className="py-2 px-2 border-r-[1.5px] border-slate-900">&nbsp;</td>
-              <td className="py-2 px-3 border-r-[1.5px] border-slate-900"></td>
-              <td className="py-2 px-2 border-r-[1.5px] border-slate-900"></td>
-              <td className="py-2 px-2 border-r-[1.5px] border-slate-900"></td>
-              <td className="py-2 px-2 border-r-[1.5px] border-slate-900"></td>
-              <td className="py-2 px-3"></td>
-            </tr>
-          ))}
         </tbody>
-        <tfoot>
-          <tr className="border-t-[1.5px] border-slate-900 font-bold text-slate-950">
-            <td colSpan={5} className="py-2 px-3 text-left font-black text-[10px] uppercase border-r-[1.5px] border-slate-900">SUB TOTALES:</td>
-            <td className="py-2 px-3 text-right font-black text-[11px]">{formatCurrency(total)}</td>
-          </tr>
-        </tfoot>
       </table>
 
-      {/* TOTAL A PAGAR EN GUARANÍES */}
-      <div className="border-t-[1.5px] border-slate-900">
-        <div className="flex items-stretch border-b-[1.5px] border-slate-900 text-[10.5px]">
-          <div className="flex-1 px-4 py-2 border-r-[1.5px] border-slate-900 flex items-center gap-2">
-            <span className="font-black uppercase text-foreground">TOTAL A PAGAR GUARANÍES:</span>
-            <span className="font-black italic text-[11px] uppercase tracking-wide text-slate-950">{montoLetras || numberToWords(total)}</span>
-          </div>
-          <div className="w-[120px] shrink-0 px-3 py-2 text-right font-black text-[13px] text-slate-950 flex items-center justify-end">
-            {formatCurrency(total)}
-          </div>
-        </div>
+      {/* SECCIÓN 2: DATOS CLIENTE (Tabla para asegurar bordes) */}
+      <table className="w-full border-collapse">
+        <tbody>
+          <tr className="h-10">
+            <td className="px-4 border-b-[2px] border-r-[2px] border-black font-bold text-[10px] w-[65%]">
+              FECHA DE EMISIÓN: <span className="font-bold ml-2 uppercase">{new Date(pagoData.fechaPago).toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" })}</span>
+            </td>
+            <td className="px-4 border-b-[2px] border-black font-bold text-[9px] w-[35%]">
+              <div className="flex justify-between">
+                <span>COND. VENTA:</span>
+                <span>CONTADO ☑</span>
+                <span>CRÉDITO ☐</span>
+              </div>
+            </td>
+          </tr>
+          <tr className="h-10">
+            <td className="px-4 border-b-[2px] border-r-[2px] border-black font-bold text-[10px]">
+              RUC: <span className="font-bold ml-2">{rucInquilino || "S/D"}</span>
+            </td>
+            <td className="px-4 border-b-[2px] border-black font-bold text-[10px]">
+              NOTA DE REMISIÓN:
+            </td>
+          </tr>
+          <tr className="h-10">
+            <td colSpan={2} className="px-4 border-b-[2px] border-black font-bold text-[10px]">
+              NOMBRE O RAZÓN SOCIAL: <span className="font-bold ml-2 uppercase text-[11px]">{nombreInquilino}</span>
+            </td>
+          </tr>
+          <tr className="h-10">
+            <td className="px-4 border-b-[2px] border-r-[2px] border-black font-bold text-[10px] overflow-hidden">
+              DIRECCIÓN: <span className="font-bold ml-2 uppercase truncate">{direccionCliente}</span>
+            </td>
+            <td className="px-4 border-b-[2px] border-black font-bold text-[10px]">
+              TELÉFONO: <span className="ml-2 font-medium">{pagoData.contrato?.inquilino?.telefono || ""}</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* SECCIÓN 3: TABLA DE ÍTEMS */}
+      <div className="flex-1 bg-white">
+        <table className="w-full border-collapse table-fixed">
+          <thead>
+            <tr className="text-[9px] font-black uppercase">
+              <th className="py-2 border-b-[2px] border-r-[2px] border-black w-[40px] text-center">Cant.</th>
+              <th className="py-2 border-b-[2px] border-r-[2px] border-black px-2 text-left">Descripción</th>
+              <th className="py-2 border-b-[2px] border-r-[2px] border-black w-[90px] text-right px-2">P. Unitario</th>
+              <th className="py-2 border-b-[2px] border-r-[2px] border-black w-[65px] text-center">Exentas</th>
+              <th className="py-2 border-b-[2px] border-r-[2px] border-black w-[65px] text-center">5%</th>
+              <th className="py-2 border-b-[2px] border-black w-[85px] text-right px-2">10%</th>
+            </tr>
+          </thead>
+          <tbody className="text-[10px] font-bold">
+            <tr className="h-10">
+              <td className="text-center border-r-[2px] border-b border-black/10 border-black">1</td>
+              <td className="px-2 border-r-[2px] border-b border-black/10 border-black uppercase text-[9.5px] leading-tight">{descripcionFactura}</td>
+              <td className="text-right px-2 border-r-[2px] border-b border-black/10 border-black">{formatCurrency(total)}</td>
+              <td className="border-r-[2px] border-b border-black/10 border-black"></td>
+              <td className="border-r-[2px] border-b border-black/10 border-black"></td>
+              <td className="text-right px-2 border-b border-black/10">{formatCurrency(total)}</td>
+            </tr>
+            {/* Filas de relleno con bordes reforzados */}
+            {[...Array(10)].map((_, i) => (
+              <tr key={i} className="h-8">
+                <td className="border-r-[2px] border-black"></td>
+                <td className="border-r-[2px] border-black"></td>
+                <td className="border-r-[2px] border-black"></td>
+                <td className="border-r-[2px] border-black"></td>
+                <td className="border-r-[2px] border-black"></td>
+                <td></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      {/* LIQUIDACIÓN DEL IVA */}
-      <div className="px-4 py-2 flex items-center justify-between text-[9.5px] font-bold border-b-[1.5px] border-slate-900 bg-muted text-foreground">
-        <span>LIQUIDACIÓN DEL IVA: &nbsp;&nbsp;(5%) &nbsp;0</span>
-        <span>(10%) &nbsp;{formatCurrency(liqIva10)}</span>
-        <span className="font-black">TOTAL IVA: &nbsp;{formatCurrency(liqIva10)}</span>
-      </div>
+      {/* SECCIÓN 4: TOTALES (Sincronizada con la tabla de arriba) */}
+      <table className="w-full border-collapse table-fixed">
+        <tbody>
+          {/* Fila Subtotales */}
+          <tr className="h-9 border-t-[2px] border-black font-bold">
+            <td colSpan={3} className="px-4 text-[9px] font-black uppercase border-r-[2px] border-black">Subtotales:</td>
+            <td className="w-[65px] border-r-[2px] border-black"></td>
+            <td className="w-[65px] border-r-[2px] border-black"></td>
+            <td className="w-[85px] text-right px-2 text-[11px] border-black">{formatCurrency(total)}</td>
+          </tr>
+          {/* Fila Total a Pagar */}
+          <tr className="h-10 border-t-[2px] border-black font-bold">
+            <td colSpan={5} className="px-4 text-[9px] font-black uppercase border-r-[2px] border-black">
+              Total a Pagar Guaraníes: <span className="ml-3 italic text-[10px] lowercase font-medium">{montoLetras}</span>
+            </td>
+            <td className="text-right px-2 text-[14px] font-black">{formatCurrency(total)}</td>
+          </tr>
+        </tbody>
+      </table>
 
-      {/* PIE DE PÁGINA / IMPRENTA */}
-      <div className="p-2.5 px-4 flex items-start justify-between text-[7.5px] text-muted-foreground font-semibold leading-tight bg-card">
-        <div className="space-y-0.5">
-          <p>GRAFICONT de Arnaldo Rojas - HAB. N° 1.365 - RUC: 709716 - 5 - Gaspar R. de Francia 483 c/ Vapor Cué, Luque</p>
-          <p>05 Tal. 50x3 - Numerados del 0001.551 al 0001.800 - E-mail: graficontajn@hotmail.com - Cel.: (0981) 749 696 - (0974) 749 696</p>
+      {/* SECCIÓN 5: IVA Y PIE */}
+      <div className="border-t-[2px] border-black">
+        <div className="flex h-8 items-center bg-gray-50 px-4 justify-between text-[8px] font-black uppercase border-b-[2px] border-black">
+          <span>Liquidación IVA: &nbsp; (5%) 0</span>
+          <span>(10%) {formatCurrency(liqIva10)}</span>
+          <span className="text-[10px]">Total IVA: {formatCurrency(liqIva10)}</span>
         </div>
-        <div className="text-right space-y-0.5 uppercase tracking-tighter">
-          <p>ORIGINAL: Cliente</p>
-          <p>DUPL.: No Válido para Crédito Fiscal</p>
-          <p>TRIPL.: Archivo Tributario</p>
+        <div className="p-2 bg-white flex justify-between items-start text-[7px] font-bold text-gray-500">
+          <div className="space-y-0.5">
+            <p>GRAFICONT de Arnaldo Rojas - HAB. N° 1365 - RUC: 709716-5 - Gaspar R. de Francia 483, Luque</p>
+            <p>Numerados del 0001.200 al 0001.500 - Cel: (0981) 749 696</p>
+          </div>
+          <div className="text-right flex flex-col items-end uppercase gap-0.5 text-black">
+            <span>Original: Cliente / Duplicado: Archivo Tributario</span>
+          </div>
         </div>
       </div>
     </div>
@@ -578,7 +702,8 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
                 <Printer className="w-4 h-4" />
                 {isSaving ? "GUARDANDO..." : "IMPRIMIR Y GUARDAR COMPROBANTE"}
               </Button>
-
+              
+              {isMobile && (
               <Button
                 type="button"
                 onClick={handleShareWhatsApp}
@@ -586,8 +711,9 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
                 className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black italic rounded-2xl h-11 shadow-xl shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all text-xs flex items-center justify-center gap-2"
               >
                 <MessageCircle className="w-4 h-4" />
-                COMPARTIR POR WHATSAPP (PDF)
+                WHATSAPP
               </Button>
+              )}
 
               <Button
                 type="button"
@@ -691,3 +817,4 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
     </Dialog>
   );
 }
+

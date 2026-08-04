@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { 
@@ -398,7 +398,7 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
                     type="number" 
                     value={montoMulta} 
                     onChange={(e) => setMontoMulta(Number(e.target.value))}
-                    className="h-12 rounded-xl font-bold border-border bg-[#F8F9FA] text-foreground" 
+                    className="h-12 rounded-xl font-bold border-border bg-[#F8F9FA] text-slate-900" 
                     min="0"
                   />
                 </div>
@@ -407,7 +407,7 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
                   <select
                     value={tipoAplicacion}
                     onChange={(e) => setTipoAplicacion(e.target.value)}
-                    className="w-full h-12 px-4 rounded-xl font-bold border border-border bg-[#F8F9FA] text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/10"
+                    className="w-full h-12 px-4 rounded-xl font-bold border border-border bg-[#F8F9FA] text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary/10"
                   >
                     <option value="FinMesAtrasado">Al Fin del Mes Atrasado</option>
                     <option value="CincoDias">Pasando Días de Gracia</option>
@@ -420,7 +420,7 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
                       type="number" 
                       value={diasGracia} 
                       onChange={(e) => setDiasGracia(Number(e.target.value))}
-                      className="h-12 rounded-xl font-bold border-border bg-[#F8F9FA] text-foreground"
+                      className="h-12 rounded-xl font-bold border-border bg-[#F8F9FA] text-slate-900"
                       min="1"
                     />
                   </div>

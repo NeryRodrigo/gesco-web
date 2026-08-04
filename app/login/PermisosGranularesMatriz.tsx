@@ -74,7 +74,7 @@ export const LISTA_PERMISOS: PermisoGranular[] = [
 ];
 
 export function verificarPermisoGranular(permisoId: string, email?: string): { permitido: boolean; mensaje?: string; permisoNombre?: string } {
-  let targetEmail = (email || (typeof window !== "undefined" ? (localStorage.getItem("gesco_active_user_email") || localStorage.getItem("gesco_last_tested_email")) : "") || "rody.moran.py@gmail.com").toLowerCase().trim();
+  let targetEmail = (email || (typeof window !== "undefined" ? (localStorage.getItem("VORDIA_active_user_email") || localStorage.getItem("VORDIA_last_tested_email")) : "") || "rody.moran.py@gmail.com").toLowerCase().trim();
   if (!targetEmail) targetEmail = "rody.moran.py@gmail.com";
 
   const permObj = LISTA_PERMISOS.find(p => p.id === permisoId);
@@ -85,10 +85,10 @@ export function verificarPermisoGranular(permisoId: string, email?: string): { p
     return { permitido: true };
   }
 
-  const key = `gesco_permisos_${targetEmail}`;
+  const key = `VORDIA_permisos_${targetEmail}`;
   let saved = localStorage.getItem(key);
   if (!saved) {
-    saved = localStorage.getItem("gesco_permisos_current");
+    saved = localStorage.getItem("VORDIA_permisos_current");
   }
 
   if (!saved) {
@@ -142,7 +142,7 @@ export function ModalAccesoRestringido({
                 Acceso Denegado 🚫
               </DialogTitle>
               <p className="text-xs text-red-300 font-medium">
-                Gesco Security Engine v2.4
+                VORDIA Security Engine v2.4
               </p>
             </div>
           </div>
@@ -208,7 +208,7 @@ export function PermisosGranularesMatriz({ usuarios, usuarioSeleccionadoId, onSe
 
   useEffect(() => {
     if (!usuarioActual) return;
-    const key = `gesco_permisos_${usuarioActual.email.toLowerCase().trim()}`;
+    const key = `VORDIA_permisos_${usuarioActual.email.toLowerCase().trim()}`;
     const saved = localStorage.getItem(key);
     
     if (saved) {
@@ -234,11 +234,11 @@ export function PermisosGranularesMatriz({ usuarios, usuarioSeleccionadoId, onSe
       : [...permisosActivos, id];
     
     setPermisosActivos(nuevos);
-    const key = `gesco_permisos_${usuarioActual.email.toLowerCase().trim()}`;
+    const key = `VORDIA_permisos_${usuarioActual.email.toLowerCase().trim()}`;
     localStorage.setItem(key, JSON.stringify(nuevos));
-    localStorage.setItem("gesco_active_user_email", usuarioActual.email.toLowerCase().trim());
-    localStorage.setItem("gesco_last_tested_email", usuarioActual.email.toLowerCase().trim());
-    localStorage.setItem("gesco_permisos_current", JSON.stringify(nuevos));
+    localStorage.setItem("VORDIA_active_user_email", usuarioActual.email.toLowerCase().trim());
+    localStorage.setItem("VORDIA_last_tested_email", usuarioActual.email.toLowerCase().trim());
+    localStorage.setItem("VORDIA_permisos_current", JSON.stringify(nuevos));
     
     const permObj = LISTA_PERMISOS.find(p => p.id === id);
     toast.success("Permiso Actualizado en Matriz", {
@@ -250,7 +250,7 @@ export function PermisosGranularesMatriz({ usuarios, usuarioSeleccionadoId, onSe
     if (!usuarioActual) return;
     const todos = LISTA_PERMISOS.map(p => p.id);
     setPermisosActivos(todos);
-    const key = `gesco_permisos_${usuarioActual.email.toLowerCase().trim()}`;
+    const key = `VORDIA_permisos_${usuarioActual.email.toLowerCase().trim()}`;
     localStorage.setItem(key, JSON.stringify(todos));
     toast.success("Acceso Total Asignado", {
       description: `Se han habilitado los ${todos.length} comportamientos para ${usuarioActual.nombre}.`
@@ -260,7 +260,7 @@ export function PermisosGranularesMatriz({ usuarios, usuarioSeleccionadoId, onSe
   const restringirTodos = () => {
     if (!usuarioActual) return;
     setPermisosActivos([]);
-    const key = `gesco_permisos_${usuarioActual.email.toLowerCase().trim()}`;
+    const key = `VORDIA_permisos_${usuarioActual.email.toLowerCase().trim()}`;
     localStorage.setItem(key, JSON.stringify([]));
     toast.warning("Acceso Total Restringido", {
       description: `Se han revocado todos los permisos operativos para ${usuarioActual.nombre}.`
@@ -303,7 +303,7 @@ export function PermisosGranularesMatriz({ usuarios, usuarioSeleccionadoId, onSe
                 Matriz de Permisos y Comportamientos por Módulo
               </h3>
               <span className="bg-blue-500/20 text-blue-300 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border border-blue-500/30">
-                Gesco Security Engine
+                VORDIA Security Engine
               </span>
             </div>
             <p className="text-xs text-muted-foreground font-medium mt-1">
@@ -504,7 +504,7 @@ export function PermisosGranularesMatriz({ usuarios, usuarioSeleccionadoId, onSe
                   {verifResultado?.permitido ? "Acceso Permitido ✅" : "Acceso Denegado / Interceptado 🚫"}
                 </DialogTitle>
                 <p className="text-xs text-muted-foreground font-medium">
-                  Comportamiento evaluado por Gesco Security Engine en tiempo real
+                  Comportamiento evaluado por VORDIA Security Engine en tiempo real
                 </p>
               </div>
             </div>
@@ -577,3 +577,4 @@ export function PermisosGranularesMatriz({ usuarios, usuarioSeleccionadoId, onSe
     </div>
   );
 }
+

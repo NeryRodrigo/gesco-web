@@ -8,137 +8,71 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-montserrat);
   --font-heading: var(--font-syncopate);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
-  --color-input: var(--input);
   --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
+  --color-muted-foreground: var(--muted-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 16px);
 }
 
 :root, .dark {
   /* VORDIA DESIGN TOKENS */
   --vordia-blue: #1E7BFF;
+  --vordia-dark: #050B18;      /* Fondo principal */
+  --vordia-card: #0C1327;      /* Fondo de tarjetas */
+  --vordia-sidebar: #080E1E;   /* Fondo sidebar */
   --vordia-dark: #050B18;
   --vordia-deep: #0A1631;
   --vordia-white: #F5F7FA;
   --vordia-gray: #8D97A7;
-  --vordia-success: #22C55E;
-  --vordia-warning: #F59E0B;
-  --vordia-error: #EF4444;
 
-  /* Tailwind mappings */
+  /* Mapeos de variables */
   --radius: 16px;
   --background: var(--vordia-dark);
   --foreground: var(--vordia-white);
   --card: #0C1327;
-  --card-foreground: var(--vordia-white);
-  --popover: var(--vordia-deep);
-  --popover-foreground: var(--vordia-white);
-  --primary: var(--vordia-blue);
-  --primary-foreground: #FFFFFF;
-  --secondary: transparent;
-  --secondary-foreground: var(--vordia-gray);
   --muted: var(--vordia-deep);
   --muted-foreground: var(--vordia-gray);
-  --accent: #102A63;
-  --accent-foreground: #FFFFFF;
-  --destructive: var(--vordia-error);
-  --border: #24314D;
-  --input: var(--vordia-deep);
+  --border: #1E293B;
   --ring: var(--vordia-blue);
-  
-  --chart-1: #1E7BFF;
-  --chart-2: #5CA6FF;
-  --chart-3: #B8D4FF;
-  --chart-4: #22C55E;
-  --chart-5: #F59E0B;
-
-  --sidebar: var(--vordia-dark);
-  --sidebar-foreground: var(--vordia-white);
-  --sidebar-primary: var(--vordia-blue);
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #102A63;
-  --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: #24314D;
-  --sidebar-ring: var(--vordia-blue);
+  --radius: 20px;
 }
 
-@keyframes progress-indefinite {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+/* Efecto de cristal sutil para las tarjetas */
+.vordia-card-glow {
+  background: linear-gradient(145deg, #0C1327 0%, #080E1E 100%);
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
 }
 
-.animate-progress-indefinite {
-  width: 50%;
-  animation: progress-indefinite 1.5s infinite linear;
-}
-
+/* 
+  CORRECCIÓN BUILD ERROR: 
+  En Tailwind 4 + Next.js 16, usar @apply con variables de tema dentro de @layer base 
+  causa el error "unknown utility class". Usamos CSS nativo para solucionarlo.
+*/
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    border-color: var(--border);
+    outline-color: color-mix(in srgb, var(--ring), transparent 50%);
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--background);
+    color: var(--foreground);
   }
 }
 
-/* 1. Elimina cualquier capa oscura (overlay) que intente ponerse sobre el mapa */
-[data-state="open"] > .fixed.inset-0 {
-    background-color: transparent !important;
-    backdrop-filter: none !important;
-    pointer-events: none; /* Permite hacer clic en el mapa incluso con el panel abierto */
-}
+/* ============================================================
+   ESTILOS DE IMPRESIÓN Y COMPROBANTES (MODO PAPEL)
+   ============================================================ */
 
-/* 2. Asegura que el punto seleccionado no se vea "sucio" por el foco del navegador */
-.leaflet-interactive:focus {
-    outline: none !important;
-}
-
-/* 3. Estilo extra para que los puntos rojos resalten con sombra */
-.leaflet-interactive {
-    filter: drop-shadow(0px 2px 3px rgba(0,0,0,0.2));
-}
-
-/* Estilos de Impresión para Comprobantes y Recibos */
 @media print {
   @page {
-    margin: 0.8cm;
-    size: auto;
+    margin: 0;
+    size: auto;/*A4 portrait;*/
   }
   .no-print {
     display: none !important;
   }
+  /* Lógica para que solo se imprima el contenido del portal */
   body:has(.print-portal-content) * {
     visibility: hidden !important;
   }
@@ -151,39 +85,62 @@
     left: 0 !important;
     top: 0 !important;
     width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-    padding: 40px 15px 20px 15px !important;
     background: white !important;
     z-index: 99999 !important;
-    display: block !important;
-  }
-  .print-portal-content .printable-receipt {
-    width: 100% !important;
-    max-width: 650px !important;
-    margin: 0 auto !important;
-    box-shadow: none !important;
+    padding: 20px !important;
   }
 }
 
-/* Printable document previews: force white bg + dark text even in dark theme */
+/* 
+  FUERZA EL COMPROBANTE A MODO CLARO
+  Anulamos agresivamente los colores oscuros de Vordia
+*/
 .printable-receipt {
-  background: white !important;
-  color: #1e293b !important;
-  border-color: #cbd5e1 !important;
+  background-color: white !important;
+  color: black !important;
+  border-color: black !important;
+  box-shadow: none !important;
 }
-.printable-receipt * {
-  color: inherit;
-  border-color: inherit;
+
+/* 
+  Selector universal para hijos del comprobante:
+  Esto obliga a que CUALQUIER div, tabla o texto sea blanco/negro
+*/
+.printable-receipt,
+.printable-receipt div,
+.printable-receipt table,
+.printable-receipt thead,
+.printable-receipt tbody,
+.printable-receipt tfoot,
+.printable-receipt tr,
+.printable-receipt td,
+.printable-receipt th,
+.printable-receipt span,
+.printable-receipt p,
+.printable-receipt h1,
+.printable-receipt h2 {
+  background-color: white !important;
+  color: #000000 !important;
+  border-color: #000000 !important;
 }
-.printable-receipt .text-foreground,
-.printable-receipt .text-muted-foreground {
-  color: #475569 !important;
+
+/* Estilo para áreas destacadas (como el bloque de IVA) */
+.printable-receipt .bg-gray-soft,
+.printable-receipt .bg-muted {
+  background-color: #f1f5f9 !important; /* Gris claro neutro */
+  color: black !important;
 }
-.printable-receipt h2,
-.printable-receipt h3,
-.printable-receipt strong,
+
+/* Forzar textos en negrita a negro puro */
+.printable-receipt .font-bold,
 .printable-receipt .font-black,
-.printable-receipt .font-bold {
-  color: #0f172a !important;
+.printable-receipt strong {
+  color: #000000 !important;
+}
+
+/* Inputs de edición en el Modal (Fuera del comprobante) */
+.no-print input, .no-print textarea {
+  background-color: var(--muted);
+  color: var(--foreground);
+  border: 1px solid var(--border);
 }
