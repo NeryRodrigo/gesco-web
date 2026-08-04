@@ -4,7 +4,7 @@ import {
   AlertTriangle, LayoutDashboard, ChevronRight, MapPin, Edit, Trash2, ArrowLeft, 
   ExternalLink, Save, X, DollarSign, Ruler, ShieldCheck, XCircle, 
   Search, Filter, Sparkles, User, Building2, Wallet, LogOut, 
-  Activity, Users, FileText, Cpu, Lock, History, Settings, List, CheckSquare 
+  Activity, Users, FileText, Cpu, Lock, History, Settings, List, CheckSquare, Menu
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,7 @@ export default function OimaDashboard() {
   const [usuariosAdmin, setUsuariosAdmin] = useState<any[]>([]);
   const [isModalRegistroOpen, setIsModalRegistroOpen] = useState(false);
   const [isModalEdicionOpen, setIsModalEdicionOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [usuarioAEditar, setUsuarioAEditar] = useState<any>(null);
   const [usuarioPermisosId, setUsuarioPermisosId] = useState<number | null>(null);
   const [condoDashboardData, setCondoDashboardData] = useState<any>(null);
@@ -83,6 +84,7 @@ export default function OimaDashboard() {
       }
     }
     setVistaActual(nuevaVista);
+    setIsMobileMenuOpen(false);
   };
 
   const cargarDatos = async () => {
@@ -142,7 +144,20 @@ export default function OimaDashboard() {
     <div className="flex min-h-screen bg-[#050B18] text-white font-sans overflow-x-hidden">
       
       {/* SIDEBAR ESTILO PREMIUM */}
-      <aside className="hidden lg:flex w-72 bg-[#080E1E] flex-col border-r border-white/5 fixed h-full z-40">
+      <aside className={`
+        ${isMobileMenuOpen ? 'flex' : 'hidden'} 
+        lg:flex w-72 bg-[#080E1E] flex-col border-r border-white/5 fixed h-full z-50 
+        transition-all duration-300
+        `}>
+
+        {/* BOTÓN PARA CERRAR (X) - AGREGAR ESTO */}
+        <button 
+          onClick={() => setIsMobileMenuOpen(false)}
+          className="lg:hidden absolute top-5 right-5 text-slate-500 hover:text-white p-2"
+        >
+          <X size={24} />
+        </button>
+
         <div className="p-8 flex flex-col items-center">
           
           {/* 1. LOGO VORDIA (Cabecera sutil) */}
@@ -257,6 +272,14 @@ export default function OimaDashboard() {
         </div>
       </aside>
 
+      {/* OVERLAY - AGREGAR ESTO */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden" 
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
       {/* CONTENIDO PRINCIPAL */}
       <main className="flex-1 flex flex-col min-h-screen lg:ml-72 transition-all duration-300">
         
@@ -269,6 +292,14 @@ export default function OimaDashboard() {
             </h2>
           </div>
           <div className="flex items-center gap-4">
+             {/* AGREGAR ESTE BOTÓN AQUÍ */}
+              <button 
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="lg:hidden p-2 text-slate-400 hover:bg-white/5 rounded-xl"
+              >
+                <Menu size={24} />
+              </button>   
+
              <div className="hidden md:flex items-center bg-white/5 border border-white/10 rounded-xl px-4 py-2 gap-3 text-slate-400">
                 <Search size={16} />
                 <input type="text" placeholder="Buscar..." className="bg-transparent border-none outline-none text-xs w-40" />
