@@ -281,8 +281,8 @@ export default function OimaDashboard() {
       )}
 
       {/* CONTENIDO PRINCIPAL */}
-      <main className="flex-1 flex flex-col min-h-screen lg:ml-72 transition-all duration-300">
-        
+      <main className="flex-1 flex flex-col min-h-screen lg:ml-72 transition-all duration-300 w-full overflow-x-hidden">
+      
         {/* Header Superior - LIMPIO Y CORREGIDO */}
         <header className="h-20 flex items-center justify-between px-6 md:px-12 bg-[#050B18]/80 backdrop-blur-xl sticky top-0 z-30 border-b border-white/5">
           
@@ -347,10 +347,20 @@ export default function OimaDashboard() {
           {vistaActual === "actividades" && <ActividadesVista empresaId={empresaId} />}
           {vistaActual === "facturacion" && <FacturacionVista />}
           {vistaActual === "administracion" && (
-            <div className="w-full overflow-x-auto bg-[#0C1327]/50 rounded-[2rem] border border-white/5 shadow-2xl custom-scrollbar">
-              {/* min-w-[1600px] asegura que todas las columnas de meses tengan su espacio real */}
-              <div className="min-w-[1600px] lg:min-w-full p-2 md:p-6 whitespace-nowrap"> 
+            <div className="relative w-full rounded-[2rem] border border-white/5 bg-[#0C1327]/50 overflow-hidden">
+              {/* Contenedor con scroll forzado y suavizado para móviles */}
+              <div 
+                className="w-full overflow-x-auto" 
+                style={{ 
+                  WebkitOverflowScrolling: 'touch', // Suavizado en iOS
+                  display: 'block',
+                  width: '100%'
+                }}
+              >
+                {/* Forzamos un ancho de 1600px para que entren todos los meses sin comprimirse */}
+                <div style={{ minWidth: '1600px', width: 'max-content' }} className="p-4">
                   <AdministracionPage empresaId={empresaId} usuario={usuarioActivo} />
+                </div>
               </div>
             </div>
           )}
