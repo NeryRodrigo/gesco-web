@@ -347,8 +347,9 @@ export default function OimaDashboard() {
           {vistaActual === "actividades" && <ActividadesVista empresaId={empresaId} />}
           {vistaActual === "facturacion" && <FacturacionVista />}
           {vistaActual === "administracion" && (
-            <div className="w-full overflow-x-auto custom-scrollbar bg-[#0C1327]/50 rounded-[2rem] border border-white/5">
-              <div className="min-w-[1000px] lg:min-w-full p-4"> 
+            <div className="w-full overflow-x-auto bg-[#0C1327]/50 rounded-[2rem] border border-white/5 shadow-2xl custom-scrollbar">
+              {/* min-w-[1600px] asegura que todas las columnas de meses tengan su espacio real */}
+              <div className="min-w-[1600px] lg:min-w-full p-2 md:p-6 whitespace-nowrap"> 
                   <AdministracionPage empresaId={empresaId} usuario={usuarioActivo} />
               </div>
             </div>

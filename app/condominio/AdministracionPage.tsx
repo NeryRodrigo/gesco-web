@@ -65,21 +65,29 @@ export function AdministracionPage({ empresaId, usuario }: { empresaId: number, 
   }
 
   return (
-    <>
-      <AdministracionVista 
-        unidades={unidades} 
-        empresaId={empresaId}
-        onTenantClick={(unit, tenantName) => {
-          setSelectedUnit({
-            id: unit.unidadId,
-            code: unit.codigoUnidad,
-            condo: unit.nombreCondominio,
-            tenant: tenantName,
-            status: unit.estado
-          });
-          setIsDetalleModalOpen(true);
-        }} 
-      />
+    <div className="w-full">
+      {/* 
+          Agregamos este contenedor con min-w-[1400px] 
+          Esto obliga a que la planilla ocupe su espacio real y aparezca el scroll horizontal en el celular 
+      */}
+      <div className="overflow-x-auto custom-scrollbar">
+        <div className="min-w-[1400px] lg:min-w-full">
+          <AdministracionVista 
+            unidades={unidades} 
+            empresaId={empresaId}
+            onTenantClick={(unit, tenantName) => {
+              setSelectedUnit({
+                id: unit.unidadId,
+                code: unit.codigoUnidad,
+                condo: unit.nombreCondominio,
+                tenant: tenantName,
+                status: unit.estado
+              });
+              setIsDetalleModalOpen(true);
+            }} 
+          />
+        </div>
+      </div>
 
       <DetalleUnidadModal 
         isOpen={isDetalleModalOpen}
@@ -87,7 +95,7 @@ export function AdministracionPage({ empresaId, usuario }: { empresaId: number, 
         unidad={selectedUnit}
         onUpdate={() => cargarUnidades()}
       />
-    </>
+    </div>
   );
 }
 
