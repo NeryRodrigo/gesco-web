@@ -77,7 +77,6 @@ const MONTHS = [
 
 export function AdministracionVista({ unidades, empresaId, onTenantClick }: AdministracionVistaProps) {
   const currentYear = 2026; 
-  // Lógica para obtener meses hasta hoy
   const today = new Date();
   const currentMonthIdx = today.getFullYear() > currentYear ? 11 : today.getMonth();
   const visibleMonths = MONTHS.slice(0, currentMonthIdx + 1);
@@ -151,15 +150,11 @@ export function AdministracionVista({ unidades, empresaId, onTenantClick }: Admi
     return totals;
   }, [unidades, currentYear, getMonthlyRentAndPayment, visibleMonths]);
 
-  // Funciones de carga de archivos (sin cambios)
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => { /* ... (igual al anterior) */ };
-  const handleMigrarContratos = async (e: React.ChangeEvent<HTMLInputElement>) => { /* ... (igual al anterior) */ };
-
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row justify-between items-end gap-4">
         <div>
-          <h2 className="text-3xl font-black italic uppercase tracking-tighter text-foreground">Planilla de Administración {currentYear}</h2>
+          <h2 className="text-3xl font-black italic uppercase tracking-tighter text-white">Planilla de Administración {currentYear}</h2>
           <div className="flex items-center gap-2 mt-1">
              <Badge className="bg-primary text-white font-black px-2 py-0.5 text-[9px] uppercase">Corte: {MONTHS[currentMonthIdx]}</Badge>
              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">Control de cobros y saldos acumulados</p>
@@ -167,18 +162,20 @@ export function AdministracionVista({ unidades, empresaId, onTenantClick }: Admi
         </div>
         <div className="flex gap-2">
            <Button variant="outline" className="h-10 px-4 rounded-xl border-border font-bold text-[10px] uppercase hover:bg-muted"><Download className="w-4 h-4 mr-2" /> PDF</Button>
-           {/* Inputs de carga de archivos mantenidos aquí... */}
            <Button className="h-10 px-4 rounded-xl bg-slate-900 text-white font-bold text-[10px] uppercase hover:bg-slate-800 shadow-lg shadow-slate-200"><Printer className="w-4 h-4 mr-2" /> IMPRIMIR</Button>
         </div>
       </div>
 
-      <Card className="border-none shadow-2xl rounded-[2rem] bg-card overflow-hidden">
+      <Card className="border-none shadow-2xl rounded-[2rem] bg-[#0C1327] overflow-hidden">
         <CardContent className="p-0">
-          <div className="overflow-x-auto scrollbar-hide">
-            <table className="w-full border-collapse">
+          {/* Contenedor de Scroll Horizontal forzado */}
+          <div className="overflow-x-auto custom-scrollbar">
+            {/* min-w-[1500px] obliga a la tabla a expandirse para que aparezca el scroll en el móvil */}
+            <table className="min-w-[1500px] w-full border-collapse table-auto">
               <thead>
                 <tr className="bg-slate-900 text-white">
-                  <th className="sticky left-0 z-20 bg-slate-900 p-6 text-left min-w-[220px] border-r border-slate-800">
+                  {/* Columna Sticky (Pegajosa) a la izquierda */}
+                  <th className="sticky left-0 z-30 bg-slate-900 p-6 text-left min-w-[220px] border-r border-slate-800 shadow-[2px_0_10px_rgba(0,0,0,0.5)]">
                     <span className="text-[11px] font-black uppercase tracking-widest italic">Inquilino / Unidad</span>
                   </th>
                   <th className="p-6 text-center border-r border-slate-800 min-w-[80px]">
@@ -197,15 +194,16 @@ export function AdministracionVista({ unidades, empresaId, onTenantClick }: Admi
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-white/5">
                 {groupedData.map((condo) => (
                   <React.Fragment key={condo.name}>
-                    <tr className="bg-emerald-50/50">
-                      <td colSpan={visibleMonths.length + 4} className="px-6 py-4">
+                    <tr className="bg-emerald-500/10">
+                      {/* Ajustamos el colSpan dinámicamente */}
+                      <td colSpan={visibleMonths.length + 4} className="px-6 py-4 sticky left-0 z-20">
                         <div className="flex items-center gap-3">
-                          <Building2 className="w-5 h-5 text-emerald-600" />
-                          <span className="text-sm font-black italic uppercase text-emerald-700 tracking-tighter">{condo.name}</span>
-                          <div className="h-[1px] flex-1 bg-emerald-100 ml-4"></div>
+                          <Building2 className="w-5 h-5 text-emerald-400" />
+                          <span className="text-sm font-black italic uppercase text-emerald-400 tracking-tighter">{condo.name}</span>
+                          <div className="h-[1px] flex-1 bg-emerald-500/20 ml-4"></div>
                         </div>
                       </td>
                     </tr>
@@ -217,14 +215,18 @@ export function AdministracionVista({ unidades, empresaId, onTenantClick }: Admi
                       let rowTotalBalance = 0;
 
                       return (
-                        <tr key={unit.unidadId} className="hover:bg-muted/80 transition-colors group">
-                          <td className="sticky left-0 z-10 bg-card group-hover:bg-muted transition-colors p-5 border-r border-border shadow-[2px_0_10px_rgba(0,0,0,0.02)]" onDoubleClick={() => !isAvailable && onTenantClick(unit, inquilino)}>
+                        <tr key={unit.unidadId} className="hover:bg-white/5 transition-colors group">
+                          {/* Celda Sticky del Inquilino */}
+                          <td 
+                            className="sticky left-0 z-20 bg-[#0C1327] group-hover:bg-slate-800 transition-colors p-5 border-r border-white/10 shadow-[2px_0_10px_rgba(0,0,0,0.3)]" 
+                            onDoubleClick={() => !isAvailable && onTenantClick(unit, inquilino)}
+                          >
                             <div className={`flex flex-col ${isAvailable ? 'opacity-30' : 'cursor-pointer'}`}>
-                              <span className="text-[12px] font-black uppercase text-foreground leading-tight italic truncate max-w-[180px]">{inquilino}</span>
-                              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">{unit.nombreCondominio} - {formatDuplex(unit.codigoUnidad)}</span>
+                              <span className="text-[12px] font-black uppercase text-white leading-tight italic truncate max-w-[180px]">{inquilino}</span>
+                              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{unit.nombreCondominio} - {formatDuplex(unit.codigoUnidad)}</span>
                             </div>
                           </td>
-                          <td className="p-5 text-center border-r border-border text-[13px] font-black italic text-primary">
+                          <td className="p-5 text-center border-r border-white/10 text-[13px] font-black italic text-blue-400">
                             {formatDuplex(unit.codigoUnidad).replace('Dúplex ', '')}
                           </td>
                           
@@ -238,27 +240,27 @@ export function AdministracionVista({ unidades, empresaId, onTenantClick }: Admi
                             if (isActiveInMonth) rowTotalBalance += balance;
 
                             return (
-                              <td key={mIdx} className={`p-4 border-r border-border ${!isActiveInMonth ? 'bg-muted/30' : ''}`}>
+                              <td key={mIdx} className={`p-4 border-r border-white/10 ${!isActiveInMonth ? 'bg-white/5' : ''}`}>
                                 {isActiveInMonth ? (
                                   <TooltipProvider>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <div className="space-y-1 cursor-help">
                                           <div className="flex justify-between text-[9px] font-bold">
-                                            <span className="text-muted-foreground">ACO.</span>
-                                            <span className="text-foreground">{formatCurrency(agreed).replace('GS. ', '')}</span>
+                                            <span className="text-slate-400">ACO.</span>
+                                            <span className="text-white">{formatCurrency(agreed).replace('GS. ', '')}</span>
                                           </div>
                                           <div className="flex justify-between text-[9px] font-bold">
-                                            <span className="text-emerald-500">ABO.</span>
-                                            <span className="text-emerald-600">{paid > 0 ? formatCurrency(paid).replace('GS. ', '') : "0"}</span>
+                                            <span className="text-emerald-400">ABO.</span>
+                                            <span className="text-emerald-500">{paid > 0 ? formatCurrency(paid).replace('GS. ', '') : "0"}</span>
                                           </div>
-                                          <div className={`flex justify-between text-[10px] font-black border-t mt-1 ${balance > 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                                          <div className={`flex justify-between text-[10px] font-black border-t border-white/10 mt-1 ${balance > 0 ? 'text-red-400' : 'text-blue-400'}`}>
                                             <span className="text-[7px] opacity-50 uppercase">SALDO</span>
                                             <span>{balance > 0 ? formatCurrency(balance).replace('GS. ', '') : "OK"}</span>
                                           </div>
                                         </div>
                                       </TooltipTrigger>
-                                      <TooltipContent className="bg-slate-900 text-white p-3 rounded-xl border-none">
+                                      <TooltipContent className="bg-slate-900 text-white p-3 rounded-xl border border-white/10">
                                           <p className="text-[10px] font-black uppercase mb-1">{MONTHS[mIdx]} {currentYear}</p>
                                           <p className="text-xs">Saldo: {formatCurrency(balance)}</p>
                                       </TooltipContent>
@@ -269,15 +271,14 @@ export function AdministracionVista({ unidades, empresaId, onTenantClick }: Admi
                             );
                           })}
 
-                          {/* Columna de Total Pendiente Acumulado */}
-                          <td className="p-5 border-r border-border bg-red-50/30 text-center">
-                            <span className={`text-sm font-black italic ${rowTotalBalance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                          <td className="p-5 border-r border-white/10 bg-red-500/5 text-center">
+                            <span className={`text-sm font-black italic ${rowTotalBalance > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
                               {rowTotalBalance > 0 ? formatCurrency(rowTotalBalance).replace('GS. ', '') : "0"}
                             </span>
                           </td>
 
-                          <td className="p-5 border-r border-border">
-                             <div className="text-[9px] font-bold text-muted-foreground line-clamp-2 uppercase italic">{contrato?.observaciones || "-"}</div>
+                          <td className="p-5 border-r border-white/10">
+                             <div className="text-[9px] font-bold text-slate-400 line-clamp-2 uppercase italic">{contrato?.observaciones || "-"}</div>
                           </td>
                         </tr>
                       );
@@ -288,20 +289,21 @@ export function AdministracionVista({ unidades, empresaId, onTenantClick }: Admi
               
               <tfoot className="bg-slate-900 text-white">
                 <tr>
-                  <th colSpan={2} className="sticky left-0 z-20 bg-slate-900 p-8 text-left border-r border-slate-800">
-                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground italic">Totales hasta {MONTHS[currentMonthIdx]}</span>
+                  {/* Footer Sticky */}
+                  <th colSpan={2} className="sticky left-0 z-30 bg-slate-900 p-8 text-left border-r border-slate-800 shadow-[2px_0_10px_rgba(0,0,0,0.5)]">
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 italic">Totales hasta {MONTHS[currentMonthIdx]}</span>
                   </th>
                   {monthlyTotals.map((total, idx) => (
                     <th key={idx} className="p-4 border-r border-slate-800 bg-slate-900/95">
                       <div className="flex flex-col items-center gap-1">
-                        <span className="text-[7px] font-black uppercase text-muted-foreground">Abonado</span>
+                        <span className="text-[7px] font-black uppercase text-slate-500">Abonado</span>
                         <span className="text-[11px] font-black italic text-emerald-400">{formatCurrency(total.abonado).replace('GS. ', '')}</span>
                         <span className="text-[7px] font-black uppercase text-red-400 mt-1">Saldo</span>
                         <span className="text-[12px] font-black italic text-red-500">{formatCurrency(total.saldo).replace('GS. ', '')}</span>
                       </div>
                     </th>
                   ))}
-                  <th className="p-4 bg-red-950/40 text-center border-l border-slate-800">
+                  <th className="p-4 bg-red-900/20 text-center border-l border-slate-800">
                      <span className="text-[7px] font-black uppercase text-red-300 block mb-1">Total Saldo</span>
                      <span className="text-[15px] font-black italic text-red-400">
                         {formatCurrency(monthlyTotals.reduce((a, b) => a + b.saldo, 0)).replace('GS. ', '')}
