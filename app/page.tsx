@@ -283,31 +283,35 @@ export default function OimaDashboard() {
       {/* CONTENIDO PRINCIPAL */}
       <main className="flex-1 flex flex-col min-h-screen lg:ml-72 transition-all duration-300">
         
-        {/* Header Superior */}
+        {/* Header Superior - LIMPIO Y CORREGIDO */}
         <header className="h-20 flex items-center justify-between px-6 md:px-12 bg-[#050B18]/80 backdrop-blur-xl sticky top-0 z-30 border-b border-white/5">
-          <div>
-            <h2 className="text-xl md:text-2xl font-semibold text-white tracking-tight">
+          
+          {/* LADO IZQUIERDO: Botón Móvil + Título */}
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="lg:hidden p-2 text-slate-400 hover:bg-white/5 rounded-xl flex-shrink-0"
+            >
+              <Menu size={24} />
+            </button>   
+
+            <h2 className="text-xl md:text-2xl font-semibold text-white tracking-tight truncate">
               {vistaActual === 'inicio' ? 'Resumen Operativo' : 
-               vistaActual === 'condominio' ? 'Gestión de Unidades' : vistaActual.toUpperCase().replace('_', ' ')}
+              vistaActual === 'condominio' ? 'Gestión de Unidades' : vistaActual.toUpperCase().replace('_', ' ')}
             </h2>
           </div>
-          <div className="flex items-center gap-4">
-             {/* AGREGAR ESTE BOTÓN AQUÍ */}
-              <button 
-                onClick={() => setIsMobileMenuOpen(true)}
-                className="lg:hidden p-2 text-slate-400 hover:bg-white/5 rounded-xl"
-              >
-                <Menu size={24} />
-              </button>   
 
-             <div className="hidden md:flex items-center bg-white/5 border border-white/10 rounded-xl px-4 py-2 gap-3 text-slate-400">
+          {/* LADO DERECHO: Buscador + Icono Actividad */}
+          <div className="flex items-center gap-4">
+            <div className="hidden md:flex items-center bg-white/5 border border-white/10 rounded-xl px-4 py-2 gap-3 text-slate-400">
                 <Search size={16} />
                 <input type="text" placeholder="Buscar..." className="bg-transparent border-none outline-none text-xs w-40" />
-             </div>
-             <button className="h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 text-slate-400">
+            </div>
+            <button className="h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 text-slate-400">
                 <Activity size={18} />
-             </button>
+            </button>
           </div>
+
         </header>
 
         {/* ÁREA DE TRABAJO */}
@@ -342,7 +346,13 @@ export default function OimaDashboard() {
           {/* OTRAS VISTAS (Mantenidas) */}
           {vistaActual === "actividades" && <ActividadesVista empresaId={empresaId} />}
           {vistaActual === "facturacion" && <FacturacionVista />}
-          {vistaActual === "administracion" && <AdministracionPage empresaId={empresaId} usuario={usuarioActivo} />}
+          {vistaActual === "administracion" && (
+            <div className="w-full overflow-x-auto custom-scrollbar bg-[#0C1327]/50 rounded-[2rem] border border-white/5">
+              <div className="min-w-[1000px] lg:min-w-full p-4"> 
+                  <AdministracionPage empresaId={empresaId} usuario={usuarioActivo} />
+              </div>
+            </div>
+          )}
           {vistaActual === "configuracion" && <ConfiguracionPage empresaId={empresaId} />}
           {vistaActual === "gastos" && <GastosPage empresaId={empresaId} />}
           {vistaActual === "historico_contratos" && <HistoricoContratosPage empresaId={empresaId} />}
