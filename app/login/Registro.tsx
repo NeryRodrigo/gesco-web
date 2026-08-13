@@ -162,7 +162,7 @@ export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: 
 		<div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(circle_at_center,_#002B7F_0%,_transparent_65%)] opacity-20" />
       </div>
 
-      <div className="relative z-10 w-full max-w-[540px] px-6 py-10">
+      <div className="relative z-10 w-full max-w-[560px] px-6 py-10">
         <div className="absolute inset-0 bg-blue-600/20 blur-[130px] rounded-full scale-95" />
 
         <Card className="relative w-full bg-[#050B18]/85 backdrop-blur-[60px] border-white/10 p-10 md:p-16 shadow-[0_0_100px_-20px_rgba(0,82,255,0.8)] rounded-[4rem] border overflow-hidden">
