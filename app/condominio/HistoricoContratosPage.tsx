@@ -14,7 +14,9 @@ import {
   Mail, 
   Car, 
   FileText,
-  AlertCircle
+  AlertCircle,
+  ChevronDown,
+  ChevronRight
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +33,8 @@ export default function HistoricoContratosPage({ empresaId }: HistoricoContratos
   const [contratos, setContratos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [groupBy, setGroupBy] = useState<"none" | "condominio">("none");
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [confirmAnularContrato, setConfirmAnularContrato] = useState<{
     contratoId: number;
     nombre: string;
@@ -117,6 +121,81 @@ export default function HistoricoContratosPage({ empresaId }: HistoricoContratos
     });
   }, [contratos, searchQuery]);
 
+  const contratosAgrupados = useMemo(() => {
+    if (groupBy !== "condominio") return null;
+    const map = new Map<string, any[]>();
+    filteredContratos.forEach((hc) => {
+      const key = (hc.unidad?.nombreCondominio || "").trim() || "Sin condominio";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(hc);
+    });
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b, "es"));
+  }, [filteredContratos, groupBy]);
+
+  const renderContratoCard = (hc: any) => (
+    <div
+      key={hc.contratoId}
+      className={`bg-card p-5 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] border-2 transition-all ${
+        hc.estadoHistorico === "Definitivo" ? "opacity-75 border-slate-100" : "border-border shadow-sm"
+      }`}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
+        <div className="flex flex-wrap items-center gap-3 min-w-0">
+          {hc.unidad && (
+            <span className="bg-primary text-white text-[10px] font-black px-3 py-1 rounded-full uppercase shrink-0">
+              {formatDuplex(hc.unidad.codigoUnidad)}
+            </span>
+          )}
+          <h4 className="font-black italic text-lg sm:text-xl break-words">{hc.inquilino?.razonSocial}</h4>
+          {getStatusBadge(hc.estadoHistorico)}
+          {getMorosidadBadge(hc.esMoroso)}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {hc.estadoHistorico === "Temporal" && (
+            <button
+              onClick={() => setConfirmAnularContrato({ contratoId: hc.contratoId, nombre: hc.inquilino.razonSocial })}
+              className="bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white border border-amber-200 text-[10px] font-black uppercase px-4 py-2 rounded-xl transition-all flex items-center gap-2"
+            >
+              <RotateCcw className="w-3.5 h-3.5" /> Reestablecer / Anular Desalojo
+            </button>
+          )}
+
+          {hc.estadoHistorico === "Definitivo" && (
+            <span className="text-[10px] font-bold text-slate-400 uppercase italic bg-slate-50 px-3 py-1 rounded-lg">
+              Registro Cerrado (Cerrado)
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mt-4">
+        <div>
+          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Inquilino</p>
+          <p className="text-sm font-bold break-all">{hc.inquilino?.documento}</p>
+          <p className="text-xs text-muted-foreground">{hc.inquilino?.telefono}</p>
+        </div>
+        <div>
+          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Periodo</p>
+          <p className="text-xs font-bold">
+            {new Date(hc.fechaInicioContrato).toLocaleDateString()} al{" "}
+            {hc.fechaFinContrato ? new Date(hc.fechaFinContrato).toLocaleDateString() : "Activo"}
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Mensualidad</p>
+          <p className="text-sm font-bold text-emerald-600 tabular-nums">
+            Gs. {Number(hc.montoMensualAlquiler).toLocaleString("es-PY")}
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Ubicación</p>
+          <p className="text-sm font-bold break-words">{hc.unidad?.nombreCondominio}</p>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
       {/* HEADER DE LA SECCIÓN */}
@@ -148,20 +227,41 @@ export default function HistoricoContratosPage({ empresaId }: HistoricoContratos
         </div>
       </div>
 
-      {/* BARRA DE BÚSQUEDA */}
-      <div className="bg-card p-4 rounded-2xl border border-border shadow-sm flex flex-col sm:flex-row items-center gap-4">
-        <div className="relative flex-1 w-full">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Buscar por inquilino, CI/RUC o código de unidad (ej. D-04)..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 h-11 rounded-xl bg-muted border-border text-sm font-medium focus:bg-card"
-          />
+      {/* BARRA DE BÚSQUEDA + AGRUPAR */}
+      <div className="bg-card p-4 rounded-2xl border border-border shadow-sm flex flex-col gap-3 sm:gap-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+          <div className="relative flex-1 w-full">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Buscar por inquilino, CI/RUC, unidad o condominio..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 h-11 rounded-xl bg-muted border-border text-sm font-medium focus:bg-card"
+            />
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[10px] font-black uppercase text-muted-foreground whitespace-nowrap">Agrupar por:</span>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setGroupBy((g) => (g === "none" ? "condominio" : "none"))}
+              className={`h-11 rounded-full text-[10px] font-black uppercase px-4 ${
+                groupBy === "condominio"
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card text-muted-foreground"
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5 mr-1.5" />
+              {groupBy === "condominio" ? "Condominio ✓" : "Ninguno"}
+            </Button>
+          </div>
         </div>
-        <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-2">
+        <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
           {filteredContratos.length} registro(s) encontrado(s)
+          {groupBy === "condominio" && contratosAgrupados
+            ? ` · ${contratosAgrupados.length} condominio(s)`
+            : ""}
         </div>
       </div>
 
@@ -179,69 +279,57 @@ export default function HistoricoContratosPage({ empresaId }: HistoricoContratos
             Cuando finalice o se desaloje un contrato en cualquiera de los dúplex o unidades, aparecerá automáticamente registrado en este histórico general.
           </p>
         </div>
-      ) : (
+      ) : groupBy === "none" ? (
         <div className="grid grid-cols-1 gap-5">
-          {filteredContratos.map((hc: any) => (
-            <div
-              key={hc.contratoId}
-              className={`bg-card p-6 rounded-[2rem] border-2 transition-all ${
-                hc.estadoHistorico === 'Definitivo' ? 'opacity-75 border-slate-100' : 'border-border shadow-sm'
-              }`}
-            >
-              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
-                <div className="flex flex-wrap items-center gap-3">
-                  {hc.unidad && (
-                    <span className="bg-primary text-white text-[10px] font-black px-3 py-1 rounded-full uppercase">
-                      {formatDuplex(hc.unidad.codigoUnidad)}
+          {filteredContratos.map(renderContratoCard)}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {contratosAgrupados?.map(([condoName, items]) => {
+            const isExpanded = expandedGroups[condoName] !== false;
+            const subtotal = items.reduce(
+              (acc, hc) => acc + Number(hc.montoMensualAlquiler || 0),
+              0
+            );
+            return (
+              <div key={condoName} className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedGroups((prev) => ({
+                      ...prev,
+                      [condoName]: !(prev[condoName] !== false),
+                    }))
+                  }
+                  className="w-full bg-muted/80 hover:bg-muted border border-border rounded-2xl px-4 sm:px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-left transition-colors"
+                >
+                  <span className="text-xs sm:text-sm font-black uppercase italic tracking-wide text-foreground flex items-center gap-2 min-w-0">
+                    {isExpanded ? (
+                      <ChevronDown className="w-4 h-4 shrink-0 text-primary" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 shrink-0 text-primary" />
+                    )}
+                    <Building2 className="w-4 h-4 shrink-0 text-primary" />
+                    <span className="truncate">{condoName}</span>
+                    <Badge className="bg-primary/10 text-primary border-none text-[9px] font-bold shrink-0">
+                      {items.length} CONTRATO{items.length === 1 ? "" : "S"}
+                    </Badge>
+                  </span>
+                  <span className="text-[10px] font-black text-muted-foreground uppercase sm:pr-1 pl-6 sm:pl-0">
+                    Mensualidades:{" "}
+                    <span className="text-foreground tabular-nums">
+                      Gs. {subtotal.toLocaleString("es-PY")}
                     </span>
-                  )}
-                  <h4 className="font-black italic text-xl">{hc.inquilino?.razonSocial}</h4>
-                  {getStatusBadge(hc.estadoHistorico)}
-                  {getMorosidadBadge(hc.esMoroso)}
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {/* El botón de anular solo aparece si NO es Definitivo y NO es Ocupado */}
-                  {hc.estadoHistorico === "Temporal" && (
-                    <button
-                      onClick={() => setConfirmAnularContrato({ contratoId: hc.contratoId, nombre: hc.inquilino.razonSocial })}
-                      className="bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white border border-amber-200 text-[10px] font-black uppercase px-4 py-2 rounded-xl transition-all flex items-center gap-2"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" /> Reestablecer / Anular Desalojo
-                    </button>
-                  )}
-                  
-                  {hc.estadoHistorico === "Definitivo" && (
-                    <span className="text-[10px] font-bold text-slate-400 uppercase italic bg-slate-50 px-3 py-1 rounded-lg">
-                      Registro Cerrado (Cerrado)
-                    </span>
-                  )}
-                </div>
+                  </span>
+                </button>
+                {isExpanded && (
+                  <div className="grid grid-cols-1 gap-4 pl-0 sm:pl-2">
+                    {items.map(renderContratoCard)}
+                  </div>
+                )}
               </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-4">
-                <div>
-                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Inquilino</p>
-                  <p className="text-sm font-bold">{hc.inquilino?.documento}</p>
-                  <p className="text-xs text-muted-foreground">{hc.inquilino?.telefono}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Periodo</p>
-                  <p className="text-xs font-bold">
-                    {new Date(hc.fechaInicioContrato).toLocaleDateString()} al {hc.fechaFinContrato ? new Date(hc.fechaFinContrato).toLocaleDateString() : 'Activo'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Mensualidad</p>
-                  <p className="text-sm font-bold text-emerald-600">Gs. {Number(hc.montoMensualAlquiler).toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Ubicación</p>
-                  <p className="text-sm font-bold">{hc.unidad?.nombreCondominio}</p>
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

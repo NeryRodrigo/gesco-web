@@ -21,13 +21,21 @@ import {
   Save,
   Phone,
   Mail,
-  Download,
   Printer,
-  FileCheck,
   CheckCircle2
 } from "lucide-react";
 import { toast } from "sonner";
-import { ContratoImprimible, descargarContratoDoc } from "./ContratoImprimible";
+import { ContratoImprimible, descargarContratoDoc, descargarContratoPDF, resolveCodeudor, serializeCodeudorEnObservaciones } from "./ContratoImprimible";
+import { digitoVerificadorRucPy, formatMilesPy, parseMilesPy } from "@/lib/rucParaguay";
+import { sharePdfViaWhatsApp, prepareWhatsAppShareWindow } from "@/lib/whatsappShare";
+import { formatFechaCorta } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface GenerarEditarContratoModalProps {
   isOpen: boolean;
@@ -45,16 +53,16 @@ export function GenerarEditarContratoModal({
   onSaved
 }: GenerarEditarContratoModalProps) {
   const [loadingSave, setLoadingSave] = useState(false);
-  const [isGeneratingDoc, setIsGeneratingDoc] = useState(false);
-  const [plantillasList, setPlantillasList] = useState<any[]>([]);
-  const [selectedPlantillaId, setSelectedPlantillaId] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<"edit" | "preview">("edit");
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [showWhatsAppPreviewModal, setShowWhatsAppPreviewModal] = useState(false);
+  const [isSharingWhatsApp, setIsSharingWhatsApp] = useState(false);
+  const [whatsAppResultMsg, setWhatsAppResultMsg] = useState("");
 
   // Form state
   const [nombreCompleto, setNombreCompleto] = useState("");
-  const [cedula, setCedula] = useState("");
+  const [tipoDocumento, setTipoDocumento] = useState<"CI" | "RUC">("CI");
+  const [documentoNumero, setDocumentoNumero] = useState(""); // solo dígitos base (sin DV)
   const [telefono, setTelefono] = useState("");
   const [email, setEmail] = useState("");
   const [fechaIngreso, setFechaIngreso] = useState("");
@@ -66,6 +74,69 @@ export function GenerarEditarContratoModal({
   const [vehiculo, setVehiculo] = useState("");
   const [observaciones, setObservaciones] = useState("");
   const [serviciosIncluidos, setServiciosIncluidos] = useState<string>("");
+  const [codeudorNombre, setCodeudorNombre] = useState("");
+  const [codeudorCedula, setCodeudorCedula] = useState("");
+  const [codeudorDireccion, setCodeudorDireccion] = useState("");
+  const [codeudorTelefono, setCodeudorTelefono] = useState("");
+
+  const documentoCompleto =
+    tipoDocumento === "RUC" && documentoNumero
+      ? `${documentoNumero}-${digitoVerificadorRucPy(documentoNumero)}`
+      : documentoNumero;
+
+  const onChangeDocumentoNumero = (valor: string) => {
+    if (tipoDocumento === "CI") {
+      setDocumentoNumero(valor.replace(/\D/g, ""));
+      return;
+    }
+
+    // RUC: el campo muestra BASE-DV; al editar solo importa la base (antes del guión).
+    // Si el usuario escribe dígitos al final (tras el DV), se agregan a la base.
+    const prevBase = documentoNumero;
+    const prevDv = prevBase ? String(digitoVerificadorRucPy(prevBase)) : "";
+    const digits = valor.replace(/\D/g, "");
+
+    let base: string;
+    if (valor.includes("-")) {
+      const izquierda = valor.split("-")[0].replace(/\D/g, "");
+      const derecha = valor.split("-").slice(1).join("").replace(/\D/g, "");
+      if (derecha.length > 1) {
+        base = izquierda + derecha.slice(1);
+      } else if (
+        prevBase &&
+        digits.length === prevBase.length + 2 &&
+        digits.startsWith(prevBase)
+      ) {
+        base = prevBase + digits.slice(-1);
+      } else {
+        base = izquierda;
+      }
+    } else if (prevBase && digits === prevBase) {
+      // Borró el guión/DV → quitar último dígito de la base
+      base = prevBase.slice(0, -1);
+    } else if (
+      prevBase &&
+      prevDv &&
+      digits === prevBase + prevDv
+    ) {
+      base = prevBase;
+    } else if (
+      prevBase &&
+      digits.length === prevBase.length + 2 &&
+      digits.startsWith(prevBase)
+    ) {
+      base = prevBase + digits.slice(-1);
+    } else {
+      base = digits;
+    }
+
+    setDocumentoNumero(base);
+  };
+
+  const onChangeTipoDocumento = (tipo: "CI" | "RUC") => {
+    setTipoDocumento(tipo);
+    // El número base se mantiene; el guión+DV solo aplica si es RUC
+  };
 
   // Helper para convertir fechas a formato YYYY-MM-DD para input[type=date]
   const toDateInput = (val?: string) => {
@@ -90,7 +161,10 @@ export function GenerarEditarContratoModal({
     if (isOpen) {
       if (contractData) {
         setNombreCompleto(contractData.inquilino?.razonSocial || contractData.inquilino?.nombre || "");
-        setCedula(contractData.inquilino?.documento || contractData.inquilino?.cedula || "");
+        const docRaw = String(contractData.inquilino?.documento || contractData.inquilino?.cedula || "");
+        const esRuc = docRaw.includes("-");
+        setTipoDocumento(esRuc ? "RUC" : "CI");
+        setDocumentoNumero(docRaw.includes("-") ? docRaw.split("-")[0].replace(/\D/g, "") : docRaw.replace(/\D/g, ""));
         setTelefono(contractData.inquilino?.telefono || "");
         setEmail(contractData.inquilino?.email || "");
         setFechaIngreso(toDateInput(contractData.fechaIngreso));
@@ -100,23 +174,15 @@ export function GenerarEditarContratoModal({
         setGarantia(Number(contractData.depositoGarantia || 0));
         setCantidadOcupantes(Number(contractData.cantidadOcupantes || 1));
         setVehiculo(contractData.vehiculoInfo || "");
-        setObservaciones(contractData.observaciones || "");
+        const cod = resolveCodeudor(contractData);
+        setCodeudorNombre(cod.nombre || contractData.codeudorNombre || "");
+        setCodeudorCedula(cod.cedula || contractData.codeudorCedula || "");
+        setCodeudorDireccion(cod.direccion || contractData.codeudorDireccion || "");
+        setCodeudorTelefono(cod.telefono || contractData.codeudorTelefono || "");
+        setObservaciones(cod.observacionesLimpias || "");
         const sInc = contractData.serviciosIncluidos;
         setServiciosIncluidos(Array.isArray(sInc) ? sInc.join(", ") : (sInc || ""));
       }
-
-      // Cargar plantillas de contrato
-      fetch("http://localhost:5034/api/Plantillas")
-        .then((r) => (r.ok ? r.json() : []))
-        .then((data) => {
-          if (Array.isArray(data)) {
-            setPlantillasList(data);
-            if (data.length > 0 && selectedPlantillaId === 0) {
-              setSelectedPlantillaId(data[0].plantillaId);
-            }
-          }
-        })
-        .catch(() => {});
     }
   }, [isOpen, contractData]);
 
@@ -126,7 +192,7 @@ export function GenerarEditarContratoModal({
       return false;
     }
 
-    if (!nombreCompleto.trim() || !cedula.trim()) {
+    if (!nombreCompleto.trim() || !documentoCompleto.trim()) {
       toast.error("El nombre del inquilino y la cédula/RUC son obligatorios.");
       return false;
     }
@@ -142,7 +208,7 @@ export function GenerarEditarContratoModal({
           empresaId: contractData.inquilino?.empresaId || 7,
           unidadId: contractData.unidadId || unidad?.id || 0,
           nombreCompleto: nombreCompleto.trim(),
-          cedula: cedula.trim(),
+          cedula: documentoCompleto.trim(),
           telefono: telefono.trim(),
           email: email.trim(),
           fechaIngreso: fechaIngreso || contractData.fechaIngreso,
@@ -152,7 +218,12 @@ export function GenerarEditarContratoModal({
           garantia: Number(garantia || 0),
           cantidadOcupantes: Number(cantidadOcupantes || 1),
           vehiculo: vehiculo.trim(),
-          observaciones: observaciones.trim(),
+          observaciones: serializeCodeudorEnObservaciones(observaciones.trim(), {
+            nombre: codeudorNombre,
+            cedula: codeudorCedula,
+            direccion: codeudorDireccion,
+            telefono: codeudorTelefono,
+          }),
           serviciosIncluidos: typeof serviciosIncluidos === "string" ? (serviciosIncluidos.trim() || null) : Array.isArray(serviciosIncluidos) ? (serviciosIncluidos as any).join(", ") : null
         })
       });
@@ -183,96 +254,67 @@ export function GenerarEditarContratoModal({
     }
   };
 
-  const handleGuardarYDescargarWord = async () => {
-    const success = await saveContractChanges();
-    if (!success) return;
-
-    if (!selectedPlantillaId || selectedPlantillaId === 0) {
-      toast.error("Por favor selecciona una plantilla Word (.DOCX) de contrato para descargar.");
-      return;
-    }
-
-    setIsGeneratingDoc(true);
-    try {
-      const loc = encodeURIComponent(nombreCompleto.trim() || "Sin Nombre");
-      const dup = encodeURIComponent(unidad.code || "");
-      const mon = Number(montoMensual || 0);
-      const cId = contractData?.contratoId || 0;
-
-      const response = await fetch(
-        `http://localhost:5034/api/Plantillas/generar-doc?plantillaId=${selectedPlantillaId}&locatario=${loc}&duplex=${dup}&montoAlquiler=${mon}&contratoId=${cId}`
-      );
-
-      if (!response.ok) {
-        throw new Error("No se pudo generar el documento en el servidor.");
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Contrato_${unidad.code}_${nombreCompleto.replace(/\s+/g, "_")}.docx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-
-      toast.success("Documento legal de contrato .DOCX generado y descargado exitosamente");
-      onClose();
-    } catch (e) {
-      console.error("Error generando Word:", e);
-      toast.error("Error generando el documento Word.");
-    } finally {
-      setIsGeneratingDoc(false);
-    }
+  const liveContractData = {
+    ...contractData,
+    nombreCompleto,
+    cedula: documentoCompleto,
+    fechaIngreso: fechaIngreso || contractData?.fechaIngreso,
+    inquilino: {
+      ...contractData?.inquilino,
+      razonSocial: nombreCompleto,
+      nombre: nombreCompleto,
+      documento: documentoCompleto,
+      cedula: documentoCompleto,
+      telefono,
+      email,
+    },
+    fechaInicioContrato: fechaInicio || contractData?.fechaInicioContrato,
+    fechaFinContrato: fechaFin || contractData?.fechaFinContrato,
+    montoMensualAlquiler: Number(montoMensual || 0),
+    depositoGarantia: Number(garantia || 0),
+    cantidadOcupantes: Number(cantidadOcupantes || 1),
+    vehiculoInfo: vehiculo,
+    observaciones,
+    serviciosIncluidos,
+    codeudorNombre,
+    codeudorCedula,
+    codeudorDireccion,
+    codeudorTelefono,
   };
 
-  const handleDescargarTodosZip = async () => {
-    const success = await saveContractChanges();
-    if (!success) return;
-
-    setIsGeneratingDoc(true);
-    try {
-      const loc = encodeURIComponent(nombreCompleto.trim() || "Sin Nombre");
-      const dup = encodeURIComponent(unidad.code || "");
-      const mon = Number(montoMensual || 0);
-      const cId = contractData?.contratoId || 0;
-
-      const response = await fetch(
-        `http://localhost:5034/api/Plantillas/generar-zip/${cId}?locatario=${loc}&duplex=${dup}&monto=${mon}`
-      );
-
-      if (!response.ok) {
-        throw new Error("No se pudo generar el ZIP de documentos en el servidor.");
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Documentos_Alquiler_${unidad.code || "Duplex"}_${nombreCompleto.replace(/\s+/g, "_")}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-
-      toast.success("¡Todos los documentos prellenados se descargaron en un archivo .ZIP!");
-      onClose();
-    } catch (e) {
-      console.error("Error al descargar todos los documentos:", e);
-      toast.error("Error al descargar el ZIP de documentos.");
-    } finally {
-      setIsGeneratingDoc(false);
-    }
-  };
+  // Fuerza re-render de vista previa / impresión al editar cualquier campo
+  const previewKey = [
+    nombreCompleto,
+    documentoCompleto,
+    telefono,
+    email,
+    fechaIngreso,
+    fechaInicio,
+    fechaFin,
+    montoMensual,
+    garantia,
+    cantidadOcupantes,
+    vehiculo,
+    observaciones,
+    serviciosIncluidos,
+    codeudorNombre,
+    codeudorCedula,
+    codeudorDireccion,
+    codeudorTelefono,
+  ].join("|");
 
   const handleGuardarEImprimir = async () => {
     const success = await saveContractChanges();
-    if (success) {
-      setTimeout(() => {
-        window.print();
-      }, 250);
-    }
+    if (!success) return;
+
+    // Mostrar primero la vista previa con los datos ya editados
+    setActiveTab("preview");
+    toast.success("Contrato actualizado. Mostrando vista previa para imprimir...");
+
+    // Esperar a que pinte la preview y luego abrir el diálogo de impresión
+    setTimeout(() => {
+      window.print();
+    }, 450);
   };
 
   const handleCompartirWhatsApp = async () => {
@@ -283,30 +325,65 @@ export function GenerarEditarContratoModal({
     }
 
     await saveContractChanges();
+    setActiveTab("preview");
     setShowWhatsAppPreviewModal(true);
   };
 
-  const liveContractData = {
-    ...contractData,
-    nombreCompleto,
-    cedula,
-    inquilino: {
-      ...contractData?.inquilino,
-      razonSocial: nombreCompleto,
-      nombre: nombreCompleto,
-      documento: cedula,
-      cedula,
-      telefono,
-      email
-    },
-    fechaInicioContrato: fechaInicio,
-    fechaFinContrato: fechaFin,
-    montoMensualAlquiler: montoMensual,
-    depositoGarantia: garantia,
-    cantidadOcupantes,
-    vehiculoInfo: vehiculo,
-    observaciones,
-    serviciosIncluidos
+  const handleEnviarPdfWhatsApp = async () => {
+    const phoneRaw = telefono || contractData?.inquilino?.telefono || "";
+    if (!phoneRaw || phoneRaw.trim().length < 6) {
+      toast.warning("No hay teléfono WhatsApp registrado.");
+      return;
+    }
+
+    // Abrir ventana en el mismo click (evita bloqueo de popup tras generar el PDF)
+    const waWindow = prepareWhatsAppShareWindow();
+
+    setIsSharingWhatsApp(true);
+    const loading = toast.loading("Generando PDF y abriendo WhatsApp Web…");
+    try {
+      const file = await descargarContratoPDF(liveContractData, unidad, true);
+      if (!file) {
+        try {
+          waWindow?.close();
+        } catch {
+          /* ignore */
+        }
+        toast.dismiss(loading);
+        toast.error("No se pudo generar el PDF del contrato.");
+        return;
+      }
+
+      const texto = `Hola ${nombreCompleto || "Cliente"}, le compartimos su Contrato de Locación del Dúplex ${unidad?.code || ""}. Adjuntamos el PDF del documento.`;
+      const result = await sharePdfViaWhatsApp({
+        file,
+        fileName: file.name,
+        phoneRaw,
+        text: texto,
+        preOpenedWindow: waWindow,
+      });
+
+      toast.dismiss(loading);
+      if (result.mode === "native-share" && result.message.includes("cancelado")) {
+        toast.info(result.message);
+        return;
+      }
+      toast.success(result.message);
+      setWhatsAppResultMsg(result.message);
+      setShowWhatsAppPreviewModal(false);
+      setShowWhatsAppModal(true);
+    } catch (e) {
+      console.error(e);
+      try {
+        waWindow?.close();
+      } catch {
+        /* ignore */
+      }
+      toast.dismiss(loading);
+      toast.error("Error al generar o compartir el PDF.");
+    } finally {
+      setIsSharingWhatsApp(false);
+    }
   };
 
   return (
@@ -373,15 +450,39 @@ export function GenerarEditarContratoModal({
 
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black uppercase text-muted-foreground">
-                  Cédula / RUC *
+                  Tipo de Documento *
+                </Label>
+                <Select
+                  value={tipoDocumento}
+                  onValueChange={(v) => onChangeTipoDocumento(v as "CI" | "RUC")}
+                >
+                  <SelectTrigger className="w-full rounded-xl border-border bg-card font-bold h-10 text-foreground">
+                    <SelectValue placeholder="Seleccionar" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border-border z-[220]">
+                    <SelectItem value="CI">Cédula</SelectItem>
+                    <SelectItem value="RUC">RUC</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase text-muted-foreground">
+                  {tipoDocumento === "RUC" ? "Número de RUC *" : "Número de Cédula *"}
                 </Label>
                 <Input
                   type="text"
-                  value={cedula}
-                  onChange={(e) => setCedula(e.target.value)}
+                  inputMode="numeric"
+                  value={documentoCompleto}
+                  onChange={(e) => onChangeDocumentoNumero(e.target.value)}
                   className="rounded-xl border-border font-bold"
-                  placeholder="Ej. 4.567.890"
+                  placeholder={tipoDocumento === "RUC" ? "Ej. 80004512-1" : "Ej. 4567890"}
                 />
+                {tipoDocumento === "RUC" && (
+                  <p className="text-[10px] text-muted-foreground font-medium">
+                    Se completa solo con guión + dígito verificador (Paraguay).
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">
@@ -474,10 +575,12 @@ export function GenerarEditarContratoModal({
                     <GsIcon className="text-muted-foreground" />
                   </div>    
                   <Input
-                    type="number"
-                    value={montoMensual}
-                    onChange={(e) => setMontoMensual(Number(e.target.value))}
+                    type="text"
+                    inputMode="numeric"
+                    value={formatMilesPy(montoMensual)}
+                    onChange={(e) => setMontoMensual(parseMilesPy(e.target.value))}
                     className="pl-10 rounded-xl border-border font-bold"
+                    placeholder="Ej. 1.500.000"
                   />
                 </div>
               </div>
@@ -501,10 +604,70 @@ export function GenerarEditarContratoModal({
             </div>
           </div>
 
-          {/* SECCIÓN 3: INFORMACIÓN ADICIONAL */}
+          {/* SECCIÓN: CODEUDOR / GARANTE */}
           <div className="space-y-4">
             <h3 className="text-xs font-black uppercase text-blue-600 tracking-widest flex items-center gap-2 border-b border-border pb-2">
-              <Users className="w-4 h-4" /> 3. Información Adicional
+              <Users className="w-4 h-4" /> 3. Codeudor / Garante (opcional)
+            </h3>
+            <p className="text-[10px] text-muted-foreground font-medium">
+              Si cargás nombre del codeudor, la cláusula décima sexta se autocompleta. Si lo dejás vacío, esa cláusula se omite y la décima séptima pasa a ser la décima sexta.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="text-[10px] font-black uppercase text-muted-foreground">
+                  Nombre completo del Codeudor
+                </Label>
+                <Input
+                  type="text"
+                  value={codeudorNombre}
+                  onChange={(e) => setCodeudorNombre(e.target.value)}
+                  className="rounded-xl border-border font-bold"
+                  placeholder="Ej. María López"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase text-muted-foreground">
+                  C.I. / Documento
+                </Label>
+                <Input
+                  type="text"
+                  value={codeudorCedula}
+                  onChange={(e) => setCodeudorCedula(e.target.value)}
+                  className="rounded-xl border-border font-bold"
+                  placeholder="Ej. 4.567.890"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase text-muted-foreground">
+                  Teléfono
+                </Label>
+                <Input
+                  type="text"
+                  value={codeudorTelefono}
+                  onChange={(e) => setCodeudorTelefono(e.target.value)}
+                  className="rounded-xl border-border font-bold"
+                  placeholder="Ej. 0981 123 456"
+                />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="text-[10px] font-black uppercase text-muted-foreground">
+                  Domicilio particular
+                </Label>
+                <Input
+                  type="text"
+                  value={codeudorDireccion}
+                  onChange={(e) => setCodeudorDireccion(e.target.value)}
+                  className="rounded-xl border-border font-bold"
+                  placeholder="Ej. Calle X c/ Y, Luque"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* SECCIÓN 4: INFORMACIÓN ADICIONAL */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-black uppercase text-blue-600 tracking-widest flex items-center gap-2 border-b border-border pb-2">
+              <Users className="w-4 h-4" /> 4. Información Adicional
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -564,83 +727,12 @@ export function GenerarEditarContratoModal({
             </div>
           </div>
 
-          {/* SECCIÓN 4: GENERAR DOCUMENTOS INDIVIDUALES */}
-          <div className="bg-slate-50 dark:bg-slate-900/40 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
-            <h4 className="text-xs font-black uppercase text-blue-600 tracking-wider flex items-center gap-2">
-              <FileCheck className="w-4 h-4 text-blue-500" /> Documentos Oficiales de Alquiler (.DOCX)
-            </h4>
-            <p className="text-[10px] text-muted-foreground font-semibold">
-              Genera y descarga de manera individual cada documento autocompletado para este inquilino:
-            </p>
-            <div className="space-y-2">
-              {plantillasList.length === 0 ? (
-                <p className="text-[10px] text-muted-foreground italic">Cargando plantillas de documentos...</p>
-              ) : (
-                plantillasList.map((p: any) => (
-                  <div key={p.plantillaId} className="flex items-center justify-between p-3 bg-white dark:bg-card border border-border rounded-xl shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-black text-xs shrink-0">
-                        DOC
-                      </div>
-                      <div className="text-left">
-                        <p className="text-xs font-bold text-foreground">{p.nombre}</p>
-                        <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-wider">{p.tipo}</p>
-                      </div>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={async () => {
-                        const success = await saveContractChanges();
-                        if (!success) return;
-                        
-                        setIsGeneratingDoc(true);
-                        try {
-                          const loc = encodeURIComponent(nombreCompleto.trim() || "Sin Nombre");
-                          const dup = encodeURIComponent(unidad.code || "");
-                          const mon = Number(montoMensual || 0);
-                          const cId = contractData?.contratoId || 0;
-
-                          const response = await fetch(
-                            `http://localhost:5034/api/Plantillas/generar/${p.plantillaId}?contratoId=${cId}&locatario=${loc}&duplex=${dup}&monto=${mon}`
-                          );
-
-                          if (!response.ok) {
-                            throw new Error("No se pudo generar el documento.");
-                          }
-
-                          const blob = await response.blob();
-                          const url = window.URL.createObjectURL(blob);
-                          const a = document.createElement("a");
-                          a.href = url;
-                          a.download = `${p.nombre.replace(/\s+/g, "_")}_${unidad.code || "Duplex"}_${nombreCompleto.replace(/\s+/g, "_")}.docx`;
-                          document.body.appendChild(a);
-                          a.click();
-                          a.remove();
-                          window.URL.revokeObjectURL(url);
-                          toast.success(`Documento "${p.nombre}" generado y descargado con éxito.`);
-                        } catch (err) {
-                          console.error(err);
-                          toast.error(`Error al generar el documento "${p.nombre}".`);
-                        } finally {
-                          setIsGeneratingDoc(false);
-                        }
-                      }}
-                      className="h-8 px-3 rounded-lg text-[10px] font-black uppercase text-blue-600 border-blue-200 hover:bg-blue-50"
-                    >
-                      Generar
-                    </Button>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
         </div>
         ) : (
           <div className="p-8 overflow-y-auto max-h-[64vh] bg-[#0f172a] flex justify-center border-t border-white/5">
             <div className="bg-white shadow-[0_20px_50px_rgba(0,0,0,0.5)] w-full max-w-[800px] min-h-[1000px] rounded-sm ring-1 ring-black/10">
               <ContratoImprimible
+                key={`preview-${previewKey}`}
                 contractData={liveContractData}
                 dataUnidad={unidad}
                 localNisAnde={unidad?.nisAnde || ""}
@@ -654,6 +746,7 @@ export function GenerarEditarContratoModal({
         {/* ELEMENTO IMPRIMIBLE LEGAL (Oculto en pantalla, se imprime a página completa) */}
         <div className="hidden print:block bg-white text-black p-0 m-0">
           <ContratoImprimible
+            key={`print-${previewKey}`}
             contractData={liveContractData}
             dataUnidad={unidad}
             localNisAnde={unidad?.nisAnde || ""}
@@ -665,7 +758,7 @@ export function GenerarEditarContratoModal({
           <Button
             variant="outline"
             onClick={onClose}
-            disabled={loadingSave || isGeneratingDoc}
+            disabled={loadingSave}
             className="rounded-xl font-bold text-xs uppercase"
           >
             Cancelar
@@ -674,7 +767,7 @@ export function GenerarEditarContratoModal({
           <div className="flex flex-wrap items-center gap-2.5">
             <Button
               onClick={handleSoloGuardar}
-              disabled={loadingSave || isGeneratingDoc}
+              disabled={loadingSave}
               variant="outline"
               className="border-border text-foreground hover:bg-muted font-black text-xs uppercase rounded-xl px-4 h-11"
             >
@@ -684,7 +777,7 @@ export function GenerarEditarContratoModal({
 
             <Button
               onClick={handleGuardarEImprimir}
-              disabled={loadingSave || isGeneratingDoc}
+              disabled={loadingSave}
               variant="outline"
               className="bg-card border-blue-200 text-blue-700 hover:bg-blue-50 font-black text-xs uppercase rounded-xl px-4 h-11"
             >
@@ -694,20 +787,11 @@ export function GenerarEditarContratoModal({
 
             <Button
               onClick={handleCompartirWhatsApp}
-              disabled={loadingSave || isGeneratingDoc}
+              disabled={loadingSave}
               className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase rounded-xl px-4 h-11 shadow-lg shadow-emerald-500/20"
             >
               <Phone className="w-4 h-4 mr-1.5" />
               Compartir por WhatsApp
-            </Button>
-
-            <Button
-              onClick={handleDescargarTodosZip}
-              disabled={loadingSave || isGeneratingDoc}
-              className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs uppercase rounded-xl px-5 h-11 shadow-lg shadow-amber-500/20"
-            >
-              <Download className="w-4 h-4 mr-1.5 stroke-[2.5]" />
-              {isGeneratingDoc ? "Generando..." : "Descargar todos los documentos"}
             </Button>
           </div>
         </DialogFooter>
@@ -722,13 +806,18 @@ export function GenerarEditarContratoModal({
                 <span className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">📲</span>
                 Vista Previa del Contrato — Enviar por WhatsApp
               </DialogTitle>
+              <p className="text-xs text-muted-foreground mt-1">
+                En celular el PDF puede ir directo a WhatsApp. En PC: se descarga el PDF y se abre el chat del inquilino en WhatsApp Web (si ya estás logueado); solo falta adjuntarlo con el clip 📎 — WhatsApp no permite adjuntar archivos automáticamente desde el navegador.
+              </p>
             </DialogHeader>
 
             <div className="flex-1 overflow-y-auto border border-white/10 rounded-xl p-8 bg-[#0f172a] flex justify-center my-2">
               <div className="bg-white shadow-2xl w-full max-w-[700px] rounded-sm">
                 <ContratoImprimible
+                  key={`wa-${previewKey}`}
                   contractData={liveContractData}
                   dataUnidad={unidad}
+                  localNisAnde={unidad?.nisAnde || ""}
                   isPreview={true}
                 />
               </div>
@@ -742,28 +831,17 @@ export function GenerarEditarContratoModal({
                   toast.success("📄 Archivo del contrato legal .DOC descargado en tu equipo.");
                 }}
                 className="h-11 px-5 font-bold text-xs uppercase rounded-xl border-border"
+                disabled={isSharingWhatsApp}
               >
                 📥 Descargar Archivo (.DOC)
               </Button>
 
               <Button
-                onClick={() => {
-                  descargarContratoDoc(liveContractData, unidad);
-                  const phoneRaw = telefono || contractData?.inquilino?.telefono || "";
-                  let phoneClean = phoneRaw.replace(/\D/g, "");
-                  if (phoneClean.startsWith("0")) {
-                    phoneClean = "595" + phoneClean.substring(1);
-                  } else if (phoneClean.length === 9 && phoneClean.startsWith("9")) {
-                    phoneClean = "595" + phoneClean;
-                  }
-                  const texto = encodeURIComponent(`Hola ${nombreCompleto || "Cliente"}, le compartimos su Contrato de Locación del Dúplex ${unidad?.code || ""}.`);
-                  window.open(`https://wa.me/${phoneClean}?text=${texto}`, "_blank");
-                  setShowWhatsAppPreviewModal(false);
-                  setShowWhatsAppModal(true);
-                }}
+                onClick={handleEnviarPdfWhatsApp}
+                disabled={isSharingWhatsApp}
                 className="h-11 px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase rounded-xl shadow-lg shadow-emerald-600/20"
               >
-                📲 Descargar y Abrir WhatsApp
+                {isSharingWhatsApp ? "Generando PDF…" : "📲 Descargar y Abrir WhatsApp"}
               </Button>
             </div>
           </DialogContent>
@@ -782,7 +860,8 @@ export function GenerarEditarContratoModal({
                 ¡Contrato Generado Enviado!
               </DialogTitle>
               <p className="text-xs font-medium text-muted-foreground mt-2 leading-relaxed">
-                El archivo del contrato fue descargado en tu equipo y abrimos el chat de WhatsApp del cliente ({telefono || contractData?.inquilino?.telefono}). Solo adjunta el archivo descargado en la conversación.
+                {whatsAppResultMsg ||
+                  `PDF del contrato listo. Chat abierto para ${telefono || contractData?.inquilino?.telefono || "el cliente"}. Si estás en PC, adjuntá el PDF descargado con el clip 📎.`}
               </p>
             </div>
             <Button

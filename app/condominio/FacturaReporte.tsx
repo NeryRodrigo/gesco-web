@@ -33,11 +33,14 @@ interface FacturaReporteProps {
     totalLetras: string;
     pagoId?: number;
     comprobanteUrl?: string;
+    tipoDocumento?: "FACTURA" | "RECIBO" | string;
   };
   onSaved?: () => void;
 }
 
 export function FacturaReporte({ facturaData, onSaved }: FacturaReporteProps) {
+  const esRecibo = String(facturaData.tipoDocumento || "").toUpperCase().includes("RECIBO");
+  const tipoEmisionLabel = esRecibo ? "RECIBO" : "FACTURA";
   const [numero, setNumero] = useState(facturaData.numero);
   const [rucInquilino, setRucInquilino] = useState(facturaData.rucInquilino);
   const [nombreInquilino, setNombreInquilino] = useState(facturaData.nombreInquilino);
@@ -96,7 +99,7 @@ export function FacturaReporte({ facturaData, onSaved }: FacturaReporteProps) {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          facturaEmitida: true,
+          facturaEmitida: !esRecibo,
           numeroFactura: numero || null,
           comprobanteUrl: JSON.stringify(metadata)
         })
@@ -121,10 +124,10 @@ export function FacturaReporte({ facturaData, onSaved }: FacturaReporteProps) {
     await handleSaveToBackend();
     const subIva10Calc = Math.round(facturaData.items.reduce((s, i) => s + i.iva10, 0) / 11);
     
-    let mensaje = `*COMPROBANTE LEGAL / FACTURA - VORDIA*\n\n`;
+    let mensaje = `*COMPROBANTE LEGAL / ${tipoEmisionLabel} - VORDIA*\n\n`;
     mensaje += `*Emisor:* ${facturaData.nombreEmpresa || "Marcelo David Ortigoza Maidana"}\n`;
     if (facturaData.rucEmpresa) mensaje += `*RUC:* ${facturaData.rucEmpresa}\n`;
-    mensaje += `*Comprobante N°:* ${numero || "S/N"}\n`;
+    mensaje += `*${tipoEmisionLabel} N°:* ${numero || "S/N"}\n`;
     if (facturaData.timbrado) mensaje += `*Timbrado N°:* ${facturaData.timbrado}\n`;
     mensaje += `*Fecha de Emisión:* ${facturaData.fecha || new Date().toLocaleDateString()}\n\n`;
     mensaje += `*Cliente / Razón Social:* ${nombreInquilino || "Cliente"}\n`;
@@ -142,7 +145,9 @@ export function FacturaReporte({ facturaData, onSaved }: FacturaReporteProps) {
     
     mensaje += `\n*TOTAL A PAGAR:* *${fmtAlways(facturaData.total)} Gs.*\n`;
     if (montoLetras) mensaje += `_(${montoLetras})_\n\n`;
-    mensaje += `*Liquidación de IVA (10%):* ${fmtAlways(subIva10Calc)} Gs.\n\n`;
+    if (!esRecibo) {
+      mensaje += `*Liquidación de IVA (10%):* ${fmtAlways(subIva10Calc)} Gs.\n\n`;
+    }
     mensaje += `_Adjuntamos el comprobante en formato PDF. Muchas gracias por su preferencia._`;
 
     toast.success("Abriendo WhatsApp y preparando PDF...", {
@@ -178,7 +183,7 @@ export function FacturaReporte({ facturaData, onSaved }: FacturaReporteProps) {
           rucCliente: rucInquilino || "5865896",
           direccionCliente: direccionInquilino || "Luque - Paraguay",
           numeroComprobante: numero || "001-001 0000000",
-          tipoEmision: "FACTURA",
+          tipoEmision: tipoEmisionLabel,
           monto: facturaData.total || 0,
           concepto: descripcion
         })
@@ -187,7 +192,7 @@ export function FacturaReporte({ facturaData, onSaved }: FacturaReporteProps) {
       const data = await resp.json();
       if (resp.ok && data.success) {
         toast.success("Correo enviado exitosamente", {
-          description: `La factura fue reenviada al correo ${emailDestino} con el PDF adjunto.`
+          description: `El ${tipoEmisionLabel.toLowerCase()} fue enviado al correo ${emailDestino} con el PDF adjunto.`
         });
         setShowEmailPrompt(false);
       } else {
@@ -318,16 +323,27 @@ export function FacturaReporte({ facturaData, onSaved }: FacturaReporteProps) {
           <div className="grid grid-cols-[1fr_250px] border-b-[1.5px] border-slate-900">
             <div className="p-4 pr-6 border-r-[1.5px] border-slate-900 flex flex-col justify-between">
               <div>
-                <h1 className="text-[20px] font-bold tracking-tight text-[#1e293b] mb-1.5 font-serif">
-                  {facturaData.nombreEmpresa}
+                <h1 className="text-[20px] font-bold tracking-tight text-black mb-2 font-serif leading-tight">
+                  {facturaData.nombreEmpresa || "Marcelo David Ortigoza Maidana"}
                 </h1>
-                <div className="text-[8px] leading-[1.35] text-foreground uppercase font-semibold space-y-0.5 whitespace-pre-line">
-                  {facturaData.actividadesEmpresa}
+                <div className="text-[10.5px] leading-[1.45] text-black uppercase font-bold space-y-0.5">
+                  {(facturaData.actividadesEmpresa ||
+                    "ACTIVIDADES PROFESIONALES, CIENTÍFICAS Y TÉCNICAS - OTROS ALOJAMIENTOS.\nACTIVIDADES DE SERVICIOS DE ARQUITECTURA E INGENIERÍA.\nINTERMEDIACIÓN EN LA COMPRA, VENTA Y ARRENDAMIENTO DE INMUEBLES.")
+                    .split("\n")
+                    .map((line, i) => (
+                      <p key={i} className="m-0">
+                        {line.trim()}
+                      </p>
+                    ))}
                 </div>
               </div>
-              <div className="text-[9.5px] text-foreground mt-4 font-medium space-y-0.5">
-                <p>{facturaData.direccionEmpresa} - Cel.: {facturaData.celEmpresa}</p>
-                <p>{facturaData.ciudadEmpresa}</p>
+              <div className="text-[11px] text-black mt-4 font-bold uppercase leading-snug space-y-0.5">
+                <p className="m-0">
+                  {facturaData.direccionEmpresa ||
+                    "Merlo de Portugal y Capitán Pedro Mayor Echauri"}{" "}
+                  - Cel.: {facturaData.celEmpresa || "(0994) 254 655"}
+                </p>
+                <p className="m-0">{facturaData.ciudadEmpresa || "Luque - Paraguay"}</p>
               </div>
             </div>
 
@@ -340,7 +356,7 @@ export function FacturaReporte({ facturaData, onSaved }: FacturaReporteProps) {
               <div className="mt-3">
                 <p className="text-[13px] font-black text-foreground tracking-wide">RUC: {facturaData.rucEmpresa}</p>
                 <h2 className="text-[24px] font-black tracking-wider text-foreground leading-none mt-1 uppercase">
-                  FACTURA
+                  {tipoEmisionLabel}
                 </h2>
                 <p className="text-[13px] font-black text-foreground mt-1.5 tracking-wider">
                   Nº {numero}
@@ -353,7 +369,7 @@ export function FacturaReporte({ facturaData, onSaved }: FacturaReporteProps) {
             <div className="grid grid-cols-[1fr_auto] border-b-[1.5px] border-slate-900 text-[10.5px]">
               <div className="px-4 py-2 border-r-[1.5px] border-slate-900 font-bold uppercase flex items-center gap-2">
                 <span className="text-foreground">FECHA DE EMISIÓN: </span>
-                <span className="font-bold text-slate-950 lowercase">{facturaData.fecha}</span>
+                <span className="font-bold text-slate-950 normal-case">{facturaData.fecha}</span>
               </div>
               <div className="px-5 py-2 flex items-center gap-5 font-bold uppercase tracking-wider text-[10px] text-foreground">
                 <span>COND. DE VENTA</span>

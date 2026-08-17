@@ -19,13 +19,25 @@ const syncopate = Syncopate({
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  viewportFit: "cover",
+  themeColor: "#050B18",
 };
 
 export const metadata: Metadata = {
   title: "VORDIA Dashboard",
+  applicationName: "Vordia",
   description: "Sistema operativo de gestión inteligente",
+  // Acceso directo en celular: nombre corto + icono desde public/images
+  appleWebApp: {
+    capable: true,
+    title: "Vordia",
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    icon: "/images/ISOTIPO.png",
+    shortcut: "/images/ISOTIPO.png",
+    apple: "/images/ISOTIPO.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -33,7 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="es" suppressHydrationWarning className="dark">
       <body className={`${montserrat.variable} ${syncopate.variable} font-sans bg-background text-foreground antialiased min-h-screen overflow-x-hidden`} suppressHydrationWarning>
         {children}
-        <Toaster position="top-right" richColors closeButton theme="dark" />
+        <Toaster position="top-center" richColors closeButton theme="dark" />
       </body>
     </html>
   );

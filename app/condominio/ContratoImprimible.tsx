@@ -5,6 +5,178 @@ import { createPortal } from 'react-dom';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
+const CODEUDOR_MARKER_RE = /<!--CODEUDOR:([\s\S]*?)-->\n?/;
+
+export type CodeudorInfo = {
+  nombre: string;
+  cedula: string;
+  direccion: string;
+  telefono: string;
+  tieneCodeudor: boolean;
+  observacionesLimpias: string;
+};
+
+/** Lee codeudor desde campos directos o desde el marcador embebido en observaciones. */
+export function resolveCodeudor(contractData: any): CodeudorInfo {
+  let nombre = String(contractData?.codeudorNombre || "").trim();
+  let cedula = String(contractData?.codeudorCedula || "").trim();
+  let direccion = String(contractData?.codeudorDireccion || "").trim();
+  let telefono = String(contractData?.codeudorTelefono || "").trim();
+  let obsRaw = String(contractData?.observaciones || "");
+
+  const m = obsRaw.match(CODEUDOR_MARKER_RE);
+  if (m) {
+    try {
+      const d = JSON.parse(m[1]);
+      if (!nombre) nombre = String(d.nombre || "").trim();
+      if (!cedula) cedula = String(d.cedula || "").trim();
+      if (!direccion) direccion = String(d.direccion || "").trim();
+      if (!telefono) telefono = String(d.telefono || "").trim();
+    } catch {
+      /* ignore JSON inválido */
+    }
+    obsRaw = obsRaw.replace(CODEUDOR_MARKER_RE, "").trim();
+  }
+
+  return {
+    nombre,
+    cedula,
+    direccion,
+    telefono,
+    tieneCodeudor: Boolean(nombre),
+    observacionesLimpias: obsRaw,
+  };
+}
+
+/** Persiste datos del codeudor dentro de observaciones sin migrar la BD. */
+export function serializeCodeudorEnObservaciones(
+  textoObservaciones: string,
+  codeudor: { nombre?: string; cedula?: string; direccion?: string; telefono?: string }
+) {
+  const limpio = String(textoObservaciones || "").replace(CODEUDOR_MARKER_RE, "").trim();
+  const nombre = String(codeudor?.nombre || "").trim();
+  if (!nombre) return limpio;
+  const payload = {
+    nombre,
+    cedula: String(codeudor?.cedula || "").trim(),
+    direccion: String(codeudor?.direccion || "").trim(),
+    telefono: String(codeudor?.telefono || "").trim(),
+  };
+  return `<!--CODEUDOR:${JSON.stringify(payload)}-->\n${limpio}`;
+}
+
+function titulosClausulasFinales(tieneCodeudor: boolean, tieneObs: boolean) {
+  if (tieneCodeudor) {
+    return {
+      codeudor: "DECIMA SEXTA",
+      informconf: "DECIMA SEPTIMA",
+      riesgo: "DECIMO OCTAVA",
+      termino: "DECIMA NOVENA",
+      obligaciones: "VIGESIMA",
+      obs: tieneObs ? "VIGESIMA PRIMERA" : null as string | null,
+      jurisdiccion: tieneObs ? "VIGESIMA SEGUNDA" : "VIGESIMA PRIMERA",
+    };
+  }
+  return {
+    codeudor: null as string | null,
+    informconf: "DECIMA SEXTA",
+    riesgo: "DECIMA SEPTIMA",
+    termino: "DECIMA OCTAVA",
+    obligaciones: "DECIMA NOVENA",
+    obs: tieneObs ? "VIGESIMA" : null as string | null,
+    jurisdiccion: tieneObs ? "VIGESIMA PRIMERA" : "VIGESIMA",
+  };
+}
+
+const TEXTO_CODEUDOR_REST =
+  "asume el carácter de CODEUDOR solidario de las obligaciones del presente contrato que correspondan a EL LOCATARIO, de conformidad a lo establecido en el Art. 816 del Código Civil Paraguayo, quien en prueba de conformidad, se obliga solidariamente y la fianza es válida mientras no sean devueltas las llaves del inmueble a EL LOCADOR, totalmente desocupado y en estado en que los recibe, independientemente de lo establecido en la cláusula quinta y aun cuando este contrato fuese prorrogado sucesivamente en su vigencia sin su consentimiento o consentimiento previo. Se compromete además al pago del alquiler a la simple presentación del recibo, si EL LOCATARIO no lo hiciere en fecha pactada. En caso de falencia, irresponsabilidad comprobada o fallecimiento del fiador, EL LOCADOR podrá pedir en cualquier momento otro garante en reemplazo del señalado en la presente cláusula y EL LOCATARIO deberá presentarlo en el plazo de 3 (tres) días, so pena de considerar rescindo el contrato. La presente codeudorìa solidaria se extiende inclusive a los daños y perjuicios o cualquier otro reclamo que conforme al presente acuerdo pudiera reclamarse al LOCATARIO.-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------";
+
+const TEXTO_INFORMCONF_CON =
+  'Por el presente instrumento tanto la persona CODEUDORA como EL LOCATARIO autorizan en forma expresa e irrevocable, otorgando suficiente mandato en los términos del Art. 917 Inc. "A" del Código Civil Paraguayo para que por su propia cuenta o a través de empresas especializadas de nuestro medio puedan recabar información en plaza referente a su situación patrimonial, solvencia económica o el cumplimiento de sus obligaciones comerciales. De igual manera y en los mismos términos, autorizan para que en caso de atraso superior a los noventa días en el pago del alquiler o cualquier otra deuda pendiente que mantengan con EL LOCADOR y/o representante incluyan sus nombres en el Registro General de Morosos Informconf. La eliminación de dicho registro se realiza de acuerdo a los términos establecidos en la Ley N° 1682/01 y su modificatoria Ley N° 1969/02.-------------------------------------------------------------------------------------------------------------------';
+
+const TEXTO_INFORMCONF_SIN =
+  'Por el presente instrumento EL LOCATARIO autoriza en forma expresa e irrevocable, otorgando suficiente mandato en los términos del Art. 917 Inc. "A" del Código Civil Paraguayo para que por su propia cuenta o a través de empresas especializadas de nuestro medio puedan recabar información en plaza referente a su situación patrimonial, solvencia económica o el cumplimiento de sus obligaciones comerciales. De igual manera y en los mismos términos, autoriza para que en caso de atraso superior a los noventa días en el pago del alquiler o cualquier otra deuda pendiente que mantenga con EL LOCADOR y/o representante incluyan su nombre en el Registro General de Morosos Informconf. La eliminación de dicho registro se realiza de acuerdo a los términos establecidos en la Ley N° 1682/01 y su modificatoria Ley N° 1969/02.-------------------------------------------------------------------------------------------------------------------';
+
+const TEXTO_RIESGO =
+  "El LOCATARIO toma a su cargo el riesgo por la utilización o manejo de cualquier artefacto o aparato de refrigeración o electricidad que esté en el inmueble arrendado o que fuera puesto en lo sucesivo, exonerando expresamente a EL LOCADOR de toda responsabilidad. Queda liberado EL LOCADOR de las responsabilidades civiles, por los daños y perjuicios que padezca EL LOCATARIO o terceros en sus personas y/o bienes, originados por accidentes dentro del inmueble locado.--";
+
+const TEXTO_TERMINO =
+  "El término de la presente locación, ya sea por vencimiento del plazo establecido o por falta de pago de alquileres en la forma indicada, o cualquier causa de rescisión de éste contrato, dará derecho al PROPIETARIO a hacerse cargo de inmediato del inmueble y ocuparlo, para lo cual queda expresamente autorizado por EL LOCATARIO, aunque éste estuviere ausente y el inmueble se hallare cerrado, a tomar posesión del inmueble con intervención judicial o notarial en su defecto, siendo suficiente la notificación por telegrama colacionado, de intimación de entrega del inmueble.-----------------------------";
+
+const TEXTO_OBLIGACIONES =
+  "Todas las obligaciones originadas y derivadas de esta locación regirán hasta el día en que EL LOCADOR, haya recibido el inmueble a entera satisfacción y bajo constancia escrita y aun si, vencido el plazo contractual, EL LOCATARIO continuara en el uso y goce del inmueble sin contrato alguno.---------------------------------------------------------------";
+
+const TEXTO_JURISDICCION =
+  "Las partes se someten voluntariamente a la Jurisdicción y Competencia de los Tribunales Ordinarios de la Ciudad de Luque, quedando sujetos a las disposiciones generales de La Ley, y en particular de los contratos de locación del Código Civil, Ley N° 1.183/5, renunciando a todo otro fuero o jurisdicción que pudiera corresponderles. Asimismo constituyen domicilio legal y especial en los respectivos domicilios reales, donde serán considerados válidas todas las intimaciones y notificaciones que en ellos se haga.----------------------------------------------------------------------------------";
+
+function buildClausulasFinalesHtml(codeudor: CodeudorInfo) {
+  const observaciones = codeudor.observacionesLimpias;
+  const t = titulosClausulasFinales(codeudor.tieneCodeudor, Boolean(observaciones));
+  const parts: string[] = [];
+
+  if (codeudor.tieneCodeudor && t.codeudor) {
+    parts.push(
+      `<p><strong>${t.codeudor}:</strong> El/La Señor/a <strong>${codeudor.nombre.toUpperCase()}</strong>, con documento <strong>${codeudor.cedula || "_________________"}</strong> con domicilio particular en <strong>${codeudor.direccion || "_________________"}</strong> ${TEXTO_CODEUDOR_REST}</p>`
+    );
+  }
+
+  parts.push(
+    `<p><strong>${t.informconf}:</strong> ${codeudor.tieneCodeudor ? TEXTO_INFORMCONF_CON : TEXTO_INFORMCONF_SIN}</p>`
+  );
+  parts.push(`<p><strong>${t.riesgo}:</strong> ${TEXTO_RIESGO}</p>`);
+  parts.push(`<p><strong>${t.termino}:</strong> ${TEXTO_TERMINO}</p>`);
+  parts.push(`<p><strong>${t.obligaciones}:</strong> ${TEXTO_OBLIGACIONES}</p>`);
+
+  if (observaciones && t.obs) {
+    parts.push(
+      `<p><strong>${t.obs} (OBSERVACIONES O CLÁUSULAS ESPECIALES):</strong> ${observaciones}</p>`
+    );
+  }
+
+  parts.push(`<p><strong>${t.jurisdiccion}:</strong> ${TEXTO_JURISDICCION}</p>`);
+  return parts.join("\n            ");
+}
+
+function buildFirmaCodeudorHtml(codeudor: CodeudorInfo) {
+  if (!codeudor.tieneCodeudor) return "";
+  return `
+            <table style="margin-top: 50pt;">
+                <tr>
+                    <td style="text-align: center; width: 100%;">
+                        ____________________________________<br/>
+                        <strong>GARANTE / CODEUDOR</strong><br/>
+                        ${codeudor.nombre.toUpperCase()}<br/>
+                        C.I. N° ${codeudor.cedula || "_____________________"}
+                    </td>
+                </tr>
+            </table>`;
+}
+
+const parseFechaContrato = (dateString?: string) => {
+    if (!dateString) return ".................";
+    try {
+        const raw = String(dateString).trim();
+        const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (iso) {
+            const d = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+            return d.toLocaleDateString("es-PY", {
+                day: "2-digit",
+                month: "long",
+                year: "numeric",
+            });
+        }
+        const d = new Date(raw);
+        if (isNaN(d.getTime())) return ".................";
+        return d.toLocaleDateString("es-PY", {
+            day: "2-digit",
+            month: "long",
+            year: "numeric",
+        });
+    } catch {
+        return ".................";
+    }
+};
+
 export const ContratoImprimible = ({ contractData, dataUnidad, localNisAnde, isPreview }: any) => {
     const [mounted, setMounted] = useState(false);
 
@@ -14,21 +186,8 @@ export const ContratoImprimible = ({ contractData, dataUnidad, localNisAnde, isP
 
     if (!contractData) return null;
 
-    const parseDate = (dateString: string) => {
-        if (!dateString) return ".................";
-        try {
-            return new Date(dateString).toLocaleDateString("es-PY", {
-                day: '2-digit',
-                month: 'long',
-                year: 'numeric'
-            });
-        } catch {
-            return ".................";
-        }
-    };
-
-    const fechaInicio = parseDate(contractData.fechaInicioContrato);
-    const fechaFin = parseDate(contractData.fechaFinContrato);
+    const fechaInicio = parseFechaContrato(contractData.fechaInicioContrato);
+    const fechaFin = parseFechaContrato(contractData.fechaFinContrato);
 
     const montoAlquiler = Number(contractData.montoMensualAlquiler || 0).toLocaleString('es-PY');
     const deposito = Number(contractData.depositoGarantia || 0).toLocaleString('es-PY');
@@ -38,19 +197,24 @@ export const ContratoImprimible = ({ contractData, dataUnidad, localNisAnde, isP
     const mesHoy = fechaHoy.toLocaleDateString('es-PY', { month: 'long' });
     const anioHoy = fechaHoy.getFullYear();
 
+    const codeudor = resolveCodeudor(contractData);
+    const observaciones = codeudor.observacionesLimpias;
+    const titulos = titulosClausulasFinales(codeudor.tieneCodeudor, Boolean(observaciones));
+
     const content = (
             <div 
-                id={isPreview ? undefined : "imprimible-contrato"} 
+                id={isPreview ? "imprimible-contrato-preview" : "imprimible-contrato"} 
                 className={isPreview 
-                    ? "text-black p-8 sm:p-16 text-[13px] leading-relaxed font-serif text-justify w-full mx-auto select-text print:hidden" 
-                    : "hidden print:block bg-white text-black text-[13px] leading-relaxed font-serif text-justify"
+                    ? "contrato-legal-doc text-black p-8 sm:p-16 text-[13px] leading-relaxed font-serif text-justify w-full mx-auto select-text" 
+                    : "contrato-legal-doc hidden print:block bg-white text-black text-[13px] leading-relaxed font-serif text-justify"
                 } 
                 style={{ 
-                    backgroundColor: 'white', // Forzamos blanco siempre
-                    color: 'black',           // Forzamos negro siempre
+                    backgroundColor: 'white',
+                    color: 'black',
+                    fontFamily: "'Times New Roman', Times, serif",
                     WebkitPrintColorAdjust: 'exact', 
-                    colorAdjust: 'exact' 
-                }}
+                    printColorAdjust: 'exact',
+                } as React.CSSProperties}
             >
             
             <h1 className="text-center font-bold text-lg mb-6 uppercase">CONTRATO DE LOCACIÓN</h1>
@@ -119,34 +283,36 @@ export const ContratoImprimible = ({ contractData, dataUnidad, localNisAnde, isP
                 <strong>DECIMA QUINTA:</strong> EL LOCATARIO también se obliga a comunicar, bajo constancia escrita y con la debida antelación, al LOCADOR en caso que tuviera que ausentarse del país o dejar libre la unidad locada, designando la persona responsable de abonar los servicios públicos y mensualidades, así como la persona que pueda ingresar a la unidad en su ausencia. EL LOCATARIO no podrá introducir ni utilizar la unidad locada, para el almacenamiento de materiales explosivos, combustibles o inflamables y/o que sean peligrosos y que por su naturaleza pudiera ocasionar o causar daños y/o molestias, haciéndose exclusivamente responsable de los daños y perjuicios que por tales hechos sean ocasionados en caso de ejecutarlos, reservándose EL LOCADOR el derecho de accionar judicialmente.-------------
             </p>
 
+            {codeudor.tieneCodeudor && titulos.codeudor && (
             <p className="mb-4">
-                <strong>DECIMA SEXTA:</strong> El/La Señor/a ................................................................., con documento .................................. con domicilio particular en ................................................................ asume el carácter de CODEUDOR solidario de las obligaciones del presente contrato que correspondan a EL LOCATARIO, de conformidad a lo establecido en el Art. 816 del Código Civil Paraguayo, quien en prueba de conformidad, se obliga solidariamente y la fianza es válida mientras no sean devueltas las llaves del inmueble a EL LOCADOR, totalmente desocupado y en estado en que los recibe, independientemente de lo establecido en la cláusula quinta y aun cuando este contrato fuese prorrogado sucesivamente en su vigencia sin su consentimiento o consentimiento previo. Se compromete además al pago del alquiler a la simple presentación del recibo, si EL LOCATARIO no lo hiciere en fecha pactada. En caso de falencia, irresponsabilidad comprobada o fallecimiento del fiador, EL LOCADOR podrá pedir en cualquier momento otro garante en reemplazo del señalado en la presente cláusula y EL LOCATARIO deberá presentarlo en el plazo de 3 (tres) días, so pena de considerar rescindo el contrato. La presente codeudorìa solidaria se extiende inclusive a los daños y perjuicios o cualquier otro reclamo que conforme al presente acuerdo pudiera reclamarse al LOCATARIO.-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                <strong>{titulos.codeudor}:</strong> El/La Señor/a <strong>{codeudor.nombre.toUpperCase()}</strong>, con documento <strong>{codeudor.cedula || "_________________"}</strong> con domicilio particular en <strong>{codeudor.direccion || "_________________"}</strong> {TEXTO_CODEUDOR_REST}
+            </p>
+            )}
+
+            <p className="mb-4">
+                <strong>{titulos.informconf}:</strong> {codeudor.tieneCodeudor ? TEXTO_INFORMCONF_CON : TEXTO_INFORMCONF_SIN}
             </p>
 
             <p className="mb-4">
-                <strong>DECIMA SEPTIMA:</strong> Por el presente instrumento tanto la persona CODEUDORA como EL LOCATARIO autorizan en forma expresa e irrevocable, otorgando suficiente mandato en los términos del Art. 917 Inc. "A" del Código Civil Paraguayo para que por su propia cuenta o a través de empresas especializadas de nuestro medio puedan recabar información en plaza referente a su situación patrimonial, solvencia económica o el cumplimiento de sus obligaciones comerciales. De igual manera y en los mismos términos, autorizan para que en caso de atraso superior a los noventa días en el pago del alquiler o cualquier otra deuda pendiente que mantengan con EL LOCADOR y/o representante incluyan sus nombres en el Registro General de Morosos Informconf. La eliminación de dicho registro se realiza de acuerdo a los términos establecidos en la Ley N° 1682/01 y su modificatoria Ley N° 1969/02.-------------------------------------------------------------------------------------------------------------------
+                <strong>{titulos.riesgo}:</strong> {TEXTO_RIESGO}
             </p>
 
             <p className="mb-4">
-                <strong>DECIMO OCTAVA:</strong> El LOCATARIO toma a su cargo el riesgo por la utilización o manejo de cualquier artefacto o aparato de refrigeración o electricidad que esté en el inmueble arrendado o que fuera puesto en lo sucesivo, exonerando expresamente a EL LOCADOR de toda responsabilidad. Queda liberado EL LOCADOR de las responsabilidades civiles, por los daños y perjuicios que padezca EL LOCATARIO o terceros en sus personas y/o bienes, originados por accidentes dentro del inmueble locado.--
+                <strong>{titulos.termino}:</strong> {TEXTO_TERMINO}
             </p>
 
             <p className="mb-4">
-                <strong>DECIMA NOVENA:</strong> El término de la presente locación, ya sea por vencimiento del plazo establecido o por falta de pago de alquileres en la forma indicada, o cualquier causa de rescisión de éste contrato, dará derecho al PROPIETARIO a hacerse cargo de inmediato del inmueble y ocuparlo, para lo cual queda expresamente autorizado por EL LOCATARIO, aunque éste estuviere ausente y el inmueble se hallare cerrado, a tomar posesión del inmueble con intervención judicial o notarial en su defecto, siendo suficiente la notificación por telegrama colacionado, de intimación de entrega del inmueble.-----------------------------
+                <strong>{titulos.obligaciones}:</strong> {TEXTO_OBLIGACIONES}
             </p>
 
-            <p className="mb-4">
-                <strong>VIGESIMA:</strong> Todas las obligaciones originadas y derivadas de esta locación regirán hasta el día en que EL LOCADOR, haya recibido el inmueble a entera satisfacción y bajo constancia escrita y aun si, vencido el plazo contractual, EL LOCATARIO continuara en el uso y goce del inmueble sin contrato alguno.---------------------------------------------------------------
-            </p>
-
-            {contractData.observaciones && (
+            {observaciones && titulos.obs && (
                 <p className="mb-4">
-                    <strong>VIGESIMA PRIMERA (OBSERVACIONES O CLÁUSULAS ESPECIALES):</strong> {contractData.observaciones}
+                    <strong>{titulos.obs} (OBSERVACIONES O CLÁUSULAS ESPECIALES):</strong> {observaciones}
                 </p>
             )}
 
             <p className="mb-4">
-                <strong>{contractData.observaciones ? "VIGESIMA SEGUNDA:" : "VIGESIMA PRIMERA:"}</strong> Las partes se someten voluntariamente a la Jurisdicción y Competencia de los Tribunales Ordinarios de la Ciudad de Luque, quedando sujetos a las disposiciones generales de La Ley, y en particular de los contratos de locación del Código Civil, Ley N° 1.183/5, renunciando a todo otro fuero o jurisdicción que pudiera corresponderles. Asimismo constituyen domicilio legal y especial en los respectivos domicilios reales, donde serán considerados válidas todas las intimaciones y notificaciones que en ellos se haga.----------------------------------------------------------------------------------
+                <strong>{titulos.jurisdiccion}:</strong> {TEXTO_JURISDICCION}
             </p>
 
             <div className="break-inside-avoid">
@@ -169,19 +335,76 @@ export const ContratoImprimible = ({ contractData, dataUnidad, localNisAnde, isP
                     </div>
                 </div>
                 
+                {codeudor.tieneCodeudor && (
                 <div className="flex justify-center items-end mt-10 px-10 pb-8">
                     <div className="text-center w-[30%]">
                         <div className="border-t border-black mb-2"></div>
                         <p className="font-bold">GARANTE / CODEUDOR</p>
-                        <p className="text-xs">C.I. N° ....................................</p>
+                        <p className="text-xs">{codeudor.nombre.toUpperCase()}</p>
+                        <p className="text-xs">C.I. N° {codeudor.cedula || "_____________________"}</p>
                     </div>
                 </div>
+                )}
             </div>
         </div>
     );
 
     if (isPreview) {
-        return content;
+        return (
+            <>
+                {content}
+                <style dangerouslySetInnerHTML={{__html: `
+                    @media print {
+                        @page {
+                            margin: 1.8cm 2cm;
+                            size: A4 portrait;
+                        }
+                        html, body {
+                            background: white !important;
+                            margin: 0 !important;
+                            padding: 0 !important;
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                        }
+                        body * { visibility: hidden !important; }
+                        .contrato-legal-doc,
+                        .contrato-legal-doc * {
+                            visibility: visible !important;
+                        }
+                        .contrato-legal-doc {
+                            position: absolute !important;
+                            left: 0 !important;
+                            top: 0 !important;
+                            width: 100% !important;
+                            max-width: none !important;
+                            margin: 0 !important;
+                            padding: 0 !important;
+                            background: white !important;
+                            color: #000 !important;
+                            font-family: 'Times New Roman', Times, serif !important;
+                            font-size: 11pt !important;
+                            line-height: 1.5 !important;
+                            text-align: justify !important;
+                            box-shadow: none !important;
+                            border: none !important;
+                            border-radius: 0 !important;
+                            z-index: 999999 !important;
+                        }
+                        .contrato-legal-doc h1 {
+                            font-size: 14pt !important;
+                            text-align: center !important;
+                            font-weight: bold !important;
+                            margin-bottom: 16pt !important;
+                        }
+                        .contrato-legal-doc p {
+                            margin-bottom: 10pt !important;
+                            orphans: 3;
+                            widows: 3;
+                        }
+                    }
+                `}} />
+            </>
+        );
     }
 
     if (!mounted) return null;
@@ -193,7 +416,7 @@ export const ContratoImprimible = ({ contractData, dataUnidad, localNisAnde, isP
                 @media print {
                     @page { 
                         margin: 1.8cm 2cm 1.8cm 2cm;
-                        size: A4;
+                        size: A4 portrait;
                     }
                     html, body {
                         height: auto !important;
@@ -202,14 +425,16 @@ export const ContratoImprimible = ({ contractData, dataUnidad, localNisAnde, isP
                         background: white !important;
                         margin: 0 !important;
                         padding: 0 !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
                     }
                     body * {
-                        visibility: hidden;
+                        visibility: hidden !important;
                     }
-                    #imprimible-contrato, #imprimible-contrato * {
-                        visibility: visible;
+                    .contrato-legal-doc, .contrato-legal-doc * {
+                        visibility: visible !important;
                     }
-                    #imprimible-contrato {
+                    #imprimible-contrato.contrato-legal-doc {
                         position: absolute !important;
                         left: 0 !important;
                         top: 0 !important;
@@ -219,10 +444,23 @@ export const ContratoImprimible = ({ contractData, dataUnidad, localNisAnde, isP
                         overflow: visible !important;
                         display: block !important;
                         background-color: white !important;
+                        color: #000 !important;
+                        font-family: 'Times New Roman', Times, serif !important;
+                        font-size: 11pt !important;
+                        line-height: 1.5 !important;
+                        text-align: justify !important;
                         padding: 0 !important;
                         margin: 0 !important;
                         box-sizing: border-box !important;
                         z-index: 999999 !important;
+                    }
+                    .contrato-legal-doc h1 {
+                        font-size: 14pt !important;
+                        text-align: center !important;
+                    }
+                    .contrato-legal-doc p {
+                        orphans: 3;
+                        widows: 3;
                     }
                 }
             `}} />
@@ -239,30 +477,19 @@ export const descargarContratoDoc = (contractData: any, dataUnidad: any) => {
     const monto = Number(contractData?.montoMensualAlquiler || contractData?.montoAlquiler || 0).toLocaleString("es-PY");
     const nis = contractData?.nisAnde || dataUnidad?.nisAnde || "________________";
     const deposito = Number(contractData?.depositoGarantia || contractData?.montoDepositoGarantia || contractData?.deposito || 0).toLocaleString("es-PY");
-    const observaciones = contractData?.observaciones || "";
+    const codeudor = resolveCodeudor(contractData);
     const servicios = contractData?.serviciosIncluidos ? `servicios incluidos (${contractData?.serviciosIncluidos})` : 'expensas del condominio incluidas';
     const ocupantes = contractData?.cantidadOcupantes ? `(autorizado para hasta ${contractData?.cantidadOcupantes} ocupantes)` : '';
 
-    const parseDate = (dateString?: string) => {
-        if (!dateString) return ".................";
-        try {
-            return new Date(dateString).toLocaleDateString("es-PY", {
-                day: '2-digit',
-                month: 'long',
-                year: 'numeric'
-            });
-        } catch {
-            return ".................";
-        }
-    };
-
-    const fInicio = parseDate(contractData?.fechaInicioContrato);
-    const fFin = parseDate(contractData?.fechaFinContrato);
+    const fInicio = parseFechaContrato(contractData?.fechaInicioContrato);
+    const fFin = parseFechaContrato(contractData?.fechaFinContrato);
 
     const fechaHoy = new Date();
     const diaHoy = fechaHoy.getDate().toString().padStart(2, '0');
     const mesHoy = fechaHoy.toLocaleDateString('es-PY', { month: 'long' });
     const anioHoy = fechaHoy.getFullYear();
+    const clausulasFinales = buildClausulasFinalesHtml(codeudor);
+    const firmaCodeudor = buildFirmaCodeudorHtml(codeudor);
 
     const htmlContent = `
         <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
@@ -313,19 +540,7 @@ export const descargarContratoDoc = (contractData: any, dataUnidad: any) => {
 
             <p><strong>DECIMA QUINTA:</strong> EL LOCATARIO también se obliga a comunicar, bajo constancia escrita y con la debida antelación, al LOCADOR en caso que tuviera que ausentarse del país o dejar libre la unidad locada, designando la persona responsable de abonar los servicios públicos y mensualidades, así como la persona que pueda ingresar a la unidad en su ausencia. EL LOCATARIO no podrá introducir ni utilizar la unidad locada, para el almacenamiento de materiales explosivos, combustibles o inflamables y/o que sean peligrosos y que por su naturaleza pudiera ocasionar o causar daños y/o molestias, haciéndose exclusivamente responsable de los daños y perjuicios que por tales hechos sean ocasionados en caso de ejecutarlos, reservándose EL LOCADOR el derecho de accionar judicialmente.-------------</p>
 
-            <p><strong>DECIMA SEXTA:</strong> El/La Señor/a ................................................................., con documento .................................. con domicilio particular en ................................................................ asume el carácter de CODEUDOR solidario de las obligaciones del presente contrato que correspondan a EL LOCATARIO, de conformidad a lo establecido en el Art. 816 del Código Civil Paraguayo, quien en prueba de conformidad, se obliga solidariamente y la fianza es válida mientras no sean devueltas las llaves del inmueble a EL LOCADOR, totalmente desocupado y en estado en que los recibe, independientemente de lo establecido en la cláusula quinta y aun cuando este contrato fuese prorrogado sucesivamente en su vigencia sin su consentimiento o consentimiento previo. Se compromete además al pago del alquiler a la simple presentación del recibo, si EL LOCATARIO no lo hiciere en fecha pactada. En caso de falencia, irresponsabilidad comprobada o fallecimiento del fiador, EL LOCADOR podrá pedir en cualquier momento otro garante en reemplazo del señalado en la presente cláusula y EL LOCATARIO deberá presentarlo en el plazo de 3 (tres) días, so pena de considerar rescindo el contrato. La presente codeudorìa solidaria se extiende inclusive a los daños y perjuicios o cualquier otro reclamo que conforme al presente acuerdo pudiera reclamarse al LOCATARIO.-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------</p>
-
-            <p><strong>DECIMA SEPTIMA:</strong> Por el presente instrumento tanto la persona CODEUDORA como EL LOCATARIO autorizan en forma expresa e irrevocable, otorgando suficiente mandato en los términos del Art. 917 Inc. "A" del Código Civil Paraguayo para que por su propia cuenta o a través de empresas especializadas de nuestro medio puedan recabar información en plaza referente a su situación patrimonial, solvencia económica o el cumplimiento de sus obligaciones comerciales. De igual manera y en los mismos términos, autorizan para que en caso de atraso superior a los noventa días en el pago del alquiler o cualquier otra deuda pendiente que mantengan con EL LOCADOR y/o representante incluyan sus nombres en el Registro General de Morosos Informconf. La eliminación de dicho registro se realiza de acuerdo a los términos establecidos en la Ley N° 1682/01 y su modificatoria Ley N° 1969/02.-------------------------------------------------------------------------------------------------------------------</p>
-
-            <p><strong>DECIMO OCTAVA:</strong> El LOCATARIO toma a su cargo el riesgo por la utilización o manejo de cualquier artefacto o aparato de refrigeración o electricidad que esté en el inmueble arrendado o que fuera puesto en lo sucesivo, exonerando expresamente a EL LOCADOR de toda responsabilidad. Queda liberado EL LOCADOR de las responsabilidades civiles, por los daños y perjuicios que padezca EL LOCATARIO o terceros en sus personas y/o bienes, originados por accidentes dentro del inmueble locado.--</p>
-
-            <p><strong>DECIMA NOVENA:</strong> El término de la presente locación, ya sea por vencimiento del plazo establecido o por falta de pago de alquileres en la forma indicada, o cualquier causa de rescisión de éste contrato, dará derecho al PROPIETARIO a hacerse cargo de inmediato del inmueble y ocuparlo, para lo cual queda expresamente autorizado por EL LOCATARIO, aunque éste estuviere ausente y el inmueble se hallare cerrado, a tomar posesión del inmueble con intervención judicial o notarial en su defecto, siendo suficiente la notificación por telegrama colacionado, de intimación de entrega del inmueble.-----------------------------</p>
-
-            <p><strong>VIGESIMA:</strong> Todas las obligaciones originadas y derivadas de esta locación regirán hasta el día en que EL LOCADOR, haya recibido el inmueble a entera satisfacción y bajo constancia escrita y aun si, vencido el plazo contractual, EL LOCATARIO continuara en el uso y goce del inmueble sin contrato alguno.---------------------------------------------------------------</p>
-
-            ${observaciones ? `<p><strong>VIGESIMA PRIMERA (OBSERVACIONES O CLÁUSULAS ESPECIALES):</strong> ${observaciones}</p>` : ""}
-
-            <p><strong>${observaciones ? "VIGESIMA SEGUNDA:" : "VIGESIMA PRIMERA:"}</strong> Las partes se someten voluntariamente a la Jurisdicción y Competencia de los Tribunales Ordinarios de la Ciudad de Luque, quedando sujetos a las disposiciones generales de La Ley, y en particular de los contratos de locación del Código Civil, Ley N° 1.183/5, renunciando a todo otro fuero o jurisdicción que pudiera corresponderles. Asimismo constituyen domicilio legal y especial en los respectivos domicilios reales, donde serán considerados válidas todas las intimaciones y notificaciones que en ellos se haga.----------------------------------------------------------------------------------</p>
+            ${clausulasFinales}
 
             <p style="text-align: center; font-weight: bold; margin-top: 30pt; margin-bottom: 40pt;">EN PRUEBA DE CONFORMIDAD, firman las partes contratantes en un mismo tenor y a un solo efecto, a los ${diaHoy} días del mes de ${mesHoy} del año ${anioHoy}.-------------</p>
 
@@ -346,16 +561,7 @@ export const descargarContratoDoc = (contractData: any, dataUnidad: any) => {
                     </td>
                 </tr>
             </table>
-
-            <table style="margin-top: 50pt;">
-                <tr>
-                    <td style="text-align: center; width: 100%;">
-                        ____________________________________<br/>
-                        <strong>GARANTE / CODEUDOR</strong><br/>
-                        C.I. N° ....................................
-                    </td>
-                </tr>
-            </table>
+${firmaCodeudor}
         </body>
         </html>
     `;
@@ -379,37 +585,33 @@ export const descargarContratoPDF = async (contractData: any, dataUnidad: any, s
     const monto = Number(contractData?.montoMensualAlquiler || contractData?.montoAlquiler || 0).toLocaleString("es-PY");
     const nis = contractData?.nisAnde || dataUnidad?.nisAnde || "________________";
     const deposito = Number(contractData?.depositoGarantia || contractData?.montoDepositoGarantia || contractData?.deposito || 0).toLocaleString("es-PY");
-    const observaciones = contractData?.observaciones || "";
+    const codeudor = resolveCodeudor(contractData);
     const servicios = contractData?.serviciosIncluidos ? `servicios incluidos (${contractData?.serviciosIncluidos})` : 'expensas del condominio incluidas';
     const ocupantes = contractData?.cantidadOcupantes ? `(autorizado para hasta ${contractData?.cantidadOcupantes} ocupantes)` : '';
 
-    const parseDate = (dateString?: string) => {
-        if (!dateString) return ".................";
-        try {
-            return new Date(dateString).toLocaleDateString("es-PY", {
-                day: '2-digit',
-                month: 'long',
-                year: 'numeric'
-            });
-        } catch {
-            return ".................";
-        }
-    };
-
-    const fInicio = parseDate(contractData?.fechaInicioContrato);
-    const fFin = parseDate(contractData?.fechaFinContrato);
+    const fInicio = parseFechaContrato(contractData?.fechaInicioContrato);
+    const fFin = parseFechaContrato(contractData?.fechaFinContrato);
 
     const fechaHoy = new Date();
     const diaHoy = fechaHoy.getDate().toString().padStart(2, '0');
     const mesHoy = fechaHoy.toLocaleDateString('es-PY', { month: 'long' });
     const anioHoy = fechaHoy.getFullYear();
-    // 1. Creamos un elemento oculto con tu HTML
-    const element = document.createElement('div');
-    element.style.padding = '40px';
-    element.style.width = '800px';
-    element.style.background = 'white';
-    element.style.color = 'black';
-    element.style.fontFamily = 'Times New Roman, serif';
+    const clausulasFinales = buildClausulasFinalesHtml(codeudor);
+    const firmaCodeudor = buildFirmaCodeudorHtml(codeudor);
+    // 1. Contenedor off-screen con tipografía legal (Times) — mismo formato que el DOC
+    const element = document.createElement("div");
+    element.style.position = "fixed";
+    element.style.left = "-10000px";
+    element.style.top = "0";
+    element.style.padding = "48px 56px";
+    element.style.width = "800px";
+    element.style.background = "white";
+    element.style.color = "#000";
+    element.style.fontFamily = "'Times New Roman', Times, serif";
+    element.style.fontSize = "11pt";
+    element.style.lineHeight = "1.5";
+    element.style.textAlign = "justify";
+    element.style.zIndex = "-1";
     
     // Aquí pegamos tu contenido HTML (el mismo que tenías para Word)
     element.innerHTML = `
@@ -461,19 +663,7 @@ export const descargarContratoPDF = async (contractData: any, dataUnidad: any, s
 
             <p><strong>DECIMA QUINTA:</strong> EL LOCATARIO también se obliga a comunicar, bajo constancia escrita y con la debida antelación, al LOCADOR en caso que tuviera que ausentarse del país o dejar libre la unidad locada, designando la persona responsable de abonar los servicios públicos y mensualidades, así como la persona que pueda ingresar a la unidad en su ausencia. EL LOCATARIO no podrá introducir ni utilizar la unidad locada, para el almacenamiento de materiales explosivos, combustibles o inflamables y/o que sean peligrosos y que por su naturaleza pudiera ocasionar o causar daños y/o molestias, haciéndose exclusivamente responsable de los daños y perjuicios que por tales hechos sean ocasionados en caso de ejecutarlos, reservándose EL LOCADOR el derecho de accionar judicialmente.-------------</p>
 
-            <p><strong>DECIMA SEXTA:</strong> El/La Señor/a ................................................................., con documento .................................. con domicilio particular en ................................................................ asume el carácter de CODEUDOR solidario de las obligaciones del presente contrato que correspondan a EL LOCATARIO, de conformidad a lo establecido en el Art. 816 del Código Civil Paraguayo, quien en prueba de conformidad, se obliga solidariamente y la fianza es válida mientras no sean devueltas las llaves del inmueble a EL LOCADOR, totalmente desocupado y en estado en que los recibe, independientemente de lo establecido en la cláusula quinta y aun cuando este contrato fuese prorrogado sucesivamente en su vigencia sin su consentimiento o consentimiento previo. Se compromete además al pago del alquiler a la simple presentación del recibo, si EL LOCATARIO no lo hiciere en fecha pactada. En caso de falencia, irresponsabilidad comprobada o fallecimiento del fiador, EL LOCADOR podrá pedir en cualquier momento otro garante en reemplazo del señalado en la presente cláusula y EL LOCATARIO deberá presentarlo en el plazo de 3 (tres) días, so pena de considerar rescindo el contrato. La presente codeudorìa solidaria se extiende inclusive a los daños y perjuicios o cualquier otro reclamo que conforme al presente acuerdo pudiera reclamarse al LOCATARIO.-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------</p>
-
-            <p><strong>DECIMA SEPTIMA:</strong> Por el presente instrumento tanto la persona CODEUDORA como EL LOCATARIO autorizan en forma expresa e irrevocable, otorgando suficiente mandato en los términos del Art. 917 Inc. "A" del Código Civil Paraguayo para que por su propia cuenta o a través de empresas especializadas de nuestro medio puedan recabar información en plaza referente a su situación patrimonial, solvencia económica o el cumplimiento de sus obligaciones comerciales. De igual manera y en los mismos términos, autorizan para que en caso de atraso superior a los noventa días en el pago del alquiler o cualquier otra deuda pendiente que mantengan con EL LOCADOR y/o representante incluyan sus nombres en el Registro General de Morosos Informconf. La eliminación de dicho registro se realiza de acuerdo a los términos establecidos en la Ley N° 1682/01 y su modificatoria Ley N° 1969/02.-------------------------------------------------------------------------------------------------------------------</p>
-
-            <p><strong>DECIMO OCTAVA:</strong> El LOCATARIO toma a su cargo el riesgo por la utilización o manejo de cualquier artefacto o aparato de refrigeración o electricidad que esté en el inmueble arrendado o que fuera puesto en lo sucesivo, exonerando expresamente a EL LOCADOR de toda responsabilidad. Queda liberado EL LOCADOR de las responsabilidades civiles, por los daños y perjuicios que padezca EL LOCATARIO o terceros en sus personas y/o bienes, originados por accidentes dentro del inmueble locado.--</p>
-
-            <p><strong>DECIMA NOVENA:</strong> El término de la presente locación, ya sea por vencimiento del plazo establecido o por falta de pago de alquileres en la forma indicada, o cualquier causa de rescisión de éste contrato, dará derecho al PROPIETARIO a hacerse cargo de inmediato del inmueble y ocuparlo, para lo cual queda expresamente autorizado por EL LOCATARIO, aunque éste estuviere ausente y el inmueble se hallare cerrado, a tomar posesión del inmueble con intervención judicial o notarial en su defecto, siendo suficiente la notificación por telegrama colacionado, de intimación de entrega del inmueble.-----------------------------</p>
-
-            <p><strong>VIGESIMA:</strong> Todas las obligaciones originadas y derivadas de esta locación regirán hasta el día en que EL LOCADOR, haya recibido el inmueble a entera satisfacción y bajo constancia escrita y aun si, vencido el plazo contractual, EL LOCATARIO continuara en el uso y goce del inmueble sin contrato alguno.---------------------------------------------------------------</p>
-
-            ${observaciones ? `<p><strong>VIGESIMA PRIMERA (OBSERVACIONES O CLÁUSULAS ESPECIALES):</strong> ${observaciones}</p>` : ""}
-
-            <p><strong>${observaciones ? "VIGESIMA SEGUNDA:" : "VIGESIMA PRIMERA:"}</strong> Las partes se someten voluntariamente a la Jurisdicción y Competencia de los Tribunales Ordinarios de la Ciudad de Luque, quedando sujetos a las disposiciones generales de La Ley, y en particular de los contratos de locación del Código Civil, Ley N° 1.183/5, renunciando a todo otro fuero o jurisdicción que pudiera corresponderles. Asimismo constituyen domicilio legal y especial en los respectivos domicilios reales, donde serán considerados válidas todas las intimaciones y notificaciones que en ellos se haga.----------------------------------------------------------------------------------</p>
+            ${clausulasFinales}
 
             <p style="text-align: center; font-weight: bold; margin-top: 30pt; margin-bottom: 40pt;">EN PRUEBA DE CONFORMIDAD, firman las partes contratantes en un mismo tenor y a un solo efecto, a los ${diaHoy} días del mes de ${mesHoy} del año ${anioHoy}.-------------</p>
 
@@ -494,40 +684,78 @@ export const descargarContratoPDF = async (contractData: any, dataUnidad: any, s
                     </td>
                 </tr>
             </table>
-
-            <table style="margin-top: 50pt;">
-                <tr>
-                    <td style="text-align: center; width: 100%;">
-                        ____________________________________<br/>
-                        <strong>GARANTE / CODEUDOR</strong><br/>
-                        C.I. N° ....................................
-                    </td>
-                </tr>
-            </table>
+${firmaCodeudor}
         </body>
         </html>
     `;
 
     document.body.appendChild(element);
 
-    // 2. Convertimos el HTML en una imagen de alta calidad y luego a PDF
-    const canvas = await html2canvas(element, { scale: 2 });
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const imgProps = pdf.getImageProperties(imgData);
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-    
-    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-    
-    document.body.removeChild(element);
+    try {
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+        windowWidth: 800,
+      });
 
-    const fileName = `Contrato_${dataUnidad?.code}.pdf`;
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const marginX = 12;
+      const marginY = 12;
+      const contentWidth = pageWidth - marginX * 2;
+      const contentHeight = pageHeight - marginY * 2;
 
-    if (soloRetornarFile) {
-        const blob = pdf.output('blob');
-        return new File([blob], fileName, { type: 'application/pdf' });
+      const imgWidthPx = canvas.width;
+      const imgHeightPx = canvas.height;
+      const pxPerMm = imgWidthPx / contentWidth;
+      const pageHeightPx = contentHeight * pxPerMm;
+
+      let renderedHeight = 0;
+      let pageIndex = 0;
+
+      while (renderedHeight < imgHeightPx) {
+        const sliceHeightPx = Math.min(pageHeightPx, imgHeightPx - renderedHeight);
+        const pageCanvas = document.createElement("canvas");
+        pageCanvas.width = imgWidthPx;
+        pageCanvas.height = Math.ceil(sliceHeightPx);
+        const ctx = pageCanvas.getContext("2d");
+        if (!ctx) break;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+        ctx.drawImage(
+          canvas,
+          0,
+          renderedHeight,
+          imgWidthPx,
+          sliceHeightPx,
+          0,
+          0,
+          imgWidthPx,
+          sliceHeightPx
+        );
+
+        const pageImg = pageCanvas.toDataURL("image/jpeg", 0.95);
+        const sliceHeightMm = sliceHeightPx / pxPerMm;
+        if (pageIndex > 0) pdf.addPage();
+        pdf.addImage(pageImg, "JPEG", marginX, marginY, contentWidth, sliceHeightMm);
+
+        renderedHeight += sliceHeightPx;
+        pageIndex += 1;
+      }
+
+      const fileName = `Contrato_Locacion_${code}_${String(nombre).replace(/\s+/g, "_")}.pdf`;
+
+      if (soloRetornarFile) {
+        const blob = pdf.output("blob");
+        return new File([blob], fileName, { type: "application/pdf" });
+      }
+
+      pdf.save(fileName);
+      return undefined;
+    } finally {
+      if (element.parentNode) document.body.removeChild(element);
     }
-
-    pdf.save(fileName);
 };

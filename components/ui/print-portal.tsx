@@ -13,7 +13,7 @@ export function PrintPortal({ children }: { children: React.ReactNode }) {
   if (!mounted || typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="hidden print:block absolute inset-0 bg-card z-[99999] print-portal-content">
+    <div className="hidden print:block absolute inset-0 bg-white z-[99999] print-portal-content border-0 shadow-none outline-none">
       {children}
     </div>,
     document.body

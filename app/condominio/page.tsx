@@ -355,7 +355,7 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
     };
   }, [unidades, dashboardData]);
 
-  // Agrupar unidades por condominio (Plantilla de 5, 6 y 4 duplex)
+  // Agrupar unidades por condominio: usa unidades reales de BD (incluye códigos renombrados)
   const condosGrouped = useMemo<CondoGroup[]>(() => {
     const sectors = [
       { name: "Aguz 1", count: 5 },
@@ -364,31 +364,25 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
     ];
 
     return sectors.map((sector, sIdx) => {
+      const realUnits = unidades
+        .filter(u => u.nombreCondominio === sector.name)
+        .sort((a, b) => a.codigoUnidad.localeCompare(b.codigoUnidad, "es", { numeric: true }));
+
+      if (realUnits.length > 0) {
+        return { name: sector.name, units: realUnits };
+      }
+
+      // Fallback a plantilla solo si aún no hay unidades en BD
       const units: Unidad[] = [];
       for (let i = 1; i <= sector.count; i++) {
         const code = `D-${i.toString().padStart(2, '0')}`;
-        // Buscamos si ya existe esta unidad en la base de datos (normalizando el código)
-        const realUnit = unidades.find(u => 
-          u.nombreCondominio === sector.name && 
-          (
-            u.codigoUnidad === code || 
-            u.codigoUnidad === `Duplex ${code}` || 
-            u.codigoUnidad.includes(code)
-          )
-        );
-
-        if (realUnit) {
-          units.push(realUnit);
-        } else {
-          // Si no existe, creamos una unidad "fantasmal" disponible
-          units.push({
-            unidadId: -((sIdx + 1) * 100 + i), // ID negativo para placeholders
-            codigoUnidad: code,
-            nombreCondominio: sector.name,
-            estado: "Disponible",
-            contratos: []
-          });
-        }
+        units.push({
+          unidadId: -((sIdx + 1) * 100 + i),
+          codigoUnidad: code,
+          nombreCondominio: sector.name,
+          estado: "Disponible",
+          contratos: []
+        });
       }
       return { name: sector.name, units };
     });

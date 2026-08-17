@@ -6,9 +6,18 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
+interface AndeFacturaItem {
+  monto: number;
+  estado: string;
+  emision: string;
+  vencimiento: string;
+  consumoKw?: number | null;
+}
+
 interface AndeConsultaResultado {
   nis: string;
   titular: string;
+  documento?: string;
   direccion: string;
   saldoDeuda: number;
   consumoKw: number;
@@ -20,6 +29,7 @@ interface AndeConsultaResultado {
   vencimiento: string;
   observaciones: string;
   esSimulado?: boolean;
+  facturas?: AndeFacturaItem[];
 }
 
 interface ConsultarEstadoAndeModalProps {
@@ -29,7 +39,7 @@ interface ConsultarEstadoAndeModalProps {
 }
 
 export function ConsultarEstadoAndeModal({ isOpen, onClose, defaultNis = "" }: ConsultarEstadoAndeModalProps) {
-  const [nis, setNis] = useState(defaultNis || "3070876");
+  const [nis, setNis] = useState(defaultNis || "1185894");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resultado, setResultado] = useState<AndeConsultaResultado | null>(null);
@@ -38,54 +48,6 @@ export function ConsultarEstadoAndeModal({ isOpen, onClose, defaultNis = "" }: C
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat("es-PY", { style: "currency", currency: "PYG" }).format(val);
-  };
-
-  const generarDesgloseFacturas = (totalDeuda: number, cantidad: number, vencimientoTope: string) => {
-    if (cantidad <= 0 || totalDeuda <= 0) return [];
-    
-    const meses = [
-      "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-      "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-    ];
-    
-    const fechaActual = new Date();
-    const lista = [];
-    
-    if (cantidad === 1) {
-      return [{
-        periodo: `${meses[fechaActual.getMonth()]} / ${fechaActual.getFullYear()}`,
-        concepto: "Consumo Energía Eléctrica + Cargo Fijo ANDE",
-        vencimiento: vencimientoTope || `${fechaActual.getDate()}/${fechaActual.getMonth() + 1}/${fechaActual.getFullYear()}`,
-        monto: totalDeuda,
-        estado: "PENDIENTE DE PAGO"
-      }];
-    }
-    
-    const cuotaBase = Math.round((totalDeuda / cantidad) / 1000) * 1000;
-    
-    for (let i = 0; i < cantidad; i++) {
-      const fechaCuota = new Date(fechaActual.getFullYear(), fechaActual.getMonth() - i, 1);
-      const mesNombre = meses[fechaCuota.getMonth()];
-      const anio = fechaCuota.getFullYear();
-      
-      let montoCuota = cuotaBase;
-      if (i === 0) {
-        montoCuota = totalDeuda - (cuotaBase * (cantidad - 1));
-      }
-      
-      const diaVenc = Math.min(16 + (i % 5), 28);
-      const mesVenc = (fechaCuota.getMonth() + 1).toString().padStart(2, '0');
-      
-      lista.push({
-        periodo: `${mesNombre} / ${anio}`,
-        concepto: i === 0 ? "Consumo Mes Actual y Cargo Fijo" : `Saldo Vencido Energía Activa - Período ${i}`,
-        vencimiento: i === 0 && vencimientoTope ? vencimientoTope : `${diaVenc}/${mesVenc}/${anio}`,
-        monto: montoCuota,
-        estado: i === 0 ? "VENCE ESTE MES" : "VENCIDO (MOROSIDAD)"
-      });
-    }
-    
-    return lista;
   };
 
   const consultarAnde = async (nisConsultar: string) => {
@@ -97,15 +59,29 @@ export function ConsultarEstadoAndeModal({ isOpen, onClose, defaultNis = "" }: C
     setResultado(null);
 
     try {
-      const res = await fetch(`http://localhost:5034/api/Ande/consultar-estado/${targetNis}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000);
+      // Ciclo JWT/miCuenta: login automático + consulta (sin Acceder manual)
+      const res = await fetch(`http://localhost:5034/api/Ande/jwt/consultar/${encodeURIComponent(targetNis)}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
       if (!res.ok) {
-        throw new Error("No se pudo conectar con el servicio comercial de la ANDE.");
+        const errBody = await res.json().catch(() => ({} as any));
+        throw new Error(errBody?.mensaje || "No se pudo conectar con el servicio comercial de la ANDE.");
       }
       const data: AndeConsultaResultado = await res.json();
       setResultado(data);
-      setMostrarDesglose(false);
+      setMostrarDesglose(true);
+      if (data.esSimulado || /fall[oó]|bloque[oó]|Radware|credenciales/i.test(data.observaciones || "")) {
+        setError(data.observaciones || "No se pudo obtener el saldo real de ANDE. Reintente en unos segundos.");
+      }
     } catch (err: any) {
-      setError(err.message || "Ocurrió un error al consultar el NIS.");
+      if (err?.name === "AbortError") {
+        setError("La consulta a ANDE tardó demasiado. Reintente en unos segundos.");
+      } else {
+        setError(err.message || "Ocurrió un error al consultar el NIS.");
+      }
     } finally {
       setLoading(false);
     }
@@ -115,8 +91,8 @@ export function ConsultarEstadoAndeModal({ isOpen, onClose, defaultNis = "" }: C
     if (!resultado) return;
     setLoadingPdf(true);
     try {
-      const url = `http://localhost:5034/api/Ande/factura-pdf/${resultado.nis}?inquilino=${encodeURIComponent(resultado.titular)}&duplex=${encodeURIComponent(resultado.direccion)}`;
-      window.open(url, "_blank");
+      const { abrirFacturaPdf } = await import("./AndeDesgloseFacturasModal");
+      await abrirFacturaPdf(resultado.nis, resultado.titular || "", resultado.direccion || "");
     } catch (e) {
       alert("Error abriendo factura PDF");
     } finally {
@@ -128,7 +104,7 @@ export function ConsultarEstadoAndeModal({ isOpen, onClose, defaultNis = "" }: C
     { label: "Dúplex 01 (Ana Rosa)", nis: "3070876" },
     { label: "Dúplex 02 (Michael)", nis: "3070874" },
     { label: "Dúplex 03 (Leila)", nis: "2994412" },
-    { label: "⚠️ Simular Corte ANDE", nis: "3070899" },
+    { label: "NIS App ANDE (1185894)", nis: "1185894" },
   ];
 
   return (
@@ -214,8 +190,10 @@ export function ConsultarEstadoAndeModal({ isOpen, onClose, defaultNis = "" }: C
                 <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
               </div>
               <div>
-                <p className="text-lg font-black italic text-foreground">CONECTANDO CON SERVICIO COMERCIAL ANDE...</p>
-                <p className="text-sm text-muted-foreground font-medium mt-1">Verificando saldos, consumo en kW y estado de cortes</p>
+                <p className="text-lg font-black italic text-foreground">CONSULTANDO NIS EN ANDE...</p>
+                <p className="text-sm text-muted-foreground font-medium mt-1">
+                  Sesión JWT por HTTP — sin Chrome ni Acceder manual.
+                </p>
               </div>
             </div>
           ) : resultado ? (
@@ -253,12 +231,26 @@ export function ConsultarEstadoAndeModal({ isOpen, onClose, defaultNis = "" }: C
               {/* Grid de Datos del Medidor (Sin Truncar) */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-muted p-5 rounded-2xl border border-border/80 shadow-2xs space-y-1.5">
-                  <span className="text-[11px] font-black uppercase text-muted-foreground tracking-wider">Titular / Inquilino Asignado</span>
+                  <span className="text-[11px] font-black uppercase text-muted-foreground tracking-wider">Titular ANDE</span>
                   <p className="text-base sm:text-lg font-extrabold text-foreground leading-snug break-words">{resultado.titular}</p>
-                  <div className="flex items-center gap-2 pt-1">
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
                     <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-none font-mono font-bold text-xs">
                       NIS: {resultado.nis}
                     </Badge>
+                    {resultado.documento && (
+                      <Badge className="bg-slate-200 text-slate-800 hover:bg-slate-200 border-none font-mono font-bold text-xs">
+                        RUC/CI: {resultado.documento}
+                      </Badge>
+                    )}
+                    {resultado.esSimulado ? (
+                      <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 border-none font-bold text-xs">
+                        SIN DATOS EN VIVO
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-none font-bold text-xs">
+                        DATOS REALES ANDE
+                      </Badge>
+                    )}
                   </div>
                 </div>
 
@@ -331,72 +323,67 @@ export function ConsultarEstadoAndeModal({ isOpen, onClose, defaultNis = "" }: C
                 </div>
               </div>
 
-              {/* Desglose de Facturas Pendientes (Tabla Dinámica) */}
-              {mostrarDesglose && resultado.facturasPendientes > 0 && (
-                <div className="bg-slate-900 text-white p-6 rounded-3xl border border-slate-800 shadow-2xl space-y-4 animate-in slide-in-from-top-4 duration-300">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/30">
-                        <FileText className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h4 className="text-base sm:text-lg font-black italic tracking-tight text-white flex items-center gap-2">
-                          <span>DESGLOSE DE FACTURAS PENDIENTES DE PAGO</span>
-                        </h4>
-                        <p className="text-xs text-muted-foreground font-medium">
-                          Detalle mensual de cuotas vencidas y pendientes registradas en la red comercial ANDE
-                        </p>
-                      </div>
+              {/* Histórico de comprobantes reales (como App Mi ANDE) */}
+              {(resultado.facturas?.length ?? 0) > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-base font-black italic tracking-tight text-foreground">Histórico de Comprobantes ANDE</h4>
+                      <p className="text-xs text-muted-foreground font-medium">Montos, estados y fechas tal como reporta el servicio comercial</p>
                     </div>
-                    <Badge className="bg-red-500/20 text-red-300 border border-red-500/30 px-3 py-1 font-mono text-xs font-bold shrink-0 self-start sm:self-auto">
-                      {resultado.facturasPendientes} CUOTA(S) PENDIENTE(S)
-                    </Badge>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setMostrarDesglose(!mostrarDesglose)}
+                      className="rounded-xl text-xs font-bold"
+                    >
+                      {mostrarDesglose ? "Ocultar" : "Ver facturas"}
+                    </Button>
                   </div>
 
-                  <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/60 shadow-inner">
-                    <table className="w-full text-left border-collapse text-xs sm:text-sm">
-                      <thead>
-                        <tr className="bg-slate-900/90 text-muted-foreground font-black uppercase text-[11px] tracking-wider border-b border-slate-800">
-                          <th className="py-3.5 px-4">Periodo / Mes</th>
-                          <th className="py-3.5 px-4">Concepto de Facturación</th>
-                          <th className="py-3.5 px-4 text-center">Vencimiento</th>
-                          <th className="py-3.5 px-4 text-center">Estado</th>
-                          <th className="py-3.5 px-4 text-right">Monto (Gs.)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-800/60 font-medium">
-                        {generarDesgloseFacturas(resultado.saldoDeuda, resultado.facturasPendientes, resultado.vencimiento).map((item, idx) => (
-                          <tr key={idx} className="hover:bg-slate-800/50 transition-colors">
-                            <td className="py-3 px-4 font-bold text-amber-300 font-mono whitespace-nowrap">{item.periodo}</td>
-                            <td className="py-3 px-4 text-muted-foreground min-w-[200px]">{item.concepto}</td>
-                            <td className="py-3 px-4 text-center font-mono text-muted-foreground whitespace-nowrap">{item.vencimiento}</td>
-                            <td className="py-3 px-4 text-center whitespace-nowrap">
-                              <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase inline-block ${
-                                item.estado.includes("VENCIDO") || item.estado.includes("MOROSIDAD") 
-                                  ? "bg-red-500/20 text-red-400 border border-red-500/30" 
-                                  : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                              }`}>
-                                {item.estado}
+                  {mostrarDesglose && (
+                    <div className="flex gap-3 overflow-x-auto pb-2 snap-x">
+                      {resultado.facturas!.map((f, idx) => {
+                        const esPend =
+                          /pend|deud/i.test(f.estado || "") ||
+                          /^ER[012]/i.test((f.estado || "").toUpperCase()) ||
+                          ((f.estado || "").toUpperCase() === "ER620");
+                        const esPag =
+                          /pagad|cobrad/i.test(f.estado || "") ||
+                          /^ER3/i.test((f.estado || "").toUpperCase());
+                        const pendienteFinal =
+                          esPend ||
+                          (!esPag &&
+                            resultado.saldoDeuda > 0 &&
+                            Math.abs(f.monto - resultado.saldoDeuda) < 1);
+                        return (
+                          <div
+                            key={`${f.monto}-${f.emision}-${idx}`}
+                            className="min-w-[240px] snap-start rounded-2xl border-2 border-border bg-card p-4 shadow-sm space-y-3"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-xl font-black tracking-tight text-foreground">
+                                {formatCurrency(f.monto)}
+                              </p>
+                              <span
+                                className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full whitespace-nowrap ${
+                                  pendienteFinal
+                                    ? "bg-amber-100 text-amber-800 border border-amber-200"
+                                    : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                }`}
+                              >
+                                {pendienteFinal ? "Pendiente de Pago" : "Pagado"}
                               </span>
-                            </td>
-                            <td className="py-3 px-4 text-right font-black font-mono text-white text-sm sm:text-base whitespace-nowrap">
-                              {formatCurrency(item.monto)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot>
-                        <tr className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 font-black text-white border-t-2 border-amber-500/60">
-                          <td colSpan={4} className="py-4 px-4 text-right uppercase tracking-wider text-xs sm:text-sm text-amber-400">
-                            Monto Total de Facturas Pendientes:
-                          </td>
-                          <td className="py-4 px-4 text-right font-mono text-base sm:text-xl text-amber-400 font-black whitespace-nowrap">
-                            {formatCurrency(resultado.saldoDeuda)}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
+                            </div>
+                            <div className="space-y-1 text-xs font-semibold text-muted-foreground">
+                              {f.emision && <p>Emisión: <span className="text-foreground font-bold">{f.emision}</span></p>}
+                              {f.vencimiento && <p>Vencimiento: <span className="text-foreground font-bold">{f.vencimiento}</span></p>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 

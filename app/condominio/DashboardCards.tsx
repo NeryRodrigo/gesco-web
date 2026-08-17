@@ -3,13 +3,228 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Home, CheckCircle2, Wallet, Clock, Calendar, AlertTriangle, Filter, Zap, Check, X, RefreshCw } from "lucide-react";
+import { Users, Home, CheckCircle2, Wallet, Clock, Calendar, AlertTriangle, Filter, Zap, Check, X, RefreshCw, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { ConsultarEstadoAndeModal } from "./ConsultarEstadoAndeModal";
+import { AndeDesgloseFacturasModal, abrirFacturaPdf } from "./AndeDesgloseFacturasModal";
+import { MorosidadesMainModal } from "./MorosidadesMainModal";
 import { verificarPermisoGranular, ModalAccesoRestringido } from "@/app/login/PermisosGranularesMatriz";
-import { formatDuplex } from "@/lib/utils";
+import { formatDuplex, formatFechaCorta } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 const formatCurrency = (val: number) => {
-  return new Intl.NumberFormat('es-PY', { style: 'currency', currency: 'PYG' }).format(val);
+  return new Intl.NumberFormat('es-PY', { style: 'currency', currency: 'PYG', maximumFractionDigits: 0 }).format(val);
+};
+
+/** Formato compacto para tarjetas en pantallas chicas (celular / iPad). */
+const formatMetricDisplay = (value: string | number, isCurrency: boolean) => {
+  if (typeof value === "string") return value;
+  if (!isCurrency) return String(value);
+  const n = Number(value) || 0;
+  if (n >= 1_000_000_000) return `Gs. ${(n / 1_000_000_000).toLocaleString("es-PY", { maximumFractionDigits: 1 })} mil M`;
+  if (n >= 1_000_000) return `Gs. ${(n / 1_000_000).toLocaleString("es-PY", { maximumFractionDigits: 1 })} M`;
+  return formatCurrency(n);
+};
+
+const ANDE_API = "http://localhost:5034/api/Ande";
+
+type AndeFacturaLive = {
+  monto: number;
+  estado: string;
+  emision: string;
+  vencimiento: string;
+  fechaPago?: string;
+  consumoKw?: number | null;
+  secNis?: string | null;
+  secRec?: string | null;
+  fechaFacturacion?: string | null;
+  facturaElectronica?: boolean;
+};
+
+type AndeConsultaLive = {
+  nis: string;
+  titular?: string;
+  saldoDeuda: number;
+  consumoKw: number;
+  facturasPendientes: number;
+  estadoPago: string;
+  vencimiento: string;
+  observaciones?: string;
+  esSimulado?: boolean;
+  facturas?: AndeFacturaLive[];
+};
+
+type AndeRowView = {
+  hasNis: boolean;
+  consulted: boolean;
+  error?: string;
+  facturaEmitida: boolean;
+  /** Sin factura del mes actual: se muestra última emitida en rojo a la espera. */
+  esperandoMesActual: boolean;
+  isPagado: boolean;
+  isVencido: boolean;
+  vencimientoLabel: string;
+  fechaPagoLabel: string | null;
+  consumoKw: number;
+  monto: number;
+  montoHint?: string | null;
+  puedePdf: boolean;
+};
+
+const soloDigitosNis = (nis?: string | null) => (nis || "").replace(/\D/g, "");
+
+const parseFechaAnde = (raw?: string | null): Date | null => {
+  if (!raw || !String(raw).trim()) return null;
+  const s = String(raw).trim();
+  const d1 = new Date(s);
+  if (!Number.isNaN(d1.getTime()) && /^\d{4}/.test(s)) return d1;
+  const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+  if (m) {
+    const dd = parseInt(m[1], 10);
+    const mm = parseInt(m[2], 10) - 1;
+    let yyyy = parseInt(m[3], 10);
+    if (yyyy < 100) yyyy += 2000;
+    const d = new Date(yyyy, mm, dd);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  const d2 = new Date(s);
+  return Number.isNaN(d2.getTime()) ? null : d2;
+};
+
+const esEmisionMesActual = (raw?: string | null) => {
+  const d = parseFechaAnde(raw);
+  if (!d) return false;
+  const now = new Date();
+  return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+};
+
+const esPendienteFactura = (estado?: string) => {
+  const e = (estado || "").trim();
+  if (!e) return true;
+  if (/pagad|cobrad|al\s*d[ií]a/i.test(e)) return false;
+  if (/pend|deud/i.test(e)) return true;
+  const code = e.toUpperCase();
+  if (/^ER[012]/.test(code) || code === "ER620") return true;
+  if (/^ER3/.test(code)) return false;
+  return false;
+};
+
+const esPagadaFactura = (estado?: string) => {
+  const e = (estado || "").trim();
+  if (/pend|deud/i.test(e)) return false;
+  if (/pagad|cobrad|al\s*d[ií]a/i.test(e)) return true;
+  const code = e.toUpperCase();
+  if (/^ER3/.test(code)) return true;
+  if (/^ER[012]/.test(code) || code === "ER620") return false;
+  return /pagad|cobrad/i.test(e);
+};
+
+/** Mapea respuesta JWT ANDE → columnas de la grilla (sin datos simulados). */
+const mapAndeLiveToRow = (live: AndeConsultaLive | undefined | null): AndeRowView => {
+  if (!live) {
+    return {
+      hasNis: true,
+      consulted: false,
+      facturaEmitida: false,
+      esperandoMesActual: false,
+      isPagado: false,
+      isVencido: false,
+      vencimientoLabel: "—",
+      fechaPagoLabel: null,
+      consumoKw: 0,
+      monto: 0,
+      montoHint: null,
+      puedePdf: false,
+    };
+  }
+
+  const obs = live.observaciones || "";
+  const fallida =
+    !!live.esSimulado ||
+    /fall[oó]|bloque[oó]|Radware|credenciales|inv[aá]lido|no existe|Error interpretando/i.test(obs);
+
+  const facturas = live.facturas || [];
+  const pendientes = facturas.filter((f) => esPendienteFactura(f.estado));
+  const pagadas = facturas.filter((f) => esPagadaFactura(f.estado));
+  const saldo = Number(live.saldoDeuda) || 0;
+  const isPagado =
+    saldo <= 0 &&
+    pendientes.length === 0 &&
+    !/PENDIENTE/i.test(live.estadoPago || "");
+
+  const conMonto = (arr: AndeFacturaLive[]) =>
+    arr.find((f) => Number(f.monto) > 0) || arr[0];
+
+  const facturaRef = isPagado
+    ? conMonto(pagadas) || conMonto(facturas)
+    : conMonto(pendientes) || conMonto(facturas);
+
+  const monto = isPagado
+    ? Number(facturaRef?.monto) || 0
+    : saldo > 0
+      ? saldo
+      : pendientes.reduce((a, f) => a + (Number(f.monto) || 0), 0) || Number(facturaRef?.monto) || 0;
+
+  const emisionRef = facturaRef?.emision || "";
+  const emitidaEsteMes =
+    esEmisionMesActual(emisionRef) ||
+    (!!pendientes.length && esEmisionMesActual(pendientes[0]?.emision));
+  const esperandoMesActual = isPagado && monto > 0 && !emitidaEsteMes;
+
+  const vencRaw =
+    (!isPagado ? live.vencimiento : "") ||
+    facturaRef?.vencimiento ||
+    live.vencimiento ||
+    "";
+  const vencDate = parseFechaAnde(vencRaw);
+  const consumo =
+    Number(facturaRef?.consumoKw) ||
+    Number(live.consumoKw) ||
+    0;
+
+  const facturaEmitida = emitidaEsteMes || (!isPagado && (pendientes.length > 0 || saldo > 0));
+
+  const isVencido = !isPagado && !!vencDate && vencDate.getTime() < Date.now();
+
+  let fechaPagoLabel: string | null = null;
+  // Si está al día / última emitida en rojo: mostrar fecha de pago (o emisión como respaldo)
+  if (isPagado || esperandoMesActual) {
+    const pagoRaw = facturaRef?.fechaPago || facturaRef?.emision || "";
+    if (pagoRaw) {
+      const em = parseFechaAnde(pagoRaw);
+      fechaPagoLabel = em
+        ? em.toLocaleString("es-PY", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        : pagoRaw;
+    }
+  }
+
+  const montoHint = esperandoMesActual
+    ? "Última emitida · a la espera del mes actual"
+    : isPagado
+      ? "Abonado (Gs. 0)"
+      : null;
+
+  return {
+    hasNis: true,
+    consulted: true,
+    error: fallida ? obs || "Consulta ANDE incompleta" : undefined,
+    facturaEmitida,
+    esperandoMesActual,
+    isPagado,
+    isVencido,
+    vencimientoLabel: vencDate ? vencDate.toLocaleDateString("es-PY") : vencRaw || "—",
+    fechaPagoLabel,
+    consumoKw: consumo,
+    monto,
+    montoHint,
+    puedePdf: monto > 0 || facturaEmitida || !!facturaRef || !fallida,
+  };
 };
 
 export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: any, onRefresh?: () => Promise<void> | void }) {
@@ -18,12 +233,201 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isAndeModalOpen, setIsAndeModalOpen] = useState(false);
   const [selectedNisForModal, setSelectedNisForModal] = useState("");
+  const [desgloseOpen, setDesgloseOpen] = useState(false);
+  const [desgloseLoading, setDesgloseLoading] = useState(false);
+  const [desgloseCtx, setDesgloseCtx] = useState<{
+    nis: string;
+    duplex?: string;
+    inquilino?: string;
+    titular?: string;
+    saldoDeuda?: number;
+    facturas: AndeFacturaLive[];
+  } | null>(null);
   const [groupByDetail, setGroupByDetail] = useState<"none" | "condominio">("none");
+  const [isMorosidadesOpen, setIsMorosidadesOpen] = useState(false);
+  const [expandedMorosoId, setExpandedMorosoId] = useState<number | null>(null);
+  const [morosoCuotas, setMorosoCuotas] = useState<Record<number, any[]>>({});
+  const [loadingMorosoId, setLoadingMorosoId] = useState<number | null>(null);
+  /** Datos reales ANDE por NIS (JWT). La grilla los usa en lugar de montos simulados del dashboard. */
+  const [andeLiveByNis, setAndeLiveByNis] = useState<Record<string, AndeConsultaLive>>({});
+  const [isAndeSyncing, setIsAndeSyncing] = useState(false);
+  const [andeSyncAt, setAndeSyncAt] = useState<string | null>(null);
   const [alertaRestriccion, setAlertaRestriccion] = useState<{
     visible: boolean;
     mensaje?: string;
     permisoNombre?: string;
   }>({ visible: false });
+
+  const resolveAndeRow = (item: any): AndeRowView => {
+    const nisKey = soloDigitosNis(item?.nisAnde);
+    if (!nisKey || item?.nisAnde === "N/A" || item?.nisAnde === "SIN NIS") {
+      return {
+        hasNis: false,
+        consulted: false,
+        facturaEmitida: false,
+        esperandoMesActual: false,
+        isPagado: false,
+        isVencido: false,
+        vencimientoLabel: "—",
+        fechaPagoLabel: null,
+        consumoKw: 0,
+        monto: 0,
+        montoHint: null,
+        puedePdf: false,
+      };
+    }
+    return mapAndeLiveToRow(andeLiveByNis[nisKey]);
+  };
+
+  /** Doble clic en NIS: desglose de comprobantes reales (como Últimos Comprobantes ANDE). */
+  const openDesgloseNis = async (item: any) => {
+    const nisKey = soloDigitosNis(item?.nisAnde);
+    if (!nisKey) {
+      toast.error("NIS inválido");
+      return;
+    }
+
+    setDesgloseOpen(true);
+    setDesgloseLoading(true);
+    setDesgloseCtx({
+      nis: nisKey,
+      duplex: item.duplex,
+      inquilino: item.inquilino,
+      facturas: [],
+    });
+
+    try {
+      let live = andeLiveByNis[nisKey];
+      if (!live || !(live.facturas?.length)) {
+        const res = await fetch(`${ANDE_API}/jwt/consultar/${encodeURIComponent(nisKey)}`);
+        if (!res.ok) throw new Error("No se pudo consultar el NIS en ANDE");
+        live = (await res.json()) as AndeConsultaLive;
+        setAndeLiveByNis((prev) => ({ ...prev, [nisKey]: live! }));
+      }
+
+      const facturas = live.facturas || [];
+      if (facturas.length < 2) {
+        toast.message("Este NIS tiene menos de 2 comprobantes en ANDE", {
+          description: facturas.length === 0 ? "Sin facturas para desglosar." : "Se muestra el único comprobante disponible.",
+        });
+      }
+
+      setDesgloseCtx({
+        nis: nisKey,
+        duplex: item.duplex,
+        inquilino: item.inquilino,
+        titular: live.titular,
+        saldoDeuda: live.saldoDeuda,
+        facturas,
+      });
+    } catch (err: any) {
+      toast.error(err?.message || "Error al cargar desglose ANDE");
+      setDesgloseOpen(false);
+    } finally {
+      setDesgloseLoading(false);
+    }
+  };
+
+  const syncAndeSaldosGrilla = async () => {
+    const verif = verificarPermisoGranular("panel_consultar_ande");
+    if (!verif.permitido) {
+      setAlertaRestriccion({
+        visible: true,
+        mensaje: verif.mensaje || "🚫 Acceso Restringido en Módulo de Panel: No cuentas con el permiso para 'Consultar Saldos y Corte ANDE'. Este comportamiento ha sido denegado para tu perfil.",
+        permisoNombre: "Panel • Consultar Saldos y Corte ANDE"
+      });
+      return;
+    }
+
+    const nisList = Array.from(
+      new Set(
+        (dashboardData?.ocupados || [])
+          .map((u: any) => soloDigitosNis(u?.nisAnde))
+          .filter((n: string) => n.length > 0)
+      )
+    );
+
+    if (nisList.length === 0) {
+      toast.error("No hay NIS ANDE cargados en los dúplex ocupados.");
+      return;
+    }
+
+    setIsAndeSyncing(true);
+    const toastId = toast.loading(`Consultando ANDE (${nisList.length} medidores)…`);
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 300000);
+      const res = await fetch(`${ANDE_API}/jwt/consultar-lote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nisList }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      const body = await res.json().catch(() => ({} as any));
+      if (!res.ok) {
+        throw new Error(body?.mensaje || `Error HTTP ${res.status} al consultar lote ANDE`);
+      }
+
+      const map: Record<string, AndeConsultaLive> = {};
+      for (const r of body.resultados || []) {
+        const key = soloDigitosNis(r?.nis);
+        if (key) map[key] = r as AndeConsultaLive;
+      }
+      setAndeLiveByNis(map);
+      setAndeSyncAt(new Date().toLocaleTimeString("es-PY"));
+
+      const okCount = Object.values(map).filter(
+        (r) => !r.esSimulado && !/fall[oó]|bloque[oó]|Radware|credenciales/i.test(r.observaciones || "")
+      ).length;
+      toast.success(`ANDE actualizado: ${okCount}/${nisList.length} NIS con datos reales`, { id: toastId });
+    } catch (err: any) {
+      if (err?.name === "AbortError") {
+        toast.error("La consulta lote a ANDE tardó demasiado. Reintentá.", { id: toastId });
+      } else {
+        toast.error(err?.message || "No se pudieron consultar los saldos ANDE", { id: toastId });
+      }
+    } finally {
+      setIsAndeSyncing(false);
+    }
+  };
+
+  const loadMorosoCuotas = async (morosidadId: number) => {
+    if (!morosidadId) return;
+    setLoadingMorosoId(morosidadId);
+    try {
+      const resp = await fetch(`http://localhost:5034/api/Morosidad/${morosidadId}?t=${Date.now()}`);
+      if (resp.ok) {
+        const data = await resp.json();
+        setMorosoCuotas(prev => ({ ...prev, [morosidadId]: data.cuotas || [] }));
+      } else {
+        toast.error("No se pudieron cargar las cuotas de morosidad");
+      }
+    } catch {
+      toast.error("Error de red al cargar cuotas");
+    } finally {
+      setLoadingMorosoId(null);
+    }
+  };
+
+  const handleMorosoClick = async (item: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const id = item.morosidadId;
+    if (!id) return;
+    if (e.detail === 2) {
+      setExpandedMorosoId(null);
+      return;
+    }
+    if (expandedMorosoId === id) {
+      setExpandedMorosoId(null);
+      return;
+    }
+    setExpandedMorosoId(id);
+    if (!morosoCuotas[id]) {
+      await loadMorosoCuotas(id);
+    }
+  };
 
   const toggleDetail = (view: any) => {
     if (detailView === view) {
@@ -85,8 +489,14 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
         color = "text-amber-700 bg-amber-50";
     } else if (detailView === "vencimientos") {
         list = dashboardData.vencimientos;
-        title = "Listado de Próximos Vencimientos";
+        title = "Listado de Finalización de Contratos";
         color = "text-orange-700 bg-orange-50";
+        // Ordenar por fecha de fin (más próximos primero)
+        list = [...(list || [])].sort((a: any, b: any) => {
+          const da = a.fecha ? new Date(a.fecha).getTime() : Number.MAX_SAFE_INTEGER;
+          const db = b.fecha ? new Date(b.fecha).getTime() : Number.MAX_SAFE_INTEGER;
+          return da - db;
+        });
     } else if (detailView === "morosos") {
         list = dashboardData.morosos;
         title = "Listado de Morosos (Desalojados)";
@@ -118,8 +528,8 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
         }
         if (colFilters.vencimiento) {
           if (detailView === "andeNIS") {
-            const day = (parseInt((item.nisAnde || "0").slice(-2)) % 15) + 10;
-            const dateStr = item.andeFechaVencimiento ? new Date(item.andeFechaVencimiento).toLocaleDateString() : `${day}/7/2026`;
+            const ande = resolveAndeRow(item);
+            const dateStr = ande.vencimientoLabel;
             if (!dateStr.toLowerCase().includes(colFilters.vencimiento.toLowerCase())) return false;
           } else {
             const dateStr = item.fecha ? new Date(item.fecha).toLocaleDateString() : "";
@@ -127,29 +537,55 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
           }
         }
         if (colFilters.fechaPago) {
-          const isPagado = item.andePagadoEsteMes;
-          const dateStr = isPagado && item.andeFechaPago ? new Date(item.andeFechaPago).toLocaleDateString() : (isPagado ? "17/06/2026" : "");
-          if (!dateStr.toLowerCase().includes(colFilters.fechaPago.toLowerCase())) return false;
+          if (detailView === "andeNIS") {
+            const ande = resolveAndeRow(item);
+            const dateStr = ande.fechaPagoLabel || "";
+            if (!dateStr.toLowerCase().includes(colFilters.fechaPago.toLowerCase())) return false;
+          } else {
+            const isPagado = item.andePagadoEsteMes;
+            const dateStr = isPagado && item.andeFechaPago ? new Date(item.andeFechaPago).toLocaleDateString() : "";
+            if (!dateStr.toLowerCase().includes(colFilters.fechaPago.toLowerCase())) return false;
+          }
         }
         if (colFilters.estadoPago) {
-          const isPagado = item.andePagadoEsteMes;
-          const str = isPagado ? "al dia al día pagado sin deuda" : "pendiente activa no pagado emitido factura emitida prox proxima próxima emisión";
-          if (!str.includes(colFilters.estadoPago.toLowerCase())) return false;
+          if (detailView === "andeNIS") {
+            const ande = resolveAndeRow(item);
+            const str = ande.consulted
+              ? (ande.isPagado ? "al dia al día pagado sin deuda" : "pendiente activa no pagado factura emitida")
+              : "sin consultar";
+            if (!str.includes(colFilters.estadoPago.toLowerCase())) return false;
+          } else {
+            const isPagado = item.andePagadoEsteMes;
+            const str = isPagado ? "al dia al día pagado sin deuda" : "pendiente activa no pagado emitido factura emitida prox proxima próxima emisión";
+            if (!str.includes(colFilters.estadoPago.toLowerCase())) return false;
+          }
         }
         if (colFilters.consumo) {
-          const isPagado = item.andePagadoEsteMes;
-          const montoFactura = item.andeMontoDeuda || 0;
-          const montoReal = item.andeMontoDeuda ? item.andeMontoDeuda : (isPagado ? ((parseInt((item.nisAnde || "0").slice(-2)) * 2500) + 85000) : montoFactura);
-          const kWConsumo = item.andeConsumoKw || Math.round((montoReal - 85000) / 450);
-          const str = `${kWConsumo} kw`.toLowerCase();
-          if (!str.includes(colFilters.consumo.toLowerCase())) return false;
+          if (detailView === "andeNIS") {
+            const ande = resolveAndeRow(item);
+            const str = `${ande.consumoKw} kw`.toLowerCase();
+            if (!str.includes(colFilters.consumo.toLowerCase())) return false;
+          } else {
+            const isPagado = item.andePagadoEsteMes;
+            const montoFactura = item.andeMontoDeuda || 0;
+            const montoReal = item.andeMontoDeuda ? item.andeMontoDeuda : (isPagado ? ((parseInt((item.nisAnde || "0").slice(-2)) * 2500) + 85000) : montoFactura);
+            const kWConsumo = item.andeConsumoKw || Math.round((montoReal - 85000) / 450);
+            const str = `${kWConsumo} kw`.toLowerCase();
+            if (!str.includes(colFilters.consumo.toLowerCase())) return false;
+          }
         }
         if (colFilters.monto) {
-          const isPagado = item.andePagadoEsteMes;
-          const montoFactura = item.andeMontoDeuda || 0;
-          const montoReal = item.andeMontoDeuda ? item.andeMontoDeuda : (isPagado ? ((parseInt((item.nisAnde || "0").slice(-2)) * 2500) + 85000) : montoFactura);
-          const val = item.montoRestante || (detailView === "andeNIS" ? montoReal : item.monto) || 0;
-          if (!val.toString().includes(colFilters.monto) && !val.toLocaleString().includes(colFilters.monto)) return false;
+          if (detailView === "andeNIS") {
+            const ande = resolveAndeRow(item);
+            const val = ande.monto || 0;
+            if (!val.toString().includes(colFilters.monto) && !val.toLocaleString().includes(colFilters.monto)) return false;
+          } else {
+            const isPagado = item.andePagadoEsteMes;
+            const montoFactura = item.andeMontoDeuda || 0;
+            const montoReal = montoFactura;
+            const val = item.montoRestante || montoReal || item.monto || 0;
+            if (!val.toString().includes(colFilters.monto) && !val.toLocaleString().includes(colFilters.monto)) return false;
+          }
         }
         if (colFilters.factura) {
           const str = `${item.factura || item.numeroFactura || item.estadoFactura || ""}`.toLowerCase();
@@ -169,10 +605,8 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
         total = filteredList.reduce((acc: any, curr: any) => acc + (curr.montoRestante || 0), 0);
     } else if (detailView === "andeNIS") {
         total = filteredList.reduce((acc: any, curr: any) => {
-          const isPagado = curr.andePagadoEsteMes;
-          const montoFactura = curr.andeMontoDeuda || 0;
-          const montoReal = curr.andeMontoDeuda ? curr.andeMontoDeuda : (isPagado ? ((parseInt((curr.nisAnde || "0").slice(-2)) * 2500) + 85000) : montoFactura);
-          return acc + (isPagado ? 0 : montoReal);
+          const ande = resolveAndeRow(curr);
+          return acc + (ande.consulted && !ande.isPagado ? ande.monto : 0);
         }, 0);
     }
 
@@ -187,17 +621,39 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
     }
 
     // Función auxiliar para renderizar una fila (para no repetir código)
-    const renderRow = (item: any, idx: any) => (
-        <tr key={idx} className="hover:bg-muted/50 transition-colors h-[56px]">
+    const renderRow = (item: any, idx: any) => {
+      const morosidadId = item.morosidadId as number | undefined;
+      const isExpanded = detailView === "morosos" && morosidadId != null && expandedMorosoId === morosidadId;
+      const cuotas = morosidadId ? (morosoCuotas[morosidadId] || []) : [];
+
+      return (
+      <React.Fragment key={idx}>
+        <tr
+          className={`hover:bg-muted/50 transition-colors h-[56px] ${detailView === "morosos" ? "cursor-pointer" : ""}`}
+          onClick={detailView === "morosos" ? (e) => handleMorosoClick(item, e) : undefined}
+          title={detailView === "morosos" ? "Clic: ver cuotas · Doble clic: cerrar" : undefined}
+        >
             <td className="px-8 py-4">
               <p className="font-black italic uppercase text-foreground text-sm tracking-tighter">{formatDuplex(item.duplex)}</p>
               <p className="text-[10px] font-bold text-muted-foreground uppercase">{item.condominio}</p>
             </td>
             <td className="px-8 py-4">
-              <p className={`font-bold text-sm ${detailView === 'disponibles' ? 'text-emerald-500' : 'text-muted-foreground'}`}>{item.inquilino}</p>
-              {detailView === "ocupados" && item.ocupantes && (
-                <p className="text-[10px] text-muted-foreground">{item.ocupantes} ocupantes</p>
-              )}
+              <div className="flex items-center gap-2">
+                {detailView === "morosos" && (
+                  isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-red-500" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                )}
+                <div>
+                  <p className={`font-bold text-sm ${detailView === 'disponibles' ? 'text-emerald-500' : 'text-muted-foreground'}`}>{item.inquilino}</p>
+                  {detailView === "ocupados" && item.ocupantes && (
+                    <p className="text-[10px] text-muted-foreground">{item.ocupantes} ocupantes</p>
+                  )}
+                  {detailView === "morosos" && (
+                    <p className="text-[9px] text-red-400 font-bold uppercase tracking-wider">
+                      {loadingMorosoId === morosidadId ? "Cargando cuotas..." : isExpanded ? "Detalle de cuotas abierto" : "Clic para ver cuotas"}
+                    </p>
+                  )}
+                </div>
+              </div>
             </td>
             {/* ... (Aquí van TODAS las celdas <td> que ya tienes en tu código original, cópialas tal cual) ... */}
             {detailView === "ocupados" && (
@@ -217,7 +673,8 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
                 </td>
             )}
             {detailView === "andeNIS" && (() => {
-                if (!item.nisAnde || item.nisAnde === "N/A" || item.nisAnde === "SIN NIS") {
+                const ande = resolveAndeRow(item);
+                if (!ande.hasNis) {
                 return (
                     <>
                     <td className="px-8 py-4 text-center">
@@ -227,47 +684,90 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
                     <td className="px-8 py-4 text-center"><span className="text-muted-foreground">-</span></td>
                     <td className="px-8 py-4 text-center"><span className="text-muted-foreground">-</span></td>
                     <td className="px-8 py-4 text-center"><span className="text-muted-foreground">-</span></td>
-                    <td className="px-8 py-4 text-center"><span className="text-muted-foreground">-</span></td>
                     <td className="px-8 py-4 text-right"><p className="font-black italic text-muted-foreground">-</p></td>
                     <td className="px-8 py-4 text-right"></td>
                     </>
                 );
                 }
-                
-                const day = (parseInt(item.nisAnde.slice(-2)) % 15) + 10;
-                const date = item.andeFechaVencimiento ? new Date(item.andeFechaVencimiento) : (() => {
-                const d = new Date();
-                d.setDate(day);
-                return d;
-                })();
-                const isPagado = item.andePagadoEsteMes;
-                const isVencido = new Date() > date && !isPagado;
-                const montoFactura = item.andeMontoDeuda || 0;
-                const montoReal = item.andeMontoDeuda ? item.andeMontoDeuda : (isPagado ? ((parseInt(item.nisAnde.slice(-2)) * 2500) + 85000) : montoFactura);
-                const kWConsumo = item.andeConsumoKw || Math.round((montoReal - 85000) / 450);
+
+                if (!ande.consulted) {
+                return (
+                    <>
+                    <td className="px-8 py-4 text-center">
+                      <div className="flex flex-col items-center gap-1.5">
+                        <Badge className="bg-muted text-muted-foreground font-black px-3 border-none uppercase tracking-widest">{item.nisAnde}</Badge>
+                        <Badge className="bg-slate-100 text-slate-500 text-[9px] font-bold px-2 py-0.5 border border-slate-200 uppercase tracking-tighter">
+                          SIN CONSULTAR
+                        </Badge>
+                      </div>
+                    </td>
+                    <td className="px-8 py-4 text-center"><span className="text-muted-foreground text-[10px] font-bold">—</span></td>
+                    <td className="px-8 py-4 text-center"><span className="text-muted-foreground font-bold text-[10px]">—</span></td>
+                    <td className="px-8 py-4 text-center">
+                      <span className="text-[9px] text-muted-foreground font-medium">Usá CONSULTAR SALDOS ANDE</span>
+                    </td>
+                    <td className="px-8 py-4 text-center"><span className="text-muted-foreground text-[10px]">—</span></td>
+                    <td className="px-8 py-4 text-right"><p className="font-black italic text-muted-foreground">—</p></td>
+                    <td className="px-8 py-4 text-right"></td>
+                    </>
+                );
+                }
+
+                const liveFacturas = andeLiveByNis[soloDigitosNis(item.nisAnde)]?.facturas || [];
+                const cantFacturas = liveFacturas.length;
+                const { isPagado, isVencido, monto, consumoKw, facturaEmitida, esperandoMesActual, montoHint, vencimientoLabel, fechaPagoLabel, puedePdf, error } = ande;
+                const montoEnRojo = !isPagado || esperandoMesActual;
                 
                 return (
                 <>
                     <td className="px-8 py-4 text-center">
                     <div className="flex flex-col items-center gap-1.5">
-                        <Badge className="bg-muted text-muted-foreground font-black px-3 border-none uppercase tracking-widest">{item.nisAnde}</Badge>
-                        {item.andeFacturaEmitida ? (
+                        <Badge
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            openDesgloseNis(item);
+                          }}
+                          title="Doble clic: ver desglose de comprobantes ANDE"
+                          className="bg-muted text-muted-foreground font-black px-3 border-none uppercase tracking-widest cursor-pointer hover:ring-2 hover:ring-blue-400/60 select-none"
+                        >
+                          {item.nisAnde}
+                        </Badge>
+                        {error ? (
+                        <Badge className="bg-red-50 text-red-600 text-[9px] font-bold px-2 py-0.5 border border-red-200 uppercase tracking-tighter" title={error}>ERROR ANDE</Badge>
+                        ) : facturaEmitida ? (
                         <Badge className="bg-emerald-50 text-emerald-600 text-[9px] font-bold px-2 py-0.5 border border-emerald-200 uppercase tracking-tighter">FACTURA EMITIDA</Badge>
                         ) : (
-                        <Badge className="bg-amber-50 text-amber-600 text-[9px] font-bold px-2 py-0.5 border border-amber-200 uppercase tracking-tighter" title="La factura de este mes aún no ha sido emitida por la ANDE">PRÓX. EMISIÓN</Badge>
+                        <Badge className="bg-amber-50 text-amber-600 text-[9px] font-bold px-2 py-0.5 border border-amber-200 uppercase tracking-tighter" title="Aún no emitió la factura del mes actual; se muestra la última emitida">PRÓX. EMISIÓN</Badge>
+                        )}
+                        {cantFacturas >= 2 && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openDesgloseNis(item);
+                            }}
+                            className="text-[8px] font-black uppercase text-blue-500 hover:underline tracking-tighter"
+                          >
+                            {cantFacturas} comprobantes · ver desglose
+                          </button>
                         )}
                     </div>
                     </td>
                     <td className="px-8 py-4 text-center">
                     <p className={`text-[10px] font-bold ${isVencido ? 'text-red-500 bg-red-50 py-1 px-2 rounded-md inline-block' : 'text-muted-foreground'}`}>
-                        {date.toLocaleDateString('es-PY')}
+                        {vencimientoLabel}
                     </p>
                     </td>
                     <td className="px-8 py-4 text-center">
-                    {isPagado && item.andeFechaPago ? (
-                        <p className="text-[10px] font-bold text-muted-foreground bg-muted py-1 px-2 rounded-md inline-block">
-                        {new Date(item.andeFechaPago).toLocaleString('es-PY', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        </p>
+                    {(isPagado || esperandoMesActual) && fechaPagoLabel ? (
+                        <div className="flex flex-col items-center gap-0.5">
+                          <p className="text-[10px] font-bold text-muted-foreground bg-muted py-1 px-2 rounded-md inline-block">
+                          {fechaPagoLabel}
+                          </p>
+                          {esperandoMesActual && (
+                            <span className="text-[8px] font-bold text-red-400 uppercase tracking-tighter">Pago última emitida</span>
+                          )}
+                        </div>
                     ) : (
                         <span className="text-muted-foreground font-bold text-[10px]">—</span>
                     )}
@@ -276,7 +776,9 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
                     {isPagado ? (
                         <div className="flex flex-col items-center">
                         <div className="flex items-center justify-center gap-1 text-emerald-500 font-bold text-xs"><Check className="w-4 h-4"/> Al Día</div>
-                        <span className="text-[9px] text-muted-foreground font-medium">Sin Deuda ANDE</span>
+                        <span className="text-[9px] text-muted-foreground font-medium">
+                          {esperandoMesActual ? "Sin deuda · espera mes actual" : "Sin Deuda ANDE"}
+                        </span>
                         </div>
                     ) : (
                         <div className="flex flex-col items-center">
@@ -286,19 +788,21 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
                     )}
                     </td>
                     <td className="px-8 py-4 text-center">
-                    <p className="font-bold text-[10px] text-muted-foreground">{kWConsumo} kW</p>
+                    <p className="font-bold text-[10px] text-muted-foreground">{consumoKw} kW</p>
                     </td>
                     <td className="px-8 py-4 text-right">
-                    <p className={`font-black italic ${isPagado ? 'text-emerald-500' : 'text-red-600'}`}>
-                        Gs. {montoReal.toLocaleString()}
+                    <p className={`font-black italic ${montoEnRojo ? 'text-red-600' : 'text-emerald-500'}`}>
+                        Gs. {monto.toLocaleString("es-PY")}
                     </p>
-                    {isPagado && (
-                        <p className="text-[9px] font-bold text-emerald-400 mt-1">Abonado (Gs. 0)</p>
+                    {montoHint && (
+                        <p className={`text-[9px] font-bold mt-1 ${esperandoMesActual ? 'text-red-400' : 'text-emerald-400'}`}>
+                          {montoHint}
+                        </p>
                     )}
                     </td>
                     <td className="px-8 py-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                            {(isPagado || item.andeFacturaEmitida) && (
+                            {puedePdf && (
                             <button
                                 onClick={() => {
                                 const verif = verificarPermisoGranular("panel_factura_pdf");
@@ -310,7 +814,21 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
                                     });
                                     return;
                                 }
-                                window.open(`http://localhost:5034/api/Ande/factura-pdf/${item.nisAnde}?inquilino=${encodeURIComponent(item.inquilino || "")}&duplex=${encodeURIComponent(item.duplex || "")}`, '_blank');
+                                void abrirFacturaPdf(item.nisAnde, item.inquilino || "", item.duplex || "", (() => {
+                                  const live = andeLiveByNis[soloDigitosNis(item.nisAnde)];
+                                  const facts = live?.facturas || [];
+                                  const target =
+                                    facts.find((f) => esPendienteFactura(f.estado) && f.secNis && f.secRec) ||
+                                    facts.find((f) => f.secNis && f.secRec) ||
+                                    facts[0];
+                                  if (!target) return undefined;
+                                  return {
+                                    secNis: target.secNis,
+                                    secRec: target.secRec,
+                                    fFact: target.fechaFacturacion || target.emision,
+                                    electronica: target.facturaElectronica !== false,
+                                  };
+                                })());
                                 }}
                                 className="bg-yellow-400 text-black border border-yellow-500 shadow-sm text-[9px] font-black italic px-3 py-2 rounded-lg hover:scale-105 hover:bg-yellow-500 transition-all">
                                 FACTURA PDF
@@ -351,13 +869,80 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
             )}
             {detailView === "vencimientos" && (
                 <td className="px-8 py-4 text-center">
-                <p className="text-xs font-bold text-red-500 uppercase bg-red-50 py-1 px-3 rounded-lg inline-block">
-                    {item.fecha ? new Date(item.fecha).toLocaleDateString('es-PY') : '-'}
-                </p>
+                {(() => {
+                  if (!item.fecha) {
+                    return <p className="text-xs font-bold text-muted-foreground">Sin fecha</p>;
+                  }
+                  const fin = new Date(item.fecha);
+                  const hoy = new Date();
+                  hoy.setHours(0, 0, 0, 0);
+                  fin.setHours(0, 0, 0, 0);
+                  const dias = Math.round((fin.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+                  const tone =
+                    dias < 0
+                      ? "text-red-600 bg-red-50"
+                      : dias <= 30
+                        ? "text-orange-600 bg-orange-50"
+                        : dias <= 90
+                          ? "text-amber-700 bg-amber-50"
+                          : "text-slate-700 bg-slate-100";
+                  const extra =
+                    dias < 0
+                      ? ` · Vencido hace ${Math.abs(dias)}d`
+                      : dias === 0
+                        ? " · Vence hoy"
+                        : ` · ${dias}d`;
+                  return (
+                    <p className={`text-xs font-bold uppercase py-1 px-3 rounded-lg inline-block ${tone}`}>
+                      {formatFechaCorta(item.fecha)}
+                      <span className="normal-case font-semibold opacity-80">{extra}</span>
+                    </p>
+                  );
+                })()}
                 </td>
             )}
         </tr>
-    );
+        {isExpanded && (
+          <tr className="bg-red-50/40">
+            <td colSpan={4} className="px-8 py-4">
+              {loadingMorosoId === morosidadId ? (
+                <p className="text-xs font-bold text-muted-foreground">Cargando cuotas del financiamiento...</p>
+              ) : cuotas.length === 0 ? (
+                <p className="text-xs font-bold text-muted-foreground">No hay cuotas registradas para esta morosidad.</p>
+              ) : (
+                <div className="rounded-xl border border-red-100 overflow-hidden bg-card">
+                  <table className="w-full text-left">
+                    <thead className="bg-red-100/60 text-[9px] font-black uppercase tracking-widest text-red-700">
+                      <tr>
+                        <th className="px-4 py-2">Cuota</th>
+                        <th className="px-4 py-2">Vencimiento</th>
+                        <th className="px-4 py-2 text-right">Monto</th>
+                        <th className="px-4 py-2 text-center">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cuotas.map((c: any) => (
+                        <tr key={c.cuotaId} className="border-t border-red-50 text-xs">
+                          <td className="px-4 py-2 font-bold">#{c.numeroCuota}</td>
+                          <td className="px-4 py-2">{c.fechaVencimiento ? formatFechaCorta(c.fechaVencimiento) : "-"}</td>
+                          <td className="px-4 py-2 text-right font-black italic">{formatCurrency(c.monto || 0)}</td>
+                          <td className="px-4 py-2 text-center">
+                            <Badge className={`border-none font-black text-[9px] uppercase ${c.estaPagado ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
+                              {c.estaPagado ? "Pagada" : "Pendiente"}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </td>
+          </tr>
+        )}
+      </React.Fragment>
+      );
+    };
 
     return (
       <Card className="border-none shadow-2xl rounded-[2rem] bg-card overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500 mb-12 mt-4">
@@ -396,28 +981,49 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
                 <X className="w-3.5 h-3.5 text-red-500" /> Limpiar Filtros
               </button>
             )}
-            
-            {/* ... (Tus botones de ANDE, Actualizar y Cerrar se mantienen igual) ... */}
-            <button
-              onClick={() => {
-                const verif = verificarPermisoGranular("panel_consultar_ande");
-                if (!verif.permitido) {
-                  setAlertaRestriccion({
-                    visible: true,
-                    mensaje: verif.mensaje || "🚫 Acceso Restringido en Módulo de Panel: No cuentas con el permiso para 'Consultar Saldos y Corte ANDE'. Este comportamiento ha sido denegado para tu perfil.",
-                    permisoNombre: "Panel • Consultar Saldos y Corte ANDE"
-                  });
-                  return;
-                }
-                setSelectedNisForModal("");
-                setIsAndeModalOpen(true);
-              }}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-black italic uppercase px-4 py-2 rounded-full shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2 active:scale-95 cursor-pointer mr-1"
-              title="Consultar saldos y estado de corte en línea con la ANDE"
-            >
-              <Zap className="w-4 h-4 text-amber-300 fill-current animate-pulse" />
-              <span>CONSULTAR SALDOS ANDE</span>
-            </button>
+
+            {detailView === "morosos" && (
+              <Button
+                onClick={() => setIsMorosidadesOpen(true)}
+                variant="destructive"
+                className="h-9 rounded-full font-black italic text-[10px] uppercase px-4 shadow-md shadow-red-500/20"
+              >
+                Morosidades
+              </Button>
+            )}
+
+            {detailView === "andeNIS" && (
+              <button
+                onClick={syncAndeSaldosGrilla}
+                disabled={isAndeSyncing}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-60 text-white text-xs font-black italic uppercase px-4 py-2 rounded-full shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2 active:scale-95 cursor-pointer mr-1"
+                title="Rellena la grilla con saldos reales ANDE (sesión JWT)"
+              >
+                {isAndeSyncing ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-amber-200" />
+                ) : (
+                  <Zap className="w-4 h-4 text-amber-300 fill-current animate-pulse" />
+                )}
+                <span>{isAndeSyncing ? "CONSULTANDO ANDE…" : "CONSULTAR SALDOS ANDE"}</span>
+              </button>
+            )}
+            {detailView === "andeNIS" && andeSyncAt && (
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wide mr-2">
+                Última sync: {andeSyncAt}
+              </span>
+            )}
+            {detailView === "andeNIS" && (
+              <button
+                onClick={() => {
+                  setSelectedNisForModal("");
+                  setIsAndeModalOpen(true);
+                }}
+                className="bg-card hover:bg-muted text-foreground text-[10px] font-black uppercase px-3 py-2 rounded-full border border-black/15 shadow-sm transition-all mr-1"
+                title="Consulta puntual de un NIS"
+              >
+                NIS puntual
+              </button>
+            )}
             <button
               onClick={async () => {
                 const verif = verificarPermisoGranular("panel_actualizar");
@@ -454,7 +1060,7 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto mobile-scroll-x" data-mobile-scroll="x">
             <table className="w-full text-left font-sans">
               <thead className="bg-muted text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border">
                 {/* ... (Tu TableHead se mantiene igual) ... */}
@@ -498,7 +1104,7 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
                   )}
                   {detailView === "vencimientos" && (
                     <>
-                      <th className="px-8 py-4 text-center">Fecha Vencimiento</th>
+                      <th className="px-8 py-4 text-center">Fecha de Finalización</th>
                     </>
                   )}
                 </tr>
@@ -687,10 +1293,8 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
                     const groupSubtotal = groupItems.reduce((acc, curr) => {
                         if (detailView === "faltaCobrar") return acc + (curr.montoRestante || 0);
                         if (detailView === "andeNIS") {
-                            const isPagado = curr.andePagadoEsteMes;
-                            const montoFactura = curr.andeMontoDeuda || 0;
-                            const montoReal = curr.andeMontoDeuda ? curr.andeMontoDeuda : (isPagado ? ((parseInt((curr.nisAnde || "0").slice(-2)) * 2500) + 85000) : montoFactura);
-                            return acc + (isPagado ? 0 : montoReal);
+                            const ande = resolveAndeRow(curr);
+                            return acc + (ande.consulted && !ande.isPagado ? ande.monto : 0);
                         }
                         return acc + (curr.monto || 0);
                     }, 0);
@@ -725,11 +1329,11 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
               </tbody>
             </table>
           </div>
-          <div className="bg-muted p-6 flex justify-between items-center text-foreground border-t border-border">
+          <div className="bg-muted p-4 sm:p-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 text-foreground border-t border-border">
             <p className="text-[10px] font-semibold uppercase tracking-widest font-sans">
-              {detailView === 'andeNIS' ? 'Total Facturas Activas Pendientes' : 'Totalización del Listado'}
+              {detailView === 'andeNIS' ? 'Total facturas activas pendientes' : 'Totalización del listado'}
             </p>
-            <h3 className="text-2xl font-black italic tracking-tighter">{formatCurrency(total)}</h3>
+            <h3 className="text-xl sm:text-2xl font-black italic tracking-tighter">{formatCurrency(total)}</h3>
           </div>
         </CardContent>
       </Card>
@@ -739,36 +1343,63 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
   return (
     <div>
       
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 mb-8">
         {[
-          { id: "ocupados", label: "Ocupados", value: stats.occupied, icon: Users, color: "text-primary", bg: "bg-primary/10", suffix: " Dúplex" },
-          { id: "disponibles", label: "Disponibles", value: stats.available, icon: Home, color: "text-emerald-400", bg: "bg-emerald-400/10", suffix: " Dúplex" },
-          { id: "objetivos", label: "Objetivos Mes", value: formatCurrency(stats.objective), icon: CheckCircle2, color: "text-indigo-400", bg: "bg-indigo-400/10", suffix: "" },
-          { id: "cobrados", label: "Cobrado Mes", value: formatCurrency(stats.collected), icon: Wallet, color: "text-emerald-400", bg: "bg-emerald-400/10", suffix: "" },
-          { id: "faltaCobrar", label: "Falta Cobrar", value: formatCurrency(stats.pending), icon: Clock, color: "text-amber-400", bg: "bg-amber-400/10", suffix: "" },
-          { id: "vencimientos", label: "Vencimientos", value: dashboardData?.vencimientos?.length || 0, icon: Calendar, color: "text-orange-400", bg: "bg-orange-400/10", suffix: " Contratos" },
-          { id: "morosos", label: "Morosos (Desalojados)", value: formatCurrency(stats.debtors), icon: AlertTriangle, color: "text-red-400", bg: "bg-red-400/10", suffix: "" },
-          { id: "andeNIS", label: "ANDE NIS", value: stats.occupied, icon: Zap, color: "text-blue-400", bg: "bg-blue-400/10", suffix: " Medidores" }
-        ].map((metric, i) => (
+          { id: "ocupados", label: "Ocupados", value: stats.occupied, icon: Users, color: "text-primary", bg: "bg-primary/10", suffix: " Dúplex", currency: false },
+          { id: "disponibles", label: "Disponibles", value: stats.available === 0 ? "Ocupación completa" : stats.available, icon: Home, color: "text-emerald-400", bg: "bg-emerald-400/10", suffix: stats.available === 0 ? "" : " Dúplex", currency: false },
+          { id: "objetivos", label: "Objetivos Mes", value: stats.objective, icon: CheckCircle2, color: "text-indigo-400", bg: "bg-indigo-400/10", suffix: "", currency: true },
+          { id: "cobrados", label: "Cobrado Mes", value: stats.collected, icon: Wallet, color: "text-emerald-400", bg: "bg-emerald-400/10", suffix: "", currency: true },
+          { id: "faltaCobrar", label: "Falta Cobrar", value: stats.pending, icon: Clock, color: "text-amber-400", bg: "bg-amber-400/10", suffix: "", currency: true },
+          { id: "vencimientos", label: "Finalización Contratos", value: dashboardData?.vencimientos?.length || 0, icon: Calendar, color: "text-orange-400", bg: "bg-orange-400/10", suffix: " Contratos", currency: false },
+          { id: "morosos", label: "Morosos (Desalojados)", value: stats.debtors, icon: AlertTriangle, color: "text-red-400", bg: "bg-red-400/10", suffix: "", currency: true },
+          { id: "andeNIS", label: "ANDE NIS", value: stats.occupied, icon: Zap, color: "text-blue-400", bg: "bg-blue-400/10", suffix: " Medidores", currency: false }
+        ].map((metric, i) => {
+          const fullTitle = metric.currency && typeof metric.value === "number"
+            ? formatCurrency(metric.value)
+            : `${metric.value}${metric.suffix || ""}`;
+          const mobileText = metric.currency && typeof metric.value === "number"
+            ? formatMetricDisplay(metric.value, true)
+            : String(metric.value);
+
+          return (
           <Card 
             key={i} 
             onClick={() => toggleDetail(metric.id)}
-            className={`border border-border shadow-sm transition-all duration-200 ${detailView === metric.id ? 'ring-2 ring-primary' : ''} rounded-2xl bg-card overflow-hidden group`}
+            className={`border border-border shadow-sm transition-all duration-200 cursor-pointer ${detailView === metric.id ? 'ring-2 ring-primary' : ''} rounded-2xl bg-card overflow-hidden group`}
           >
-            <CardContent className="p-3 md:p-5 relative flex flex-col items-center text-center justify-center min-h-[110px] md:min-h-[140px]">
-              <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl ${metric.bg} ${metric.color} flex items-center justify-center mb-2 md:mb-3`}>
+            <CardContent className="p-3 sm:p-4 md:p-5 relative flex flex-col items-center text-center justify-center min-h-[120px] sm:min-h-[130px] md:min-h-[148px]">
+              <div className={`w-9 h-9 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-xl ${metric.bg} ${metric.color} flex items-center justify-center mb-2 md:mb-3 shrink-0`}>
                 <metric.icon className="w-4 h-4 md:w-5 md:h-5 stroke-[2px]" />
               </div>
-              <p className="text-[9px] md:text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1 font-sans">
+              <p className="text-[9px] sm:text-[10px] md:text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 font-sans leading-tight px-1">
                 {metric.label}
               </p>
-              <h3 className="text-sm md:text-2xl font-heading font-bold text-foreground leading-none">
-                {metric.value}
-                <span className="text-[8px] md:text-sm font-sans text-muted-foreground ml-1">{metric.suffix}</span>
+              {/* Móvil / iPad: número compacto legible */}
+              <h3
+                title={fullTitle}
+                className="md:hidden w-full px-1 text-[clamp(0.72rem,3.1vw,1.05rem)] font-heading font-extrabold text-foreground leading-tight tabular-nums tracking-tight break-words"
+              >
+                {mobileText}
+                {metric.suffix ? (
+                  <span className="block mt-0.5 text-[9px] font-sans font-semibold text-muted-foreground normal-case tracking-normal">
+                    {metric.suffix.trim()}
+                  </span>
+                ) : null}
+              </h3>
+              {/* Desktop: formato completo */}
+              <h3
+                title={fullTitle}
+                className="hidden md:block w-full px-1 text-xl lg:text-2xl font-heading font-bold text-foreground leading-tight tabular-nums tracking-tight"
+              >
+                {metric.currency && typeof metric.value === "number" ? formatCurrency(metric.value) : metric.value}
+                {metric.suffix ? (
+                  <span className="text-sm font-sans text-muted-foreground ml-1 font-semibold">{metric.suffix}</span>
+                ) : null}
               </h3>
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
       </div>
       
       {renderDetailList()}
@@ -777,6 +1408,26 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
         isOpen={isAndeModalOpen}
         onClose={() => setIsAndeModalOpen(false)}
         defaultNis={selectedNisForModal}
+      />
+
+      <AndeDesgloseFacturasModal
+        isOpen={desgloseOpen}
+        onClose={() => {
+          setDesgloseOpen(false);
+          setDesgloseCtx(null);
+        }}
+        nis={desgloseCtx?.nis || ""}
+        duplex={desgloseCtx?.duplex}
+        inquilino={desgloseCtx?.inquilino}
+        titular={desgloseCtx?.titular}
+        saldoDeuda={desgloseCtx?.saldoDeuda}
+        facturas={desgloseCtx?.facturas || []}
+        loading={desgloseLoading}
+      />
+
+      <MorosidadesMainModal
+        isOpen={isMorosidadesOpen}
+        onClose={() => setIsMorosidadesOpen(false)}
       />
 
       <ModalAccesoRestringido
