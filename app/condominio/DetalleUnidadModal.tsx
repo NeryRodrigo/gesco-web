@@ -3459,7 +3459,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                         {serviceType === 'Luz' && (
                             <Button 
                                 type="button"
-                                onClick={handleConsultarAnde}
+                                onClick={() => handleConsultarAnde()}
                                 disabled={isLoading}
                                 className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-[9px] h-11 px-6 rounded-xl border-none shadow-md shadow-blue-200 transition-all hover:scale-105"
                             >
