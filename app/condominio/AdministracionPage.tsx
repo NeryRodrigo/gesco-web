@@ -65,29 +65,21 @@ export function AdministracionPage({ empresaId, usuario }: { empresaId: number, 
   }
 
   return (
-    <div className="w-full">
-      {/* 
-          Agregamos este contenedor con min-w-[1400px] 
-          Esto obliga a que la planilla ocupe su espacio real y aparezca el scroll horizontal en el celular 
-      */}
-      <div className="overflow-x-auto custom-scrollbar">
-        <div className="min-w-[1400px] lg:min-w-full">
-          <AdministracionVista 
-            unidades={unidades} 
-            empresaId={empresaId}
-            onTenantClick={(unit, tenantName) => {
-              setSelectedUnit({
-                id: unit.unidadId,
-                code: unit.codigoUnidad,
-                condo: unit.nombreCondominio,
-                tenant: tenantName,
-                status: unit.estado
-              });
-              setIsDetalleModalOpen(true);
-            }} 
-          />
-        </div>
-      </div>
+    <div className="w-full min-w-0">
+      <AdministracionVista 
+        unidades={unidades} 
+        empresaId={empresaId}
+        onTenantClick={(unit, tenantName) => {
+          setSelectedUnit({
+            id: unit.unidadId,
+            code: unit.codigoUnidad,
+            condo: unit.nombreCondominio,
+            tenant: tenantName,
+            status: unit.estado
+          });
+          setIsDetalleModalOpen(true);
+        }} 
+      />
 
       <DetalleUnidadModal 
         isOpen={isDetalleModalOpen}

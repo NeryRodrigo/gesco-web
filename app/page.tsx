@@ -112,17 +112,22 @@ export default function OimaDashboard() {
     if (res.ok) setUsuariosAdmin(await res.json());
   };
 
+  const limpiarSesionAnde = async () => {
+    try {
+      await fetch("http://localhost:5034/api/Ande/credenciales", { method: "DELETE" });
+    } catch {
+      /* best-effort: no bloquear logout Gesco */
+    }
+  };
+
   const handleLogoutConfirmation = () => {
-    /*if(confirm("¿Deseas cerrar tu sesión segura?")) {
-      setIsAuthenticated(false);
-      setUsuarioActivo(null);
-    }*/
     toast.warning("¿Deseas finalizar tu sesión?", {
-      description: "Se cerrará el acceso seguro al ecosistema VORDIA.",
-      duration: Infinity, // Se queda fijo hasta que el usuario decida
+      description: "Se cerrará el acceso seguro al ecosistema VORDIA y la sesión ANDE.",
+      duration: Infinity,
       action: {
         label: "Cerrar Sesión",
-        onClick: () => {
+        onClick: async () => {
+          await limpiarSesionAnde();
           setIsAuthenticated(false);
           setUsuarioActivo(null);
           setVistaActual("inicio");
@@ -143,15 +148,15 @@ export default function OimaDashboard() {
   return (
     <div className="flex min-h-dvh bg-[#050B18] text-white font-sans overflow-x-hidden">
       
-      {/* SIDEBAR — drawer a pantalla completa en móvil; fijo en escritorio */}
+      {/* SIDEBAR — drawer en móvil; ancho fijo w-72 en escritorio (como antes) */}
       <aside
         className={`
         ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
         lg:translate-x-0
-        flex w-[min(18rem,88vw)] max-w-72 bg-[#080E1E] flex-col border-r border-white/5
-        fixed inset-y-0 left-0 z-50
+        flex w-[min(18rem,88vw)] lg:w-72 lg:max-w-none bg-[#080E1E] flex-col border-r border-white/5
+        fixed inset-y-0 left-0 z-50 h-full
         transition-transform duration-300 ease-out
-        pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]
+        max-lg:pt-[env(safe-area-inset-top)] max-lg:pb-[env(safe-area-inset-bottom)]
         `}
         aria-label="Menú de navegación"
       >
@@ -165,17 +170,17 @@ export default function OimaDashboard() {
           <X size={22} />
         </button>
 
-        <div className="p-6 sm:p-8 flex flex-col items-center">
+        <div className="p-6 lg:p-8 flex flex-col items-center">
           
-          <div className="mb-6 sm:mb-8 w-full flex justify-start cursor-pointer" onClick={() => { setVistaActual("inicio"); setIsMobileMenuOpen(false); }}>
+          <div className="mb-6 lg:mb-12 w-full flex justify-start lg:justify-center cursor-pointer" onClick={() => { setVistaActual("inicio"); setIsMobileMenuOpen(false); }}>
             {isUsuarioCondominio ? (
               <img
                 src="/fontanas.png"
                 alt="Fontana Di Luque"
-                className="w-40 sm:w-44 h-auto object-contain drop-shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-transform duration-500 hover:scale-105"
+                className="w-40 lg:w-44 h-auto object-contain drop-shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-transform duration-500 hover:scale-105"
               />
             ) : isUsuarioInmobiliaria ? (
-              <img src="/remax-logo.png" alt="REMAX" className="h-12 w-auto object-contain" />
+              <img src="/remax-logo.png" alt="REMAX" className="h-12 w-auto object-contain shrink-0" />
             ) : (
               <div className="text-xl font-black italic text-amber-400 tracking-tighter uppercase text-center bg-white/5 py-3 px-6 rounded-2xl border border-white/5 w-full">
                 {usuarioActivo?.rubro} ERP
@@ -183,8 +188,8 @@ export default function OimaDashboard() {
             )}
           </div>
 
-          <nav className="w-full space-y-1 overflow-y-auto max-h-[calc(100dvh-280px)] custom-scrollbar overscroll-contain">
-            <p className="text-[10px] font-black uppercase text-[#4472C4] tracking-[0.2em] mb-4 sm:mb-6 ml-2">
+          <nav className="w-full space-y-1 overflow-y-auto max-h-[calc(100dvh-280px)] lg:max-h-[calc(100vh-320px)] custom-scrollbar overscroll-contain">
+            <p className="text-[10px] font-black uppercase text-[#4472C4] tracking-[0.2em] mb-4 lg:mb-6 ml-2">
               Módulo de gestión
             </p>
             
@@ -248,7 +253,7 @@ export default function OimaDashboard() {
           </nav>
         </div>
 
-        <div className="mt-auto p-5 sm:p-6 bg-[#0B1222]/50 border-t border-white/5">
+        <div className="mt-auto p-5 lg:p-6 bg-[#0B1222]/50 border-t border-white/5">
           <div className="flex items-center gap-3 min-w-0">
             <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-xs shadow-lg shadow-blue-600/20 shrink-0">
               {usuarioActivo?.nombre?.charAt(0).toUpperCase()}
@@ -272,11 +277,11 @@ export default function OimaDashboard() {
         />
       )}
 
-      <main className="flex-1 flex flex-col min-h-dvh lg:ml-72 transition-all duration-300 w-full max-w-full overflow-x-hidden">
+      <main className="flex-1 flex flex-col min-h-screen lg:ml-72 transition-all duration-300 w-full overflow-x-hidden">
       
-        <header className="h-16 sm:h-20 flex items-center justify-between gap-3 px-4 sm:px-6 md:px-12 bg-[#050B18]/80 backdrop-blur-xl sticky top-0 z-30 border-b border-white/5 pt-[env(safe-area-inset-top)]">
+        <header className="h-16 lg:h-20 flex items-center justify-between gap-3 px-4 lg:px-12 bg-[#050B18]/80 backdrop-blur-xl sticky top-0 z-30 border-b border-white/5 max-lg:pt-[env(safe-area-inset-top)]">
           
-          <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+          <div className="flex items-center gap-3 lg:gap-4 min-w-0 flex-1">
             <button 
               type="button"
               onClick={() => setIsMobileMenuOpen(true)}
@@ -286,7 +291,7 @@ export default function OimaDashboard() {
               <Menu size={22} />
             </button>   
 
-            <h2 className="mobile-title md:text-2xl font-semibold text-white tracking-tight truncate capitalize md:normal-case">
+            <h2 className="mobile-title lg:text-2xl font-semibold text-white tracking-tight truncate capitalize lg:normal-case">
               {vistaActual === "inicio"
                 ? "Resumen operativo"
                 : vistaActual === "condominio"
@@ -295,7 +300,7 @@ export default function OimaDashboard() {
             </h2>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+          <div className="flex items-center gap-2 lg:gap-4 shrink-0">
             <div className="hidden md:flex items-center bg-white/5 border border-white/10 rounded-xl px-4 py-2 gap-3 text-slate-400">
                 <Search size={16} />
                 <input type="text" placeholder="Buscar…" className="bg-transparent border-none outline-none text-xs w-40" />
@@ -307,19 +312,19 @@ export default function OimaDashboard() {
 
         </header>
 
-        <div className="flex-1 p-3 sm:p-4 md:p-10 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="flex-1 p-4 lg:p-10 max-lg:pb-[max(1rem,env(safe-area-inset-bottom))]">
           
           {vistaActual === "inicio" && condoDashboardData && (
             <div className="animate-in fade-in slide-in-from-top-4 duration-700">
-              <div className="mb-6 sm:mb-10 bg-[#0C1327] p-5 sm:p-8 rounded-[1.75rem] sm:rounded-[2.5rem] border border-white/5 shadow-2xl relative overflow-hidden group">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 relative z-10">
+              <div className="mb-6 lg:mb-10 bg-[#0C1327] p-5 lg:p-8 rounded-[1.75rem] lg:rounded-[2.5rem] border border-white/5 shadow-2xl relative overflow-hidden group">
+                <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6 relative z-10">
                   <img
                     src="/images/VORDIA HORIZONTAL.png"
                     alt="Vordia"
-                    className="h-8 sm:h-10 md:h-12 w-auto max-w-[220px] object-contain object-left"
+                    className="h-8 lg:h-12 w-auto max-w-[220px] object-contain object-left shrink-0"
                   />
-                  <div className="min-w-0">
-                    <p className="text-slate-400 text-xs sm:text-sm font-medium leading-relaxed">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-slate-400 text-xs lg:text-sm font-medium leading-relaxed">
                       Hola{" "}
                       <span className="text-blue-400 font-bold uppercase tracking-widest">
                         {usuarioActivo?.nombre}
@@ -343,15 +348,13 @@ export default function OimaDashboard() {
           {vistaActual === "facturacion" && <FacturacionVista />}
           {vistaActual === "administracion" && (
             <div className="relative w-full rounded-[1.5rem] sm:rounded-[2rem] border border-white/5 bg-[#0C1327]/50 overflow-hidden">
-              <div 
-                className="w-full mobile-scroll-x" 
-                style={{ 
-                  WebkitOverflowScrolling: "touch",
-                  display: "block",
-                  width: "100%"
-                }}
+              {/* overflow-x-auto siempre (PC al achicar + móvil). mobile-scroll-x solo suma touch. */}
+              <div
+                className="w-full max-w-full overflow-x-auto overscroll-x-contain custom-scrollbar mobile-scroll-x"
+                data-mobile-scroll="x"
+                style={{ WebkitOverflowScrolling: "touch" }}
               >
-                <div style={{ minWidth: "1600px", width: "max-content" }} className="p-3 sm:p-4">
+                <div className="min-w-[1500px] p-3 sm:p-4">
                   <AdministracionPage empresaId={empresaId} usuario={usuarioActivo} />
                 </div>
               </div>
@@ -375,13 +378,13 @@ export default function OimaDashboard() {
           )}
         </div>
 
-        <footer className="w-full py-6 sm:py-10 px-4 sm:px-12 flex justify-center sm:justify-end items-center no-print pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <footer className="w-full py-6 lg:py-10 px-4 lg:px-12 flex justify-center lg:justify-end items-center no-print max-lg:pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           <div className="relative group">
             <div className="absolute inset-0 bg-blue-600/10 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             <img 
               src="/images/VORDIA HORIZONTAL.png" 
               alt="Vordia" 
-              className="h-7 sm:h-9 w-auto max-w-[180px] object-contain relative z-10 transition-transform duration-500 group-hover:scale-105"
+              className="h-7 lg:h-9 w-auto max-w-[180px] object-contain relative z-10 transition-transform duration-500 group-hover:scale-105 shrink-0"
             />
           </div>
         </footer>

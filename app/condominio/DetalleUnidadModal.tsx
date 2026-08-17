@@ -2095,25 +2095,28 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="flex max-h-[94vh] w-[min(96vw,1320px)] max-w-[1320px] flex-col gap-0 overflow-hidden border-none p-0 shadow-2xl rounded-[2rem] bg-card sm:max-w-[1320px]">
+      <DialogContent
+        data-scroll="internal"
+        className="flex max-h-[min(94vh,920px)] w-[min(96vw,1320px)] max-w-[1320px] flex-col gap-0 overflow-hidden border-none p-0 shadow-2xl rounded-[2rem] bg-card sm:max-w-[1320px]"
+      >
         {/* Accesibilidad: Título para lectores de pantalla */}
         <DialogHeader className="sr-only">
           <DialogTitle>Detalle de la Unidad {unidad?.code}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex min-h-0 max-h-[min(94vh,920px)] flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           
           {/* HEADER PREMIUM (INQUILINO) */}
-          <div className="bg-secondary p-8 text-foreground relative overflow-hidden shrink-0 border-b border-border">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full -mr-48 -mt-48 blur-3xl" />
+          <div className="bg-secondary p-4 sm:p-6 lg:p-8 text-foreground relative shrink-0 border-b border-border">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full -mr-48 -mt-48 blur-3xl pointer-events-none" />
             
-            <div className="flex justify-between items-start relative z-10">
-              <div className="flex items-center gap-6">
-                <div className="h-20 w-20 rounded-3xl bg-primary text-primary-foreground flex items-center justify-center font-black text-3xl shadow-xl shadow-primary/20">
+            <div className="flex flex-col gap-4 xl:flex-row xl:justify-between xl:items-start relative z-10 min-w-0">
+              <div className="flex items-start sm:items-center gap-4 sm:gap-6 min-w-0 flex-1 xl:pr-4">
+                <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-3xl bg-primary text-primary-foreground flex items-center justify-center font-black text-2xl sm:text-3xl shadow-xl shadow-primary/20 shrink-0">
                   {dataInquilino.nombre.substring(0, 1).toUpperCase()}
                 </div>
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
                     <Badge className="bg-primary/10 text-primary font-black italic rounded-lg px-2 py-0.5 text-[10px] uppercase tracking-wider border-none">
                       Ficha de Inquilino
                     </Badge>
@@ -2124,10 +2127,10 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                         value={contractData?.inquilino?.razonSocial || ""}
                         onChange={(e) => setContractData(prev => prev ? { ...prev, inquilino: { ...prev.inquilino, razonSocial: e.target.value } } : null)}
                         placeholder="NOMBRE DEL INQUILINO"
-                        className="bg-card/50 border-white text-2xl font-black italic uppercase tracking-tighter h-12 w-96 text-foreground placeholder:text-muted-foreground"
+                        className="bg-card/50 border-white text-xl sm:text-2xl font-black italic uppercase tracking-tighter h-11 w-full max-w-xl text-foreground placeholder:text-muted-foreground"
                     />
                   ) : (
-                    <h2 className="text-4xl font-black italic uppercase tracking-tighter leading-none text-foreground">
+                    <h2 className="text-xl sm:text-2xl lg:text-3xl xl:text-[2rem] font-black italic uppercase tracking-tighter leading-snug text-foreground break-words">
                         {dataInquilino.nombre}
                     </h2>
                   )}
@@ -2141,7 +2144,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                     
                     {/* ALERTAS OIMA DINÃMICAS */}
                     {!isEditing && contractData && (
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                             {(() => {
                                 const hoy = new Date();
                                 const inicio = new Date(contractData.fechaInicioContrato);
@@ -2179,84 +2182,87 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                 </div>
               </div>
 
-              {/* BARRA DE BOTONES SUPERIOR SEGUN ESTADO DEL MODAL */}
-              <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
-                {/* 1. ESTADO: EDITANDO (FICHA DETALLADA) */}
+              {/* BOTONES: 2 filas fijas para no tapar el nombre del inquilino */}
+              <div className="flex flex-col gap-2 w-full lg:w-auto lg:max-w-[34rem] shrink-0">
                 {isRenewing ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" onClick={() => { setIsRenewing(false); setIsEditing(false); }} className="bg-card border-border text-muted-foreground font-bold rounded-xl px-3 h-10 text-[10px] sm:text-xs">
+                        <X className="w-4 h-4 mr-1.5 shrink-0" /> CANCELAR
+                    </Button>
+                    <Button onClick={handleRenovarContrato} className="bg-blue-600 hover:bg-blue-700 text-white font-black italic rounded-xl px-3 h-10 shadow-lg shadow-blue-500/20 text-[10px] sm:text-xs">
+                        <Save className="w-4 h-4 mr-1.5 shrink-0" /> RENOVAR
+                    </Button>
+                  </div>
+                ) : isContratando ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" onClick={() => setIsContratando(false)} className="bg-card border-border text-muted-foreground font-bold rounded-xl px-3 h-10 text-[10px] sm:text-xs col-span-2 sm:col-span-1">
+                        <X className="w-4 h-4 mr-1.5 shrink-0" /> CANCELAR
+                    </Button>
+                    <Button onClick={handlePrintContract} className="bg-primary text-primary-foreground font-black italic rounded-xl px-3 h-10 shadow-lg shadow-primary/20 text-[10px] sm:text-xs">
+                        <Printer className="w-4 h-4 mr-1.5 shrink-0" /> IMPR. CONTRATO
+                    </Button>
+                    <Button onClick={handleContratar} className="bg-emerald-600 text-white font-black italic rounded-xl px-3 h-10 shadow-lg shadow-emerald-200 text-[10px] sm:text-xs col-span-2">
+                        <Save className="w-4 h-4 mr-1.5 shrink-0" /> GUARDAR CONTRATO
+                    </Button>
+                  </div>
+                ) : isEditing ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" onClick={() => setIsEditing(false)} className="bg-card border-border text-muted-foreground font-bold rounded-xl px-3 h-10 text-[10px] sm:text-xs">
+                        <X className="w-4 h-4 mr-1.5 shrink-0" /> CANCELAR
+                    </Button>
+                    <Button onClick={handleUpdate} className="bg-emerald-600 text-white font-black italic rounded-xl px-3 h-10 shadow-lg shadow-emerald-200 text-[10px] sm:text-xs">
+                        <Save className="w-4 h-4 mr-1.5 shrink-0" /> GUARDAR
+                    </Button>
+                  </div>
+                ) : (
                   <>
-                    <Button variant="outline" onClick={() => { setIsRenewing(false); setIsEditing(false); }} className="bg-card border-border text-muted-foreground font-bold rounded-xl px-4 h-11">
-                        <X className="w-4 h-4 mr-2" /> CANCELAR
-                    </Button>
-                    <Button onClick={handleRenovarContrato} className="bg-blue-600 hover:bg-blue-700 text-white font-black italic rounded-xl px-6 shadow-lg shadow-blue-500/20 hover:scale-105 transition-all h-11">
-                        <Save className="w-4 h-4 mr-2" /> RENOVAR
-                    </Button>
-                  </>
-                ) : contractData && !isContratando && (
-                    <>
-                        {isEditing ? (
-                            <>
-                                <Button variant="outline" onClick={() => setIsEditing(false)} className="bg-card border-border text-muted-foreground font-bold rounded-xl px-4 h-11">
-                                    <X className="w-4 h-4 mr-2" /> CANCELAR
-                                </Button>
-                                <Button onClick={handleUpdate} className="bg-emerald-600 text-white font-black italic rounded-xl px-6 shadow-lg shadow-emerald-200 hover:scale-105 transition-all h-11">
-                                    <Save className="w-4 h-4 mr-2" /> GUARDAR
-                                </Button>
-                            </>
-                        ) : (
-                            <>
-                                <Button onClick={() => setIsGenerarContratoModalOpen(true)} variant="outline" className="bg-amber-50 border-amber-200 text-amber-700 font-black italic rounded-xl px-4 h-11 hover:bg-amber-100 shadow-sm">
-                                    <FileText className="w-4 h-4 mr-2" /> GENERAR CONTRATO
-                                </Button>
-                                <Button onClick={handleCompartirWhatsAppFicha} variant="outline" className="bg-emerald-50 border-emerald-200 text-emerald-700 font-black italic rounded-xl px-4 h-11 hover:bg-emerald-100 shadow-sm">
-                                    <Phone className="w-4 h-4 mr-2" /> COMPARTIR WHATSAPP
-                                </Button>
-                                <Button onClick={() => setIsEditing(true)} variant="outline" className="bg-card border-border text-foreground font-bold rounded-xl px-4 h-11 hover:bg-muted">
-                                    <Pencil className="w-4 h-4 mr-2" /> EDITAR FICHA
-                                </Button>
-                                <Button 
-                                    onClick={() => {
-                                        const deuda = calcularDeudaAtrasada();
-                                        setDeudaTotalDesalojo(deuda);
-                                        setIsDesalojarModalOpen(true);
-                                    }}
-                                    className="bg-red-600 text-white font-black italic rounded-xl px-4 h-11 hover:bg-red-700 hover:scale-105 transition-all shadow-lg shadow-red-500/20"
-                                >
-                                    <AlertCircle className="w-4 h-4 mr-2" /> DESALOJAR
-                                </Button>
-                            </>
-                        )}
-                    </>
-                )}
-                {!isEditing && !isContratando && !isRenewing && (
-                    <>
-                        {(!contractData || dataUnidad.estado === "Disponible") && (
-                            <Button 
-                                onClick={handleStartContratar} 
-                                className="bg-emerald-600 text-white font-black italic rounded-xl px-4 h-11 hover:bg-emerald-700 hover:scale-105 transition-all shadow-lg shadow-emerald-500/20 mr-2"
-                            >
-                                <Plus className="w-4 h-4 mr-2" /> CONTRATAR
-                            </Button>
-                        )}
-                        <Button
-                          onClick={handleOpenExpedientePdfModal}
-                          className="bg-primary text-primary-foreground font-black italic rounded-xl px-6 shadow-lg shadow-primary/20 hover:scale-105 transition-all h-11 ml-2"
+                    {/* Fila 1 */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {contractData && dataUnidad.estado !== "Disponible" ? (
+                        <>
+                          <Button onClick={() => setIsGenerarContratoModalOpen(true)} variant="outline" className="bg-amber-50 border-amber-200 text-amber-700 font-black italic rounded-xl px-2.5 h-10 hover:bg-amber-100 shadow-sm text-[9px] sm:text-[10px]">
+                              <FileText className="w-3.5 h-3.5 mr-1 shrink-0" /> GENERAR CONTRATO
+                          </Button>
+                          <Button onClick={handleCompartirWhatsAppFicha} variant="outline" className="bg-emerald-50 border-emerald-200 text-emerald-700 font-black italic rounded-xl px-2.5 h-10 hover:bg-emerald-100 shadow-sm text-[9px] sm:text-[10px]">
+                              <Phone className="w-3.5 h-3.5 mr-1 shrink-0" /> WHATSAPP
+                          </Button>
+                          <Button onClick={() => setIsEditing(true)} variant="outline" className="bg-card border-border text-foreground font-bold rounded-xl px-2.5 h-10 hover:bg-muted text-[9px] sm:text-[10px] col-span-2 sm:col-span-1">
+                              <Pencil className="w-3.5 h-3.5 mr-1 shrink-0" /> EDITAR FICHA
+                          </Button>
+                        </>
+                      ) : (
+                        <Button 
+                            onClick={handleStartContratar} 
+                            className="bg-emerald-600 text-white font-black italic rounded-xl px-3 h-10 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20 text-[10px] sm:text-xs col-span-2 sm:col-span-3"
                         >
-                            <Download className="w-4 h-4 mr-2" /> EXP. PDF
+                            <Plus className="w-4 h-4 mr-1.5 shrink-0" /> CONTRATAR
                         </Button>
-                    </>
-                )}
-                {isContratando && (
-                    <>
-                        <Button variant="outline" onClick={() => setIsContratando(false)} className="bg-card border-border text-muted-foreground font-bold rounded-xl px-4 h-11">
-                            <X className="w-4 h-4 mr-2" /> CANCELAR
+                      )}
+                    </div>
+                    {/* Fila 2 */}
+                    <div className="grid grid-cols-2 gap-2">
+                      {contractData && dataUnidad.estado !== "Disponible" && (
+                        <Button 
+                            onClick={() => {
+                                const deuda = calcularDeudaAtrasada();
+                                setDeudaTotalDesalojo(deuda);
+                                setIsDesalojarModalOpen(true);
+                            }}
+                            className="bg-red-600 text-white font-black italic rounded-xl px-2.5 h-10 hover:bg-red-700 shadow-lg shadow-red-500/20 text-[9px] sm:text-[10px]"
+                        >
+                            <AlertCircle className="w-3.5 h-3.5 mr-1 shrink-0" /> DESALOJAR
                         </Button>
-                        <Button onClick={handlePrintContract} className="bg-primary text-primary-foreground font-black italic rounded-xl px-6 shadow-lg shadow-primary/20 hover:scale-105 transition-all h-11 mx-2">
-                            <Printer className="w-4 h-4 mr-2" /> IMPR. CONTRATO
-                        </Button>
-                        <Button onClick={handleContratar} className="bg-emerald-600 text-white font-black italic rounded-xl px-6 shadow-lg shadow-emerald-200 hover:scale-105 transition-all h-11">
-                            <Save className="w-4 h-4 mr-2" /> GUARDAR CONTRATO
-                        </Button>
-                    </>
+                      )}
+                      <Button
+                        onClick={handleOpenExpedientePdfModal}
+                        className={`bg-primary text-primary-foreground font-black italic rounded-xl px-2.5 h-10 shadow-lg shadow-primary/20 text-[9px] sm:text-[10px] ${
+                          !(contractData && dataUnidad.estado !== "Disponible") ? "col-span-2" : ""
+                        }`}
+                      >
+                          <Download className="w-3.5 h-3.5 mr-1 shrink-0" /> EXP. PDF
+                      </Button>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -2283,7 +2289,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
           </div>
 
           {/* CONTENT AREA */}
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-8 bg-muted">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 lg:p-8 bg-muted">
             
             {activeTab === "ficha" && (
               <div className="grid grid-cols-1 md:grid-cols-12 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">

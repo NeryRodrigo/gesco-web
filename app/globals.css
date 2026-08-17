@@ -187,11 +187,29 @@ html {
   text-size-adjust: 100%;
 }
 
-img,
-svg,
-video {
-  max-width: 100%;
-  height: auto;
+/* Scroll horizontal reutilizable en PC y móvil (no solo <1024px) */
+.mobile-scroll-x,
+[data-mobile-scroll="x"] {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+/* Tabs/chips: flex + scroll en todos los tamaños (evita romper ficha en desktop) */
+.mobile-tabs-scroll {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.mobile-tabs-scroll::-webkit-scrollbar {
+  display: none;
+}
+.mobile-tabs-scroll > * {
+  flex-shrink: 0;
 }
 
 @media (max-width: 1023px) {
@@ -206,12 +224,10 @@ video {
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Tablas anchas: scroll horizontal nítido sin aplastar columnas */
-  .mobile-scroll-x,
-  [data-mobile-scroll="x"] {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-x: contain;
+  /* Solo móvil: evita overflow. En desktop rompe h-* / max-w-* de Tailwind. */
+  img,
+  video {
+    max-width: 100%;
   }
 
   .mobile-scroll-x > table,
@@ -219,27 +235,16 @@ video {
     min-width: 720px;
   }
 
-  /* Modales: caben en pantalla con notch / home indicator */
-  [data-slot="dialog-content"] {
+  /* Modales simples: altura segura. Los de scroll interno (ficha) se excluyen. */
+  [data-slot="dialog-content"]:not([data-scroll="internal"]) {
     max-height: min(92dvh, calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 1.25rem)) !important;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
 
-  /* Tabs / chips: scroll horizontal sin romper layout */
-  .mobile-tabs-scroll {
-    display: flex;
-    gap: 1rem;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    padding-bottom: 2px;
-  }
-  .mobile-tabs-scroll::-webkit-scrollbar {
-    display: none;
-  }
-  .mobile-tabs-scroll > * {
-    flex-shrink: 0;
+  [data-slot="dialog-content"][data-scroll="internal"] {
+    max-height: min(94dvh, calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 0.75rem)) !important;
+    overflow: hidden !important;
   }
 
   /* Tipografía más legible en pantallas chicas */

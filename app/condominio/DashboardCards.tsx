@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Users, Home, CheckCircle2, Wallet, Clock, Calendar, AlertTriangle, Filter, Zap, Check, X, RefreshCw, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { ConsultarEstadoAndeModal } from "./ConsultarEstadoAndeModal";
 import { AndeDesgloseFacturasModal, abrirFacturaPdf } from "./AndeDesgloseFacturasModal";
+import { AndeLoginCredencialesModal } from "./AndeLoginCredencialesModal";
 import { MorosidadesMainModal } from "./MorosidadesMainModal";
 import { verificarPermisoGranular, ModalAccesoRestringido } from "@/app/login/PermisosGranularesMatriz";
 import { formatDuplex, formatFechaCorta } from "@/lib/utils";
@@ -252,6 +253,7 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
   const [andeLiveByNis, setAndeLiveByNis] = useState<Record<string, AndeConsultaLive>>({});
   const [isAndeSyncing, setIsAndeSyncing] = useState(false);
   const [andeSyncAt, setAndeSyncAt] = useState<string | null>(null);
+  const [andeLoginOpen, setAndeLoginOpen] = useState(false);
   const [alertaRestriccion, setAlertaRestriccion] = useState<{
     visible: boolean;
     mensaje?: string;
@@ -355,6 +357,16 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
     setIsAndeSyncing(true);
     const toastId = toast.loading(`Consultando ANDE (${nisList.length} medidores)…`);
     try {
+      // Si la instalación no tiene CI/clave ANDE, pedirlas en modal y persistir en appsettings.
+      const estadoRes = await fetch(`${ANDE_API}/credenciales/estado`);
+      const estado = await estadoRes.json().catch(() => ({} as any));
+      if (!estadoRes.ok || !estado?.configurado) {
+        toast.dismiss(toastId);
+        setIsAndeSyncing(false);
+        setAndeLoginOpen(true);
+        return;
+      }
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 300000);
       const res = await fetch(`${ANDE_API}/jwt/consultar-lote`, {
@@ -366,6 +378,12 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
       clearTimeout(timeoutId);
 
       const body = await res.json().catch(() => ({} as any));
+      if (res.status === 401 && body?.requiereCredenciales) {
+        toast.dismiss(toastId);
+        setIsAndeSyncing(false);
+        setAndeLoginOpen(true);
+        return;
+      }
       if (!res.ok) {
         throw new Error(body?.mensaje || `Error HTTP ${res.status} al consultar lote ANDE`);
       }
@@ -1374,7 +1392,7 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
               <p className="text-[9px] sm:text-[10px] md:text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 font-sans leading-tight px-1">
                 {metric.label}
               </p>
-              {/* Móvil / iPad: número compacto legible */}
+              {/* Móvil / tablet (&lt; md): número compacto */}
               <h3
                 title={fullTitle}
                 className="md:hidden w-full px-1 text-[clamp(0.72rem,3.1vw,1.05rem)] font-heading font-extrabold text-foreground leading-tight tabular-nums tracking-tight break-words"
@@ -1386,7 +1404,7 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
                   </span>
                 ) : null}
               </h3>
-              {/* Desktop: formato completo */}
+              {/* Escritorio (md+): formato completo */}
               <h3
                 title={fullTitle}
                 className="hidden md:block w-full px-1 text-xl lg:text-2xl font-heading font-bold text-foreground leading-tight tabular-nums tracking-tight"
@@ -1408,6 +1426,16 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
         isOpen={isAndeModalOpen}
         onClose={() => setIsAndeModalOpen(false)}
         defaultNis={selectedNisForModal}
+      />
+
+      <AndeLoginCredencialesModal
+        isOpen={andeLoginOpen}
+        onClose={() => setAndeLoginOpen(false)}
+        apiBase={ANDE_API}
+        onSuccess={() => {
+          // Tras guardar CI/clave en appsettings, continuar con la grilla.
+          void syncAndeSaldosGrilla();
+        }}
       />
 
       <AndeDesgloseFacturasModal
