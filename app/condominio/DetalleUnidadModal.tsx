@@ -1,9 +1,20 @@
 "use client";
 import React, { useState } from "react";
-import { ContratoImprimible, descargarContratoDoc } from "./ContratoImprimible";
+import { ContratoImprimible, descargarContratoDoc, descargarContratoPDF } from "./ContratoImprimible";
 import { PagareImprimible } from "./PagareImprimible";
+import {
+  ExpedienteUnidadImprimible,
+  type ExpedienteUnidadPrintData,
+  type ExpedienteSeccionesPrint,
+} from "./ExpedienteUnidadImprimible";
+import {
+  HistorialPagosImprimible,
+  type HistorialPagosPrintData,
+} from "./HistorialPagosImprimible";
 import { ConfirmActionModal, ConfirmActionModalProps } from "@/components/ui/confirm-action-modal";
 import { verificarPermisoGranular, ModalAccesoRestringido } from "@/app/login/PermisosGranularesMatriz";
+import { formatFechaCorta } from "@/lib/utils";
+import { sharePdfViaWhatsApp, prepareWhatsAppShareWindow } from "@/lib/whatsappShare";
 import { 
   Dialog, 
   DialogContent, 
@@ -124,16 +135,35 @@ interface Installment {
   pago?: any;
 }
 
-/** Cobro (PagosRecibo / facturación) o gasto de unidad (GastosMantenimiento). */
+/** Cobro (PagosRecibo / facturación), gasto de unidad o factura consultada en ANDE. */
 interface FilaServicioMantenimiento {
   id: string;
   fechaMs: number;
   fechaLabel: string;
   periodoLabel: string;
   monto: number;
-  origen: "cobro" | "gasto";
+  origen: "cobro" | "gasto" | "ande";
+  estadoAnde?: string;
   gasto?: GastoServicio;
   pago?: Pago;
+}
+
+interface AndeFacturaItemUi {
+  monto: number;
+  estado: string;
+  emision: string;
+  vencimiento: string;
+  consumoKw?: number | null;
+}
+
+interface AndeConsultaUi {
+  nis: string;
+  titular: string;
+  saldoDeuda: number;
+  estadoPago: string;
+  fechaConsulta: string;
+  observaciones: string;
+  facturas: AndeFacturaItemUi[];
 }
 
 interface Contrato {
@@ -186,8 +216,20 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
   const [historicoContratos, setHistoricoContratos] = useState<any[]>([]);
   const [isContratando, setIsContratando] = useState(false);
   const [isPrintingPagare, setIsPrintingPagare] = useState(false);
+  const [isPrintingExpediente, setIsPrintingExpediente] = useState(false);
+  const [expedientePrintData, setExpedientePrintData] = useState<ExpedienteUnidadPrintData | null>(null);
+  const [showExpedienteSeccionesModal, setShowExpedienteSeccionesModal] = useState(false);
+  const [expedienteSecciones, setExpedienteSecciones] = useState<ExpedienteSeccionesPrint>({
+    historialPagos: true,
+    mantenimiento: false,
+    comprobantes: true,
+  });
+  const [isPreparingExpediente, setIsPreparingExpediente] = useState(false);
+  const [isPrintingHistorial, setIsPrintingHistorial] = useState(false);
+  const [historialPrintData, setHistorialPrintData] = useState<HistorialPagosPrintData | null>(null);
   const [isGenerarContratoModalOpen, setIsGenerarContratoModalOpen] = useState(false);
   const [localNisAnde, setLocalNisAnde] = useState("");
+  const [localCodigoUnidad, setLocalCodigoUnidad] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [filesUploaded, setFilesUploaded] = useState<Record<string, boolean>>({});
   const [alertaRestriccion, setAlertaRestriccion] = useState<{
@@ -287,66 +329,106 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
           return;
       }
 
+      if (!contractData?.contratoId) {
+          toast.error("No hay contrato activo", {
+              description: "Registre o seleccione un inquilino con contrato para autocompletar el documento."
+          });
+          return;
+      }
+
       setIsGeneratingDoc(true);
       try {
+          const montoAlquiler = Number(contractData?.montoMensualAlquiler || 0);
           const montoGarantia = Number(contractData?.depositoGarantia || 0);
           const montoLetras = convertirNumeroALetras(montoGarantia);
           const hoy = new Date();
 
-          // --- LÓGICA PARA EXTRAER SOLO EL DÍGITO ---
-          // Si unidad?.code es "D-02", extraemos "02"
           const codigoOriginal = unidad?.code || "";
-          const matchDigitos = codigoOriginal.match(/\d+/); 
-          const soloDigito = matchDigitos ? matchDigitos[0] : ""; 
+          const matchDigitos = codigoOriginal.match(/\d+/);
+          const soloDigito = matchDigitos ? matchDigitos[0] : codigoOriginal;
+
+          const fmtGs = (n: number) =>
+              n > 0 ? new Intl.NumberFormat("es-PY").format(n) : "";
+
+          const fechaInicio = contractData?.fechaInicioContrato
+              ? formatFechaCorta(contractData.fechaInicioContrato)
+              : "";
+          const fechaFin = contractData?.fechaFinContrato
+              ? formatFechaCorta(contractData.fechaFinContrato)
+              : "";
+
+          let duracionMeses = "";
+          if (contractData?.fechaInicioContrato && contractData?.fechaFinContrato) {
+              const ini = new Date(contractData.fechaInicioContrato);
+              const fin = new Date(contractData.fechaFinContrato);
+              if (!Number.isNaN(ini.getTime()) && !Number.isNaN(fin.getTime())) {
+                  const meses =
+                      (fin.getFullYear() - ini.getFullYear()) * 12 +
+                      (fin.getMonth() - ini.getMonth());
+                  duracionMeses = String(meses > 0 ? meses : 12);
+              }
+          }
 
           const params = new URLSearchParams({
-              FechaFirma: hoy.toLocaleDateString('es-PY'), 
+              contratoId: String(contractData.contratoId),
+              FechaFirma: hoy.toLocaleDateString("es-PY"),
               DiaEntrega: hoy.getDate().toString(),
-              MesEntrega: hoy.toLocaleDateString('es-PY', { month: 'long' }),
+              MesEntrega: hoy.toLocaleDateString("es-PY", { month: "long" }),
               AnioEntrega: hoy.getFullYear().toString(),
-
-              // Ahora {Duplex} en el Word solo tendrá el número (ej: 02)
-              Duplex: soloDigito, 
-              
-              NisAnde: `${localNisAnde || unidad?.nisAnde || "________________"}`,
-              MontoPagare: montoGarantia.toLocaleString('es-PY'),
-              MontoPagareLetras: `GUARANÍES ${montoLetras}`,
-              Locatario: `${contractData?.inquilino?.razonSocial || ""}`,
+              Duplex: soloDigito,
+              Condominio: unidad?.condo || "",
+              NisAnde: `${localNisAnde || unidad?.nisAnde || ""}`,
+              MontoAlquiler: fmtGs(montoAlquiler),
+              MontoGarantia: fmtGs(montoGarantia),
+              MontoPagare: fmtGs(montoGarantia),
+              MontoPagareLetras: montoGarantia > 0 ? `GUARANÍES ${montoLetras}` : "",
+              FechaInicio: fechaInicio,
+              FechaFin: fechaFin,
+              DuracionMeses: duracionMeses,
+              Locatario: `${contractData?.inquilino?.razonSocial || unidad?.tenant || ""}`,
               CedulaLocatario: `${contractData?.inquilino?.documento || ""}`,
-              DomicilioLocatario: "Melo de Portugal c/ Amistad, Luque",
+              DomicilioLocatario: `${(contractData as any)?.domicilioLocatario || unidad?.condo || "Luque, Paraguay"}`,
               TelefonoLocatario: `${contractData?.inquilino?.telefono || ""}`,
-              Codeudor: `${contractData?.codeudorNombre || "...................."}`,
-              CedulaCodeudor: `${contractData?.codeudorCedula || "...................."}`,
-              DomicilioCodeudor: `${contractData?.codeudorDireccion || "...................."}`,
-              TelefonoCodeudor: `${contractData?.codeudorTelefono || "...................."}`,
+              Codeudor: `${(contractData as any)?.codeudorNombre || ""}`,
+              CedulaCodeudor: `${(contractData as any)?.codeudorCedula || ""}`,
+              DomicilioCodeudor: `${(contractData as any)?.codeudorDireccion || ""}`,
+              TelefonoCodeudor: `${(contractData as any)?.codeudorTelefono || ""}`,
           });
 
           const url = `http://localhost:5034/api/Plantillas/generar/${selectedPlantillaId}?${params.toString()}`;
           
           const response = await fetch(url);
-          if (!response.ok) throw new Error();
+          if (!response.ok) {
+              const errText = await response.text().catch(() => "");
+              throw new Error(errText || "No se pudo generar el documento");
+          }
 
           const blob = await response.blob();
           const downloadUrl = window.URL.createObjectURL(blob);
 
-          // --- LÓGICA PARA EL NOMBRE DEL ARCHIVO ---
           const plantillaSeleccionada = plantillasList.find(p => p.plantillaId === Number(selectedPlantillaId));
           const nombreDocumento = plantillaSeleccionada 
               ? plantillaSeleccionada.nombre.replace(/\s+/g, '_') 
               : "Documento";
+          const nombreInquilino = (contractData?.inquilino?.razonSocial || "Inquilino")
+              .replace(/\s+/g, "_");
 
           const a = document.createElement("a");
           a.href = downloadUrl;
-          
-          // El archivo se llamará: NOMBRE_DE_PLANTILLA_Duplex-02.docx
-          a.download = `${nombreDocumento}_Duplex-${soloDigito}.docx`;
+          a.download = `${nombreDocumento}_${nombreInquilino}_Duplex-${soloDigito}.docx`;
           
           document.body.appendChild(a);
           a.click();
           a.remove();
-          toast.success(`¡${plantillaSeleccionada?.nombre || "Documento"} descargado!`);
-      } catch (e) {
-          toast.error("Error al generar el documento");
+          window.URL.revokeObjectURL(downloadUrl);
+          toast.success(`¡${plantillaSeleccionada?.nombre || "Documento"} generado!`, {
+              description: "Datos del inquilino y dúplex autocompletados según la plantilla oficial."
+          });
+      } catch (e: any) {
+          console.error(e);
+          toast.error("Error al generar el documento", {
+              description: e?.message || "Verifique que la API esté en marcha y las plantillas en wwwroot/plantillas."
+          });
       } finally {
           setIsGeneratingDoc(false);
       }
@@ -367,6 +449,8 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
   const [showOcrPreview, setShowOcrPreview] = useState(false);
   const [filterDesde, setFilterDesde] = useState<string>("");
   const [filterHasta, setFilterHasta] = useState<string>("");
+  const [filterContratoDesde, setFilterContratoDesde] = useState<string>("");
+  const [filterContratoHasta, setFilterContratoHasta] = useState<string>("");
   const [sortColumn, setSortColumn] = useState<"fechaVencimiento" | "concepto" | "periodo" | "monto" | "pagado" | "estado">("fechaVencimiento");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
@@ -382,6 +466,8 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
   const [confirmAnularContrato, setConfirmAnularContrato] = useState<{ contratoId: number; nombre: string } | null>(null);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [showWhatsAppPreviewModal, setShowWhatsAppPreviewModal] = useState(false);
+  const [isSharingWhatsApp, setIsSharingWhatsApp] = useState(false);
+  const [whatsAppResultMsg, setWhatsAppResultMsg] = useState("");
 
   const handleCompartirWhatsAppFicha = () => {
     const phoneRaw = contractData?.inquilino?.telefono || "";
@@ -391,6 +477,63 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
     }
 
     setShowWhatsAppPreviewModal(true);
+  };
+
+  const handleEnviarPdfWhatsAppFicha = async () => {
+    const phoneRaw = contractData?.inquilino?.telefono || "";
+    if (!phoneRaw || phoneRaw.trim().length < 6) {
+      toast.warning("No hay teléfono WhatsApp registrado.");
+      return;
+    }
+
+    const waWindow = prepareWhatsAppShareWindow();
+    setIsSharingWhatsApp(true);
+    const loading = toast.loading("Generando PDF y abriendo WhatsApp Web…");
+    try {
+      const file = await descargarContratoPDF(contractData, dataUnidad, true);
+      if (!file) {
+        try {
+          waWindow?.close();
+        } catch {
+          /* ignore */
+        }
+        toast.dismiss(loading);
+        toast.error("No se pudo generar el PDF del contrato.");
+        return;
+      }
+      const nombre =
+        contractData?.inquilino?.razonSocial ||
+        contractData?.inquilino?.nombre ||
+        "Cliente";
+      const texto = `Hola ${nombre}, le compartimos su Contrato de Locación del Dúplex ${unidad?.code || ""}. Adjuntamos el PDF del documento.`;
+      const result = await sharePdfViaWhatsApp({
+        file,
+        fileName: file.name,
+        phoneRaw,
+        text: texto,
+        preOpenedWindow: waWindow,
+      });
+      toast.dismiss(loading);
+      if (result.mode === "native-share" && result.message.includes("cancelado")) {
+        toast.info(result.message);
+        return;
+      }
+      toast.success(result.message);
+      setWhatsAppResultMsg(result.message);
+      setShowWhatsAppPreviewModal(false);
+      setShowWhatsAppModal(true);
+    } catch (e) {
+      console.error(e);
+      try {
+        waWindow?.close();
+      } catch {
+        /* ignore */
+      }
+      toast.dismiss(loading);
+      toast.error("Error al generar o compartir el PDF.");
+    } finally {
+      setIsSharingWhatsApp(false);
+    }
   };
 
   const handleFileScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -557,6 +700,8 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
   const [serviceType, setServiceType] = useState<"Luz" | "Agua" | "Basura">("Luz");
   const [gastosServicios, setGastosServicios] = useState<GastoServicio[]>([]);
   const [loadingGastos, setLoadingGastos] = useState(false);
+  const [andeLuzConsulta, setAndeLuzConsulta] = useState<AndeConsultaUi | null>(null);
+  const [loadingAndeLuz, setLoadingAndeLuz] = useState(false);
   /** Edición de filas origen "Cobro" (PagosRecibo). */
   const [isCobroServicioModalOpen, setIsCobroServicioModalOpen] = useState(false);
   const [editingPagoServicioId, setEditingPagoServicioId] = useState<number | null>(null);
@@ -628,12 +773,22 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
       fetchContract();
       fetchHistoricoContratos();
       setLocalNisAnde(unidad?.nisAnde || "");
+      setLocalCodigoUnidad(unidad?.code || "");
+      setAndeLuzConsulta(null);
+      setFilterDesde("");
+      setFilterHasta("");
+      setFilterContratoDesde("");
+      setFilterContratoHasta("");
     } else {
       setIsEditing(false);
       setIsRenewing(false);
       setIsContratando(false);
     }
-  }, [isOpen, unidad?.id, unidad?.nisAnde]);
+  }, [isOpen, unidad?.id, unidad?.nisAnde, unidad?.code]);
+
+  React.useEffect(() => {
+    setAndeLuzConsulta(null);
+  }, [localNisAnde]);
 
   const fetchGastosServicios = React.useCallback(async () => {
     if (!unidad?.id || unidad.id <= 0) return;
@@ -681,6 +836,22 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
     void fetchHistoricoContratos();
   }, [isOpen, unidad?.id, activeTab]);
 
+  React.useEffect(() => {
+    if (!contractData?.fechaInicioContrato) return;
+    const toInputDate = (v: string) => {
+      const d = new Date(v);
+      if (Number.isNaN(d.getTime())) return "";
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    };
+    setFilterContratoDesde(toInputDate(contractData.fechaInicioContrato));
+    setFilterContratoHasta(
+      contractData.fechaFinContrato ? toInputDate(contractData.fechaFinContrato) : ""
+    );
+  }, [contractData?.contratoId]);
+
   const handleRenovarContrato = async () => {
     if (!contractData) return;
     try {
@@ -706,12 +877,14 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
         }
       }
 
-      if (localNisAnde !== unidad?.nisAnde && unidad?.id) {
+      if ((localNisAnde !== unidad?.nisAnde || localCodigoUnidad !== unidad?.code) && unidad?.id) {
           await fetch(`http://localhost:5034/api/UnidadesCondominio/${unidad.id}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                   ...unidad,
+                  unidadId: unidad.id,
+                  codigoUnidad: localCodigoUnidad,
                   nisAnde: localNisAnde
               })
           });
@@ -761,11 +934,12 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
   const handleUpdate = async () => {
     if (!contractData) return;
     try {
-      if (localNisAnde !== unidad?.nisAnde && unidad?.id) {
+      if ((localNisAnde !== unidad?.nisAnde || localCodigoUnidad !== unidad?.code) && unidad?.id) {
           const respUnidad = await fetch(`http://localhost:5034/api/UnidadesCondominio/${unidad.id}`);
           if (respUnidad.ok) {
               const unidadData = await respUnidad.json();
               unidadData.nisAnde = localNisAnde;
+              unidadData.codigoUnidad = localCodigoUnidad;
               await fetch(`http://localhost:5034/api/UnidadesCondominio/${unidad.id}`, {
                   method: "PUT",
                   headers: { "Content-Type": "application/json" },
@@ -1032,7 +1206,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
     setServiceForm({
       identificador:
         tipo === "Luz"
-          ? (unidad?.nisAnde ?? "")
+          ? (localNisAnde || unidad?.nisAnde || "")
           : tipo === "Agua"
             ? (unidad?.medidorAgua ?? "")
             : "Servicio Municipal",
@@ -1117,35 +1291,80 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
     }
   };
 
-  const handleConsultarAnde = async () => {
-    const nis = serviceForm.identificador;
-    if (!nis) {
-      toast.error("Ingresa un número de NIS válido primero.");
+  const handleConsultarAnde = async (nisOverride?: string) => {
+    const nis = (nisOverride || serviceForm.identificador || localNisAnde || unidad?.nisAnde || "").trim();
+    if (!nis || nis === "—" || nis === "N/A" || nis === "SIN NIS") {
+      toast.error("Ingresá un número de NIS válido primero.");
       return;
     }
-    toast.info("Consultando deuda en la red ANDE...");
-    setIsLoading(true);
-    
-    // Simular tiempo de carga
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsLoading(false);
 
-    // Lógica de simulación de deuda
-    const nisNum = parseInt(nis.slice(-2) || "0") || 0;
-    const day = (nisNum % 15) + 10;
-    const date = new Date();
-    date.setDate(day);
-    const isVencido = new Date() > date && Math.random() > 0.3; // 70% de que la vencida esté impaga
-    
-    if (isVencido) {
-        // Hay deuda
-        const montoSimulado = (nisNum * 2500) + 85000;
-        setServiceForm(prev => ({ ...prev, monto: montoSimulado }));
-        toast.error(`Factura pendiente de pago. Monto: ${new Intl.NumberFormat('es-PY', { style: 'currency', currency: 'PYG' }).format(montoSimulado)}`);
-    } else {
-        // Al día
-        setServiceForm(prev => ({ ...prev, monto: 0 }));
-        toast.success("El NIS se encuentra al día (Sin deuda pendiente).");
+    toast.info("Consultando saldo en ANDE (sesión JWT)…");
+    setIsLoading(true);
+    setLoadingAndeLuz(true);
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000);
+      const resp = await fetch(
+        `http://localhost:5034/api/Ande/jwt/consultar/${encodeURIComponent(nis)}`,
+        { signal: controller.signal }
+      );
+      clearTimeout(timeoutId);
+
+      if (!resp.ok) {
+        const errBody = await resp.json().catch(() => ({} as any));
+        throw new Error(errBody?.mensaje || "No se pudo consultar ANDE.");
+      }
+
+      const data = await resp.json();
+      const facturas: AndeFacturaItemUi[] = Array.isArray(data.facturas)
+        ? data.facturas.map((f: any) => ({
+            monto: Number(f.monto) || 0,
+            estado: String(f.estado || ""),
+            emision: String(f.emision || ""),
+            vencimiento: String(f.vencimiento || ""),
+            consumoKw: f.consumoKw ?? null,
+          }))
+        : [];
+
+      setAndeLuzConsulta({
+        nis: String(data.nis || nis),
+        titular: String(data.titular || ""),
+        saldoDeuda: Number(data.saldoDeuda) || 0,
+        estadoPago: String(data.estadoPago || ""),
+        fechaConsulta: String(data.fechaConsulta || new Date().toISOString()),
+        observaciones: String(data.observaciones || ""),
+        facturas,
+      });
+
+      // Si el modal de cargar recibo está abierto, rellenar monto con deuda o última factura
+      const pendiente = facturas.find((f) => /pendiente/i.test(f.estado));
+      const ultima = pendiente || facturas[0];
+      if (ultima) {
+        setServiceForm((prev) => ({
+          ...prev,
+          identificador: nis,
+          monto: pendiente ? pendiente.monto : Number(data.saldoDeuda) || ultima.monto,
+        }));
+      } else {
+        setServiceForm((prev) => ({ ...prev, identificador: nis, monto: Number(data.saldoDeuda) || 0 }));
+      }
+
+      if (Number(data.saldoDeuda) > 0) {
+        toast.error(
+          `Pendiente ANDE: ${new Intl.NumberFormat("es-PY", { style: "currency", currency: "PYG", maximumFractionDigits: 0 }).format(Number(data.saldoDeuda))}`
+        );
+      } else {
+        toast.success(data.estadoPago ? `ANDE: ${data.estadoPago}` : "Consulta ANDE OK — al día.");
+      }
+    } catch (err: any) {
+      if (err?.name === "AbortError") {
+        toast.error("La consulta a ANDE tardó demasiado. Reintentá.");
+      } else {
+        toast.error(err?.message || "Error al consultar ANDE.");
+      }
+    } finally {
+      setIsLoading(false);
+      setLoadingAndeLuz(false);
     }
   };
 
@@ -1389,10 +1608,40 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
     };
 
   const installments = generateInstallments();
+  const nowLimit = new Date();
+  const mesActual = nowLimit.getMonth() + 1;
+  const anioActual = nowLimit.getFullYear();
+
+  const parseFiltroFecha = (iso: string, endOfDay = false) => {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    if (endOfDay) d.setHours(23, 59, 59, 999);
+    else d.setHours(0, 0, 0, 0);
+    return d;
+  };
+
   const filteredInstallments = installments.filter(row => {
+      // Solo hasta el mes actual inclusive
+      if (row.anio > anioActual || (row.anio === anioActual && row.mes > mesActual)) return false;
       let pass = true;
-      if (filterDesde && new Date(row.fechaVencimiento) < new Date(filterDesde)) pass = false;
-      if (filterHasta && new Date(row.fechaVencimiento) > new Date(filterHasta)) pass = false;
+      // Filtro por fechas de pago (vencimiento de cuota)
+      if (filterDesde) {
+        const desde = parseFiltroFecha(filterDesde);
+        if (desde && row.fechaVencimiento < desde) pass = false;
+      }
+      if (filterHasta) {
+        const hasta = parseFiltroFecha(filterHasta, true);
+        if (hasta && row.fechaVencimiento > hasta) pass = false;
+      }
+      // Filtro por vigencia de contrato (cuotas cuyo periodo cae en el rango)
+      if (filterContratoDesde) {
+        const cDesde = parseFiltroFecha(filterContratoDesde);
+        if (cDesde && row.fechaVencimiento < cDesde) pass = false;
+      }
+      if (filterContratoHasta) {
+        const cHasta = parseFiltroFecha(filterContratoHasta, true);
+        if (cHasta && row.fechaVencimiento > cHasta) pass = false;
+      }
       return pass;
   }).sort((a, b) => {
       let comparison = 0;
@@ -1483,11 +1732,11 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
   };
 
   const dataUnidad = {
-    codigo: unidad?.code || "N/A",
+    codigo: localCodigoUnidad || unidad?.code || "N/A",
     condominio: unidad?.condo || "Aguz",
     estado: unidad?.status || "Ocupado",
-    nisAnde: unidad?.nisAnde?.trim() || "â€”",
-    medidorAgua: unidad?.medidorAgua?.trim() || "â€”",
+    nisAnde: (localNisAnde || unidad?.nisAnde || "").trim() || "—",
+    medidorAgua: unidad?.medidorAgua?.trim() || "—",
     observaciones: unidad?.observaciones?.trim() || "Sin observaciones cargadas.",
   };
 
@@ -1502,44 +1751,274 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
     return t === tipo || t.toLowerCase() === tipo.toLowerCase();
   };
 
+  const periodoDesdeFechaAnde = (raw: string) => {
+    if (!raw) return "—";
+    const d = new Date(raw);
+    if (!Number.isNaN(d.getTime())) return `${d.getMonth() + 1}/${d.getFullYear()}`;
+    const m = raw.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (m) return `${Number(m[2])}/${m[3]}`;
+    const iso = raw.match(/(\d{4})-(\d{2})/);
+    if (iso) return `${Number(iso[2])}/${iso[1]}`;
+    return raw;
+  };
+
   /** Igual que en facturación: cobros con concepto Luz/Agua/Basura + gastos de unidad en GastosMantenimiento. */
   const combinarFilasServicio = (tipo: ServicioTipoCard, gastosTipo: GastoServicio[]): FilaServicioMantenimiento[] => {
-    const fromGasto: FilaServicioMantenimiento[] = gastosTipo.map((g) => {
-      let montoReal = g.monto;
-      if (montoReal === 0 && tipo === "Luz" && dataUnidad?.nisAnde && dataUnidad.nisAnde !== "N/A" && dataUnidad.nisAnde !== "SIN NIS" && dataUnidad.nisAnde !== "â€”") {
-          const nisNum = parseInt(dataUnidad.nisAnde.slice(-2)) || 0;
-          montoReal = 85000 + (nisNum * 2500);
-      }
-      return {
-          id: `gasto-${g.gastoId}`,
-          fechaMs: new Date(g.fecha).getTime(),
-          fechaLabel: new Date(g.fecha).toLocaleString("es-PY", { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-          periodoLabel: g.mesReferencia && g.anioReferencia ? `${g.mesReferencia}/${g.anioReferencia}` : "â€”",
-          monto: montoReal,
-          origen: "gasto",
-          gasto: g,
-      };
-    });
+    const nisActual = dataUnidad.nisAnde;
+    const fromGasto: FilaServicioMantenimiento[] = gastosTipo
+      .filter((g) => {
+        if (tipo !== "Luz") return true;
+        const id = (g.identificadorServicio || "").trim();
+        if (!id || !nisActual || nisActual === "—") return true;
+        return id === nisActual;
+      })
+      .map((g) => ({
+        id: `gasto-${g.gastoId}`,
+        fechaMs: new Date(g.fecha).getTime(),
+        fechaLabel: new Date(g.fecha).toLocaleString("es-PY", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        periodoLabel:
+          g.mesReferencia && g.anioReferencia ? `${g.mesReferencia}/${g.anioReferencia}` : "—",
+        monto: g.monto,
+        origen: "gasto" as const,
+        gasto: g,
+      }));
     const fromCobro: FilaServicioMantenimiento[] = pagosContrato
       .filter((p) => pagoCoincideTipo(p, tipo))
       .map((p, idx) => ({
         id: `pago-${p.pagoId ?? `noid`}-${idx}-${p.fechaPago}-${p.mesPagado}-${p.anioPagado}`,
         fechaMs: new Date(p.fechaPago).getTime(),
-        fechaLabel: new Date(p.fechaPago).toLocaleString("es-PY", { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        fechaLabel: new Date(p.fechaPago).toLocaleString("es-PY", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
         periodoLabel: `${p.mesPagado}/${p.anioPagado}`,
         monto: p.montoPagado,
-        origen: "cobro",
+        origen: "cobro" as const,
         pago: p,
       }));
     return [...fromGasto, ...fromCobro].sort((a, b) => b.fechaMs - a.fechaMs);
   };
 
-  const filasLuz = combinarFilasServicio("Luz", gastosLuz);
+  const filasLuzSistema = combinarFilasServicio("Luz", gastosLuz);
+  const filasAndeLuz: FilaServicioMantenimiento[] = (andeLuzConsulta?.facturas || []).map((f, idx) => {
+    const fechaRaw = f.emision || f.vencimiento || andeLuzConsulta?.fechaConsulta || "";
+    const d = new Date(fechaRaw);
+    const fechaMs = Number.isNaN(d.getTime()) ? Date.now() - idx : d.getTime();
+    return {
+      id: `ande-${idx}-${f.monto}-${f.emision}-${f.vencimiento}`,
+      fechaMs,
+      fechaLabel: Number.isNaN(d.getTime())
+        ? fechaRaw || "—"
+        : d.toLocaleString("es-PY", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          }),
+      periodoLabel: periodoDesdeFechaAnde(f.emision || f.vencimiento),
+      monto: f.monto,
+      origen: "ande" as const,
+      estadoAnde: f.estado,
+    };
+  }).sort((a, b) => b.fechaMs - a.fechaMs);
+
+  // Prioridad: facturas reales ANDE; si aún no consultó, historial del sistema (cobros/gastos del NIS)
+  const filasLuz = filasAndeLuz.length > 0 ? filasAndeLuz : filasLuzSistema;
   const filasAgua = combinarFilasServicio("Agua", gastosAgua);
   const filasBasura = combinarFilasServicio("Basura", gastosBasura);
 
+  const mapFilaMantenimiento = (
+    row: FilaServicioMantenimiento,
+    servicio: string
+  ): ExpedienteUnidadPrintData["mantenimiento"][number] => ({
+    fecha: formatFechaCorta(row.fechaLabel) || row.fechaLabel,
+    periodo: row.periodoLabel,
+    origen:
+      row.origen === "ande"
+        ? `${servicio} · ANDE`
+        : row.origen === "cobro"
+          ? `${servicio} · Cobro`
+          : `${servicio} · Gasto`,
+    monto: row.monto,
+    estado:
+      row.origen === "ande"
+        ? /pendiente/i.test(row.estadoAnde || "")
+          ? "Pendiente"
+          : /pagad|cobrad/i.test(row.estadoAnde || "")
+            ? "Pagado"
+            : row.estadoAnde || "—"
+        : "Registrado",
+  });
+
+  const handleOpenExpedientePdfModal = () => {
+    setExpedienteSecciones({
+      historialPagos: true,
+      mantenimiento: false,
+      comprobantes: true,
+    });
+    setShowExpedienteSeccionesModal(true);
+  };
+
+  const handleExportExpedientePdf = async (secciones: ExpedienteSeccionesPrint) => {
+    if (!secciones.historialPagos && !secciones.comprobantes) {
+      toast.error("Seleccioná al menos una sección para imprimir.");
+      return;
+    }
+
+    setIsPreparingExpediente(true);
+    try {
+      toast.info("Preparando expediente PDF…");
+      if (unidad?.id && unidad.id > 0) {
+        await fetchGastosServicios();
+      }
+
+      const historialPagos = secciones.historialPagos
+        ? installments.map((row) => ({
+            fecha: formatFechaCorta(row.fechaVencimiento),
+            periodo: `${row.mesNombre} ${row.anio}`,
+            concepto: "Alquiler mensual",
+            monto: row.monto,
+            estado: row.estado,
+            metodo: row.pago?.metodoPago,
+          }))
+        : [];
+
+      const mantenimiento = secciones.mantenimiento
+        ? [
+            ...filasLuz.map((r) => mapFilaMantenimiento(r, "Luz")),
+            ...filasAgua.map((r) => mapFilaMantenimiento(r, "Agua")),
+            ...filasBasura.map((r) => mapFilaMantenimiento(r, "Basura")),
+          ]
+        : [];
+
+      const comprobantes: ExpedienteUnidadPrintData["comprobantes"] = [];
+      if (secciones.comprobantes) {
+        const pushPagos = (c: Contrato | any) => {
+          if (!c?.pagos?.length) return;
+          for (const p of c.pagos as Pago[]) {
+            comprobantes.push({
+              tipo: p.facturaEmitida ? "Factura" : "Recibo",
+              fecha: formatFechaCorta(p.fechaPago),
+              numero: p.numeroFactura || p.nroComprobante || `Pago #${p.pagoId ?? "—"}`,
+              periodo: `${String(p.mesPagado).padStart(2, "0")}/${p.anioPagado}`,
+              monto: p.montoPagado,
+            });
+          }
+        };
+        if (contractData) pushPagos(contractData);
+        (historicoContratos || []).forEach(pushPagos);
+        comprobantes.sort((a, b) => {
+          const da = a.fecha.split("/").reverse().join("-");
+          const db = b.fecha.split("/").reverse().join("-");
+          return db.localeCompare(da);
+        });
+      }
+
+      const ahora = new Date();
+      const hora = `${String(ahora.getHours()).padStart(2, "0")}:${String(ahora.getMinutes()).padStart(2, "0")}`;
+
+      const payload: ExpedienteUnidadPrintData = {
+        fechaEmision: `${formatFechaCorta(ahora)} ${hora}`,
+        condominio: dataUnidad.condominio,
+        duplex: formatCodigoFicha(dataUnidad.codigo),
+        nisAnde: dataUnidad.nisAnde,
+        estadoUnidad: dataUnidad.estado,
+        inquilino: {
+          nombre: dataInquilino.nombre,
+          cedula: dataInquilino.cedula,
+          telefono: dataInquilino.telefono,
+          correo: dataInquilino.correo,
+          fechaIngreso: formatFechaCorta(contractData?.fechaIngreso) || dataInquilino.fechaIngreso,
+          contratoInicio:
+            formatFechaCorta(contractData?.fechaInicioContrato) || dataInquilino.fechaInicioContrato,
+          contratoFin:
+            formatFechaCorta(contractData?.fechaFinContrato) || dataInquilino.fechaFinContrato,
+          alquiler: dataInquilino.montoMensual,
+          garantia: dataInquilino.garantia,
+          ocupantes: dataInquilino.ocupantes,
+          vehiculo: dataInquilino.vehiculo,
+          servicios: dataInquilino.serviciosIncluidos,
+          observaciones: dataInquilino.observaciones,
+        },
+        historialPagos,
+        mantenimiento,
+        comprobantes,
+        secciones,
+      };
+
+      setShowExpedienteSeccionesModal(false);
+      setExpedientePrintData(payload);
+      setIsPrintingExpediente(true);
+      setTimeout(() => {
+        window.print();
+        setTimeout(() => {
+          setIsPrintingExpediente(false);
+          setExpedientePrintData(null);
+        }, 800);
+      }, 400);
+    } catch (e) {
+      console.error(e);
+      toast.error("No se pudo generar el expediente PDF.");
+    } finally {
+      setIsPreparingExpediente(false);
+    }
+  };
+
+  const handlePrintHistorialPagos = () => {
+    const payload: HistorialPagosPrintData = {
+      fechaEmision: new Date().toLocaleString("es-PY", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      condominio: dataUnidad.condominio,
+      duplex: formatCodigoFicha(dataUnidad.codigo),
+      filtroPagoDesde: filterDesde || undefined,
+      filtroPagoHasta: filterHasta || undefined,
+      filtroContratoDesde: filterContratoDesde || undefined,
+      filtroContratoHasta: filterContratoHasta || undefined,
+      inquilino: {
+        nombre: dataInquilino.nombre,
+        cedula: dataInquilino.cedula,
+        telefono: dataInquilino.telefono,
+        correo: dataInquilino.correo,
+        contratoInicio: dataInquilino.fechaInicioContrato,
+        contratoFin: dataInquilino.fechaFinContrato,
+        alquiler: dataInquilino.montoMensual,
+      },
+      filas: filteredInstallments.map((row) => ({
+        fechaVencimiento: row.fechaVencimiento.toLocaleDateString("es-PY"),
+        concepto: "Alquiler mensual",
+        periodo: `${row.mesNombre} ${row.anio}`,
+        monto: row.monto,
+        pagado: row.pagado,
+        estado: row.estado,
+        metodo: row.pago?.metodoPago,
+      })),
+    };
+    setHistorialPrintData(payload);
+    setIsPrintingHistorial(true);
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        setIsPrintingHistorial(false);
+        setHistorialPrintData(null);
+      }, 800);
+    }, 400);
+  };
+
   const renderTablaFilasServicio = (filas: FilaServicioMantenimiento[]) => {
-    if (loadingGastos && filas.length === 0) {
+    if ((loadingGastos || loadingAndeLuz) && filas.length === 0) {
       return (
         <p className="text-[10px] text-muted-foreground font-bold italic py-2">Cargando registros...</p>
       );
@@ -1547,7 +2026,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
     if (filas.length === 0) {
       return (
         <p className="text-[10px] text-muted-foreground font-bold italic py-2">
-          Sin cobros de este concepto ni gastos cargados en la unidad.
+          Sin montos de este NIS. Pulsá &quot;Consultar ANDE&quot; o cargá un recibo.
         </p>
       );
     }
@@ -1560,82 +2039,54 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
               <TableHead className="text-[8px] font-black uppercase text-muted-foreground h-8 px-2">Fecha</TableHead>
               <TableHead className="text-[8px] font-black uppercase text-muted-foreground h-8 px-2">Periodo</TableHead>
               <TableHead className="text-[8px] font-black uppercase text-muted-foreground h-8 px-2 text-right">Monto</TableHead>
-                <TableHead className="text-[8px] font-black uppercase text-muted-foreground h-8 px-2 w-[80px] text-center">Acc.</TableHead>
+              <TableHead className="text-[8px] font-black uppercase text-muted-foreground h-8 px-2 text-center">Estado</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filas.map((row) => (
-              <TableRow key={row.id} className="border-slate-50">
-                <TableCell className="px-2 py-2">
-                  <Badge
-                    variant="outline"
-                    className={`text-[7px] font-black uppercase border-none px-1.5 py-0 ${
-                      row.origen === "cobro"
-                        ? "bg-amber-50 text-amber-700"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {row.origen === "cobro" ? "Cobro" : "Gasto unidad"}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-[9px] font-bold text-muted-foreground px-2 py-2">{row.fechaLabel}</TableCell>
-                <TableCell className="text-[9px] font-bold text-muted-foreground px-2 py-2">{row.periodoLabel}</TableCell>
-                <TableCell className="text-[9px] font-black text-foreground text-right px-2 py-2">
-                  {formatCurrency(row.monto)}
-                </TableCell>
-                <TableCell className="px-1 py-1">
-                  {row.origen === "gasto" && row.gasto ? (
-                    <div className="flex justify-center gap-0.5">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-lg hover:bg-muted"
-                        title="Editar gasto de unidad"
-                        onClick={() => openEditServicio(row.gasto!)}
+            {filas.map((row) => {
+              const pendiente = row.origen === "ande" && /pendiente/i.test(row.estadoAnde || "");
+              const pagado = row.origen === "ande" && /pagad|cobrad/i.test(row.estadoAnde || "");
+              return (
+                <TableRow key={row.id} className="border-slate-50">
+                  <TableCell className="px-2 py-2">
+                    <Badge
+                      variant="outline"
+                      className={`text-[7px] font-black uppercase border-none px-1.5 py-0 ${
+                        row.origen === "ande"
+                          ? "bg-blue-50 text-blue-700"
+                          : row.origen === "cobro"
+                            ? "bg-amber-50 text-amber-700"
+                            : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {row.origen === "ande" ? "ANDE" : row.origen === "cobro" ? "Cobro" : "Gasto unidad"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-[9px] font-bold text-muted-foreground px-2 py-2">{row.fechaLabel}</TableCell>
+                  <TableCell className="text-[9px] font-bold text-muted-foreground px-2 py-2">{row.periodoLabel}</TableCell>
+                  <TableCell className="text-[9px] font-black text-foreground text-right px-2 py-2">
+                    {formatCurrency(row.monto)}
+                  </TableCell>
+                  <TableCell className="px-2 py-2 text-center">
+                    {row.origen === "ande" ? (
+                      <span
+                        className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded-full ${
+                          pendiente
+                            ? "bg-amber-100 text-amber-800"
+                            : pagado
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-muted text-muted-foreground"
+                        }`}
                       >
-                        <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-lg hover:bg-red-50 hover:text-red-600"
-                        title="Eliminar gasto"
-                        onClick={() => void handleDeleteServicio(row.gasto!.gastoId)}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                  ) : row.origen === "cobro" && row.pago && row.pago.pagoId != null ? (
-                    <div className="flex justify-center gap-0.5">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-lg hover:bg-amber-50"
-                        title="Editar cobro"
-                        onClick={() => openEditPagoServicio(row.pago!)}
-                      >
-                        <Pencil className="w-3.5 h-3.5 text-amber-700" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-lg hover:bg-red-50 hover:text-red-600"
-                        title="Eliminar cobro"
-                        onClick={() => void handleDeletePagoServicio(row.pago!.pagoId!)}
-                      >
-                        <Trash2 className="w-3.5 h-3.5 text-amber-900/70" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <span className="text-[8px] font-bold text-muted-foreground block text-center px-1">â€”</span>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
+                        {pendiente ? "Pendiente" : pagado ? "Pagado" : row.estadoAnde || "—"}
+                      </span>
+                    ) : (
+                      <span className="text-[7px] font-bold text-muted-foreground">Registrado</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
@@ -1786,7 +2237,10 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                                 <Plus className="w-4 h-4 mr-2" /> CONTRATAR
                             </Button>
                         )}
-                        <Button className="bg-primary text-primary-foreground font-black italic rounded-xl px-6 shadow-lg shadow-primary/20 hover:scale-105 transition-all h-11 ml-2">
+                        <Button
+                          onClick={handleOpenExpedientePdfModal}
+                          className="bg-primary text-primary-foreground font-black italic rounded-xl px-6 shadow-lg shadow-primary/20 hover:scale-105 transition-all h-11 ml-2"
+                        >
                             <Download className="w-4 h-4 mr-2" /> EXP. PDF
                         </Button>
                     </>
@@ -1808,20 +2262,19 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
             </div>
 
             {/* TABS SELECTOR */}
-            <div className="flex gap-8 mt-10 border-b border-white/5">
+            <div className="mobile-tabs-scroll mt-8 sm:mt-10 border-b border-white/5 gap-5 sm:gap-8">
               {([
                 { id: "ficha", label: "Ficha Detallada", icon: Info },
                 { id: "pagos", label: "Historial Pagos", icon: DollarSign },
-                { id: "gastos", label: "Mantenimiento", icon: AlertCircle },
                 { id: "documentos", label: "Documentos", icon: FileText },
                 { id: "comprobantes", label: "Facturas y Recibos", icon: Receipt }
               ] as const).map((tab) => (
                 <button 
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`pb-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all relative flex items-center gap-2 ${activeTab === tab.id ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                  className={`pb-3 sm:pb-4 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.15em] sm:tracking-[0.2em] transition-all relative flex items-center gap-2 whitespace-nowrap ${activeTab === tab.id ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
                 >
-                  <tab.icon className="w-3 h-3" />
+                  <tab.icon className="w-3 h-3 shrink-0" />
                   {tab.label}
                   {activeTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-full" />}
                 </button>
@@ -1877,8 +2330,8 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                                 { label: "Monto Alquiler", value: dataInquilino.montoMensual, key: "montoMensualAlquiler", type: "text", highlight: "text-blue-600" },
                                 { label: "Depósito / Garantía", value: dataInquilino.garantia, key: "depositoGarantia", type: "text" },
                                 { label: "Vehículo", value: dataInquilino.vehiculo, key: "vehiculoInfo", icon: Car },
-                                { label: "Contrato Inicio", value: contractData?.fechaInicioContrato ? new Date(contractData.fechaInicioContrato).toISOString().split('T')[0] : "", key: "fechaInicioContrato", type: "date" },
-                                { label: "Contrato Fin", value: contractData?.fechaFinContrato ? new Date(contractData.fechaFinContrato).toISOString().split('T')[0] : "", key: "fechaFinContrato", type: "date", highlight: "text-orange-600" },
+                                { label: "Contrato Inicio", value: contractData?.fechaInicioContrato ? formatFechaCorta(contractData.fechaInicioContrato) : "", key: "fechaInicioContrato", type: "date" },
+                                { label: "Contrato Fin", value: contractData?.fechaFinContrato ? formatFechaCorta(contractData.fechaFinContrato) : "", key: "fechaFinContrato", type: "date", highlight: "text-orange-600" },
                             ] as EditItem[]).map((item, idx) => (
                                 <div key={idx} className="space-y-1">
                                     <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">{item.label}</p>
@@ -1917,7 +2370,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                                                 className="h-8 rounded-lg border-border font-bold text-xs"
                                             />
                                         ) : (
-                                            <p className={`text-sm font-black italic uppercase ${item.highlight || 'text-foreground'}`}>
+                                            <p className={`text-sm font-black italic ${item.type === "date" ? "normal-case" : "uppercase"} ${item.highlight || 'text-foreground'}`}>
                                                 {/*item.type === "number" ? formatCurrency(item.value as number) : (item.value || "N/A")*/
                                                   (item.label.includes("Monto") || item.label.includes("Garantía")) ? formatCurrency(item.value as number) : (item.value || "N/A")
                                                 }
@@ -1961,7 +2414,15 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                             <div className="flex justify-between items-end border-b border-border pb-4">
                                 <div className="space-y-1">
                                     <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Código Dúplex</p>
-                                    <p className="text-3xl font-black italic text-primary">{formatCodigoFicha(dataUnidad.codigo)}</p>
+                                    {(isEditing || isContratando) ? (
+                                      <Input
+                                        value={localCodigoUnidad}
+                                        onChange={(e) => setLocalCodigoUnidad(e.target.value)}
+                                        className="h-10 text-xl font-black italic text-primary max-w-[220px]"
+                                      />
+                                    ) : (
+                                      <p className="text-3xl font-black italic text-primary">{formatCodigoFicha(dataUnidad.codigo)}</p>
+                                    )}
                                 </div>
                                 <div className="text-right space-y-1">
                                     <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Estado Actual</p>
@@ -2019,9 +2480,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                         </div>
                         <div className="flex gap-2">
                             <Button 
-                                onClick={() => {
-                                    setTimeout(() => window.print(), 100);
-                                }}
+                                onClick={handlePrintHistorialPagos}
                                 variant="outline"
                                 className="bg-card text-foreground border-border font-black italic rounded-xl px-4 h-12 hover:bg-muted transition-all hidden md:flex items-center"
                             >
@@ -2054,29 +2513,58 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                         </div>
                     </div>
 
-                    <div className="flex gap-4 items-end bg-card p-4 rounded-[2rem] border border-border shadow-sm print:hidden">
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Desde</label>
-                            <Input 
-                                type="date" 
-                                value={filterDesde} 
-                                onChange={(e) => setFilterDesde(e.target.value)} 
-                                className="bg-muted border-none rounded-xl h-10 font-bold"
-                            />
+                    <div className="flex flex-wrap gap-4 items-end bg-card p-4 rounded-[2rem] border border-border shadow-sm print:hidden">
+                        <div className="flex flex-wrap gap-3 items-end pr-4 border-r border-border">
+                          <p className="w-full text-[9px] font-black uppercase tracking-widest text-primary mb-0">Filtro pagos</p>
+                          <div className="space-y-1">
+                              <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Pago desde</label>
+                              <Input 
+                                  type="date" 
+                                  value={filterDesde} 
+                                  onChange={(e) => setFilterDesde(e.target.value)} 
+                                  className="bg-muted border-none rounded-xl h-10 font-bold"
+                              />
+                          </div>
+                          <div className="space-y-1">
+                              <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Pago hasta</label>
+                              <Input 
+                                  type="date" 
+                                  value={filterHasta} 
+                                  onChange={(e) => setFilterHasta(e.target.value)} 
+                                  className="bg-muted border-none rounded-xl h-10 font-bold"
+                              />
+                          </div>
                         </div>
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Hasta</label>
-                            <Input 
-                                type="date" 
-                                value={filterHasta} 
-                                onChange={(e) => setFilterHasta(e.target.value)} 
-                                className="bg-muted border-none rounded-xl h-10 font-bold"
-                            />
+                        <div className="flex flex-wrap gap-3 items-end">
+                          <p className="w-full text-[9px] font-black uppercase tracking-widest text-amber-600 mb-0">Filtro contrato</p>
+                          <div className="space-y-1">
+                              <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Contrato inicio</label>
+                              <Input 
+                                  type="date" 
+                                  value={filterContratoDesde} 
+                                  onChange={(e) => setFilterContratoDesde(e.target.value)} 
+                                  className="bg-muted border-none rounded-xl h-10 font-bold"
+                              />
+                          </div>
+                          <div className="space-y-1">
+                              <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Contrato fin</label>
+                              <Input 
+                                  type="date" 
+                                  value={filterContratoHasta} 
+                                  onChange={(e) => setFilterContratoHasta(e.target.value)} 
+                                  className="bg-muted border-none rounded-xl h-10 font-bold"
+                              />
+                          </div>
                         </div>
-                        {(filterDesde || filterHasta) && (
+                        {(filterDesde || filterHasta || filterContratoDesde || filterContratoHasta) && (
                             <Button 
                                 variant="ghost" 
-                                onClick={() => { setFilterDesde(""); setFilterHasta(""); }}
+                                onClick={() => {
+                                  setFilterDesde("");
+                                  setFilterHasta("");
+                                  setFilterContratoDesde("");
+                                  setFilterContratoHasta("");
+                                }}
                                 className="h-10 text-xs font-bold text-muted-foreground uppercase tracking-widest"
                             >
                                 Limpiar Filtros
@@ -2317,97 +2805,6 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                 </div>
             )}
 
-            {activeTab === "gastos" && (
-                <div className="animate-in fade-in duration-500 space-y-6">
-                    <div className="grid grid-cols-1 gap-6">
-                        <section className="bg-card p-6 rounded-3xl border border-border shadow-sm hover:shadow-md transition-shadow">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="bg-orange-50 p-2 rounded-xl">
-                                    <Zap className="w-5 h-5 text-orange-500" />
-                                </div>
-                                <h3 className="font-black italic uppercase tracking-tighter text-foreground">Historial de Luz Abonada (ANDE)</h3>
-                            </div>
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center gap-3">
-                                    <h4 className="font-black italic uppercase text-foreground text-sm">Gasto de Luz (ANDE)</h4>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Badge className="bg-orange-100 text-orange-600 border-none font-black text-[8px] uppercase px-3 py-1">NIS: {dataUnidad.nisAnde}</Badge>
-                                    <Button 
-                                        variant="default"
-                                        size="sm"
-                                        className="h-6 text-[8px] bg-blue-600 text-white font-black hover:bg-blue-700 border-none uppercase tracking-widest px-3"
-                                        onClick={() => {
-                                            if(!dataUnidad.nisAnde) {
-                                                toast.error("El inquilino no tiene un número de NIS registrado.");
-                                                return;
-                                            }
-                                            toast.info("Conectando con la red ANDE / Infonet...");
-                                            setTimeout(() => toast.success("Consulta Exitosa. Al día - Monto Factura actual: Gs. 0"), 2000);
-                                        }}
-                                    >
-                                        Consultar ANDE
-                                    </Button>
-                                </div>
-                            </div>
-                            <div className="space-y-4">
-                                {dataInquilino.serviciosIncluidos.includes("Luz") ? (
-                                    <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 text-center">
-                                        <p className="text-[10px] font-black uppercase text-emerald-600 tracking-widest">Incluido en Alquiler</p>
-                                        <p className="text-[9px] font-bold text-emerald-500 italic mt-1">El monto mensual cubre este servicio.</p>
-                                    </div>
-                                ) : (
-                                    <>
-                                        {(() => {
-                                            const ultimo = filasLuz[0];
-                                            return (
-                                                <>
-                                                    <div className="flex justify-between items-center text-xs">
-                                                        <span className="text-muted-foreground font-bold uppercase">Último registro</span>
-                                                        <span className="font-black text-foreground">
-                                                          {ultimo ? ultimo.fechaLabel : "Sin registros"}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center text-xs">
-                                                        <span className="text-muted-foreground font-bold uppercase">Monto</span>
-                                                        <span className="font-black text-blue-600">
-                                                          {ultimo ? formatCurrency(ultimo.monto) : "Gs. 0"}
-                                                        </span>
-                                                    </div>
-                                                </>
-                                            );
-                                        })()}
-                                        {renderTablaFilasServicio(filasLuz)}
-                                        <Button
-                                            onClick={() => openCreateServicio("Luz")}
-                                            variant="outline"
-                                            className="w-full border-dashed border-border text-[10px] font-black uppercase py-3 h-auto hover:bg-orange-50 hover:border-orange-200 hover:text-orange-600 transition-all rounded-xl"
-                                        >
-                                            Cargar Recibo Luz
-                                        </Button>
-                                    </>
-                                )}
-                            </div>
-                        </section>
-                    </div>
-
-                    <div className="bg-card p-8 rounded-[2rem] border border-border shadow-sm flex items-center justify-center text-center py-10">
-                        <div className="max-w-xs space-y-4">
-                            <div className="bg-muted w-12 h-12 rounded-2xl flex items-center justify-center mx-auto text-slate-200">
-                                <AlertCircle className="w-6 h-6" />
-                            </div>
-                            <div>
-                                <h4 className="font-black italic uppercase text-foreground text-[12px] tracking-tighter">Mantenimiento Correctivo</h4>
-                                <p className="text-muted-foreground text-[10px] font-bold italic mt-1">No hay incidencias de infraestructura reportadas.</p>
-                            </div>
-                            <Button className="bg-slate-900 text-white font-black italic rounded-xl px-6 h-10 text-[10px] uppercase">
-                                REPORTAR INCIDENCIA
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {activeTab === "documentos" && (
                 <div className="animate-in fade-in duration-500 space-y-8">
                     {/* Sección de Generación Automática de Plantillas Word */}
@@ -2423,7 +2820,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                                         <h3 className="text-xl font-black italic uppercase tracking-tighter text-white">Generar Contrato / Documento Legal (.DOCX)</h3>
                                         <Badge className="bg-amber-500 text-slate-950 font-black text-[9px] uppercase px-2 py-0.5 border-none">OFICIAL</Badge>
                                     </div>
-                                    <p className="text-muted-foreground text-[11px] font-medium">Sustituye automáticamente las variables ({'{'}Locatario{'}'}, {'{'}Duplex{'}'}, {'{'}MontoAlquiler{'}'}) con los datos de <strong className="text-amber-300 font-bold">{contractData?.inquilino?.razonSocial || contractData?.inquilino?.nombre || unidad?.tenant || "este inquilino"}</strong> en el Dúplex <strong className="text-amber-300 font-bold">{unidad?.code}</strong>.</p>
+                                    <p className="text-muted-foreground text-[11px] font-medium">Autocompleta las variables del prototipo Word ({'{'}Locatario{'}'}, {'{'}Duplex{'}'}, {'{'}MontoAlquiler{'}'}, etc.) con los datos de <strong className="text-amber-300 font-bold">{contractData?.inquilino?.razonSocial || contractData?.inquilino?.nombre || unidad?.tenant || "este inquilino"}</strong> en el Dúplex <strong className="text-amber-300 font-bold">{unidad?.code}</strong> ({unidad?.condo || "condominio"}).</p>
                                 </div>
                             </div>
                             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
@@ -3512,6 +3909,109 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
             dataUnidad={dataUnidad} 
         />
       )}
+      {showExpedienteSeccionesModal && (
+        <Dialog open={showExpedienteSeccionesModal} onOpenChange={setShowExpedienteSeccionesModal}>
+          <DialogContent className="sm:max-w-[440px] rounded-2xl bg-card border-border p-6">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-black uppercase italic tracking-tight text-foreground flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary" />
+                Expediente PDF — Secciones
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Elegí qué incluir en la impresión. Siempre se imprimen los datos generales del inquilino.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3 py-2">
+              {(
+                [
+                  {
+                    key: "historialPagos" as const,
+                    label: "Historial de pagos",
+                    desc: "Cuotas de alquiler y estado de cobro",
+                  },
+                  {
+                    key: "comprobantes" as const,
+                    label: "Facturas y recibos",
+                    desc: "Comprobantes emitidos de la unidad",
+                  },
+                ] as const
+              ).map((item) => (
+                <label
+                  key={item.key}
+                  className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors ${
+                    expedienteSecciones[item.key]
+                      ? "border-primary/40 bg-primary/5"
+                      : "border-border bg-muted/30 hover:bg-muted/50"
+                  }`}
+                >
+                  <Checkbox
+                    checked={expedienteSecciones[item.key]}
+                    onCheckedChange={(v) =>
+                      setExpedienteSecciones((prev) => ({
+                        ...prev,
+                        [item.key]: !!v,
+                      }))
+                    }
+                    className="mt-0.5"
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-black uppercase tracking-tight text-foreground">
+                      {item.label}
+                    </span>
+                    <span className="block text-[11px] text-muted-foreground mt-0.5">
+                      {item.desc}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-9 px-3 text-[10px] font-bold uppercase text-muted-foreground"
+                onClick={() =>
+                  setExpedienteSecciones({
+                    historialPagos: true,
+                    mantenimiento: false,
+                    comprobantes: true,
+                  })
+                }
+              >
+                Seleccionar todo
+              </Button>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 px-4 rounded-xl font-bold text-xs uppercase"
+                  onClick={() => setShowExpedienteSeccionesModal(false)}
+                  disabled={isPreparingExpediente}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  className="h-10 px-5 rounded-xl font-black text-xs uppercase bg-primary text-primary-foreground"
+                  disabled={isPreparingExpediente}
+                  onClick={() => handleExportExpedientePdf(expedienteSecciones)}
+                >
+                  {isPreparingExpediente ? "Preparando…" : "Imprimir PDF"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {isPrintingExpediente && expedientePrintData && (
+        <ExpedienteUnidadImprimible data={expedientePrintData} />
+      )}
+      {isPrintingHistorial && historialPrintData && (
+        <HistorialPagosImprimible data={historialPrintData} />
+      )}
       <ComprobantePreviewModal
         isOpen={isPreviewComprobanteOpen}
         onClose={() => setIsPreviewComprobanteOpen(false)}
@@ -3675,7 +4175,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                 Vista Previa del Contrato — Enviar por WhatsApp
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                Verifica los datos del contrato antes de enviarlo. Al hacer clic en enviar, descargaremos el archivo en tu equipo para que lo adjuntes en el chat de WhatsApp.
+                Se genera el PDF del contrato. En celular puede ir directo a WhatsApp. En PC: se descarga el PDF y se abre el chat en WhatsApp Web; solo falta adjuntarlo con el clip 📎 (WhatsApp no permite adjuntar archivos solo desde el navegador).
               </DialogDescription>
             </DialogHeader>
 
@@ -3696,29 +4196,17 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                   toast.success("📄 Archivo del contrato legal .DOC descargado en tu equipo.");
                 }}
                 className="h-11 px-5 font-bold text-xs uppercase rounded-xl border-border"
+                disabled={isSharingWhatsApp}
               >
                 📥 Descargar Archivo (.DOC)
               </Button>
 
               <Button
-                onClick={() => {
-                  descargarContratoDoc(contractData, dataUnidad);
-                  const phoneRaw = contractData?.inquilino?.telefono || "";
-                  let phoneClean = phoneRaw.replace(/\D/g, "");
-                  if (phoneClean.startsWith("0")) {
-                    phoneClean = "595" + phoneClean.substring(1);
-                  } else if (phoneClean.length === 9 && phoneClean.startsWith("9")) {
-                    phoneClean = "595" + phoneClean;
-                  }
-                  const nombre = contractData?.inquilino?.razonSocial || contractData?.inquilino?.nombre || "Cliente";
-                  const texto = encodeURIComponent(`Hola ${nombre}, le compartimos su Contrato de Locación del Dúplex ${unidad?.code || ""}.`);
-                  window.open(`https://wa.me/${phoneClean}?text=${texto}`, "_blank");
-                  setShowWhatsAppPreviewModal(false);
-                  setShowWhatsAppModal(true);
-                }}
+                onClick={handleEnviarPdfWhatsAppFicha}
+                disabled={isSharingWhatsApp}
                 className="h-11 px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase rounded-xl shadow-lg shadow-emerald-600/20"
               >
-                📲 Descargar y Abrir WhatsApp
+                {isSharingWhatsApp ? "Generando PDF…" : "📲 Descargar y Abrir WhatsApp"}
               </Button>
             </div>
           </DialogContent>
@@ -3737,7 +4225,8 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                 ¡Contrato Generado Enviado!
               </DialogTitle>
               <p className="text-xs font-medium text-muted-foreground mt-2 leading-relaxed">
-                El archivo del contrato fue descargado en tu equipo y abrimos el chat de WhatsApp del cliente ({contractData?.inquilino?.telefono}). Solo adjunta el archivo descargado en la conversación.
+                {whatsAppResultMsg ||
+                  `PDF del contrato listo. Chat abierto para ${contractData?.inquilino?.telefono || "el cliente"}. Si estás en PC, adjuntá el PDF descargado con el clip 📎.`}
               </p>
             </div>
             <Button

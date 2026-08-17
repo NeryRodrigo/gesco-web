@@ -141,46 +141,41 @@ export default function OimaDashboard() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#050B18] text-white font-sans overflow-x-hidden">
+    <div className="flex min-h-dvh bg-[#050B18] text-white font-sans overflow-x-hidden">
       
-      {/* SIDEBAR ESTILO PREMIUM */}
-      <aside className={`
-        ${isMobileMenuOpen ? 'flex' : 'hidden'} 
-        lg:flex w-72 bg-[#080E1E] flex-col border-r border-white/5 fixed h-full z-50 
-        transition-all duration-300
-        `}>
+      {/* SIDEBAR — drawer a pantalla completa en móvil; fijo en escritorio */}
+      <aside
+        className={`
+        ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
+        lg:translate-x-0
+        flex w-[min(18rem,88vw)] max-w-72 bg-[#080E1E] flex-col border-r border-white/5
+        fixed inset-y-0 left-0 z-50
+        transition-transform duration-300 ease-out
+        pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]
+        `}
+        aria-label="Menú de navegación"
+      >
 
-        {/* BOTÓN PARA CERRAR (X) - AGREGAR ESTO */}
         <button 
+          type="button"
           onClick={() => setIsMobileMenuOpen(false)}
-          className="lg:hidden absolute top-5 right-5 text-slate-500 hover:text-white p-2"
+          className="lg:hidden absolute top-4 right-4 text-slate-500 hover:text-white p-2.5 rounded-xl hover:bg-white/5"
+          aria-label="Cerrar menú"
         >
-          <X size={24} />
+          <X size={22} />
         </button>
 
-        <div className="p-8 flex flex-col items-center">
+        <div className="p-6 sm:p-8 flex flex-col items-center">
           
-          {/* 1. LOGO VORDIA (Cabecera sutil) */}
-          {/*
-          <div className="mb-6 opacity-80 hover:opacity-100 transition-opacity cursor-pointer">
-            <img 
-              src="/images/VORDIA HORIZONTAL.png" 
-              alt="VORDIA Logo" 
-              className="h-6 w-auto object-contain" 
-            />
-          </div>
-          */}
-          {/* 2. LOGO FONTANA (Protagonista principal) */}
-          <div className="mb-12 w-full flex justify-center cursor-pointer" onClick={() => setVistaActual("inicio")}>
+          <div className="mb-6 sm:mb-8 w-full flex justify-start cursor-pointer" onClick={() => { setVistaActual("inicio"); setIsMobileMenuOpen(false); }}>
             {isUsuarioCondominio ? (
               <img
                 src="/fontanas.png"
-                alt="Fontana Di Luque Logo"
-                /* Sombra ámbar sutil para que brille como en tu imagen */
-                //className="w-44 h-auto object-contain drop-shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-transform duration-500 hover:scale-105"
+                alt="Fontana Di Luque"
+                className="w-40 sm:w-44 h-auto object-contain drop-shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-transform duration-500 hover:scale-105"
               />
             ) : isUsuarioInmobiliaria ? (
-              <img src="/remax-logo.png" alt="REMAX" className="w-32 h-auto object-contain" />
+              <img src="/remax-logo.png" alt="REMAX" className="h-12 w-auto object-contain" />
             ) : (
               <div className="text-xl font-black italic text-amber-400 tracking-tighter uppercase text-center bg-white/5 py-3 px-6 rounded-2xl border border-white/5 w-full">
                 {usuarioActivo?.rubro} ERP
@@ -188,66 +183,64 @@ export default function OimaDashboard() {
             )}
           </div>
 
-          {/* MENU DE NAVEGACIÓN */}
-          <nav className="w-full space-y-1 overflow-y-auto max-h-[calc(100vh-320px)] custom-scrollbar">
-            {/* Título de sección en el azul de la imagen (#4472C4) */}
-            <p className="text-[10px] font-black uppercase text-[#4472C4] tracking-[0.2em] mb-6 ml-2">
-              MÓDULO DE GESTIÓN
+          <nav className="w-full space-y-1 overflow-y-auto max-h-[calc(100dvh-280px)] custom-scrollbar overscroll-contain">
+            <p className="text-[10px] font-black uppercase text-[#4472C4] tracking-[0.2em] mb-4 sm:mb-6 ml-2">
+              Módulo de gestión
             </p>
             
             <div className="space-y-1.5">
               <SidebarItem 
                 icon={<LayoutDashboard size={18}/>} 
-                label="CONDOMINIOS AGUZ" 
+                label="Condominios Aguzi" 
                 active={vistaActual === "condominio"} 
                 onClick={() => navegarConPermiso("condominio")} 
               />
 
               <SidebarItem 
                 icon={<Activity size={18}/>} 
-                label="ACTIVIDADES" 
+                label="Actividades" 
                 active={vistaActual === "actividades"} 
                 onClick={() => navegarConPermiso("actividades")} 
               />
 
               <SidebarItem 
                 icon={<Wallet size={18}/>} 
-                label="FACTURACIÓN" 
+                label="Facturación" 
                 active={vistaActual === "facturacion"} 
                 onClick={() => navegarConPermiso("facturacion")} 
               />
 
               <SidebarItem 
                 icon={<FileText size={18}/>} 
-                label="ADMINISTRACIÓN" 
+                label="Administración" 
                 active={vistaActual === "administracion"} 
                 onClick={() => navegarConPermiso("administracion")} 
               />
 
               <SidebarItem 
                 icon={<ShieldCheck size={18}/>} 
-                label="CONFIGURACIÓN" 
+                label="Configuración" 
                 active={vistaActual === "configuracion"} 
                 onClick={() => navegarConPermiso("configuracion")} 
               />
 
               <SidebarItem 
                 icon={<DollarSign size={18}/>} 
-                label="GASTOS DEL CONDOMINIO" 
+                label="Gastos del condominio" 
                 active={vistaActual === "gastos"} 
                 onClick={() => navegarConPermiso("gastos")} 
               />
 
               <SidebarItem 
                 icon={<History size={18}/>} 
-                label="HISTÓRICO DE CONTRATOS" 
+                label="Histórico de contratos" 
                 active={vistaActual === "historico_contratos"} 
                 onClick={() => navegarConPermiso("historico_contratos")} 
               />
 
               <SidebarItem 
                 icon={<Users size={18}/>} 
-                label="USUARIOS / ROLES" 
+                label="Usuarios / Roles" 
                 active={vistaActual === "usuarios"} 
                 onClick={() => navegarConPermiso("usuarios")} 
               />
@@ -255,79 +248,83 @@ export default function OimaDashboard() {
           </nav>
         </div>
 
-        {/* FOOTER PERFIL USUARIO */}
-        <div className="mt-auto p-6 bg-[#0B1222]/50 border-t border-white/5">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-xs shadow-lg shadow-blue-600/20">
+        <div className="mt-auto p-5 sm:p-6 bg-[#0B1222]/50 border-t border-white/5">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-xs shadow-lg shadow-blue-600/20 shrink-0">
               {usuarioActivo?.nombre?.charAt(0).toUpperCase()}
             </div>
-            <div className="flex-1 overflow-hidden text-left">
+            <div className="flex-1 overflow-hidden text-left min-w-0">
               <p className="text-xs font-bold truncate text-white">{usuarioActivo?.nombre}</p>
-              <p className="text-[9px] text-blue-400 font-black uppercase tracking-widest">{usuarioActivo?.rol}</p>
+              <p className="text-[9px] text-blue-400 font-black uppercase tracking-widest truncate">{usuarioActivo?.rol}</p>
             </div>
-            <button onClick={handleLogoutConfirmation} className="text-slate-500 hover:text-red-400 transition-colors">
+            <button type="button" onClick={handleLogoutConfirmation} className="text-slate-500 hover:text-red-400 transition-colors p-2 shrink-0" aria-label="Cerrar sesión">
               <LogOut size={16} />
             </button>
           </div>
         </div>
       </aside>
 
-      {/* OVERLAY - AGREGAR ESTO */}
       {isMobileMenuOpen && (
         <div 
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden" 
           onClick={() => setIsMobileMenuOpen(false)}
+          aria-hidden
         />
       )}
 
-      {/* CONTENIDO PRINCIPAL */}
-      <main className="flex-1 flex flex-col min-h-screen lg:ml-72 transition-all duration-300 w-full overflow-x-hidden">
+      <main className="flex-1 flex flex-col min-h-dvh lg:ml-72 transition-all duration-300 w-full max-w-full overflow-x-hidden">
       
-        {/* Header Superior - LIMPIO Y CORREGIDO */}
-        <header className="h-20 flex items-center justify-between px-6 md:px-12 bg-[#050B18]/80 backdrop-blur-xl sticky top-0 z-30 border-b border-white/5">
+        <header className="h-16 sm:h-20 flex items-center justify-between gap-3 px-4 sm:px-6 md:px-12 bg-[#050B18]/80 backdrop-blur-xl sticky top-0 z-30 border-b border-white/5 pt-[env(safe-area-inset-top)]">
           
-          {/* LADO IZQUIERDO: Botón Móvil + Título */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
             <button 
+              type="button"
               onClick={() => setIsMobileMenuOpen(true)}
-              className="lg:hidden p-2 text-slate-400 hover:bg-white/5 rounded-xl flex-shrink-0"
+              className="lg:hidden p-2.5 text-slate-400 hover:bg-white/5 rounded-xl flex-shrink-0"
+              aria-label="Abrir menú"
             >
-              <Menu size={24} />
+              <Menu size={22} />
             </button>   
 
-            <h2 className="text-xl md:text-2xl font-semibold text-white tracking-tight truncate">
-              {vistaActual === 'inicio' ? 'Resumen Operativo' : 
-              vistaActual === 'condominio' ? 'Gestión de Unidades' : vistaActual.toUpperCase().replace('_', ' ')}
+            <h2 className="mobile-title md:text-2xl font-semibold text-white tracking-tight truncate capitalize md:normal-case">
+              {vistaActual === "inicio"
+                ? "Resumen operativo"
+                : vistaActual === "condominio"
+                  ? "Gestión de unidades"
+                  : vistaActual.replace(/_/g, " ")}
             </h2>
           </div>
 
-          {/* LADO DERECHO: Buscador + Icono Actividad */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
             <div className="hidden md:flex items-center bg-white/5 border border-white/10 rounded-xl px-4 py-2 gap-3 text-slate-400">
                 <Search size={16} />
-                <input type="text" placeholder="Buscar..." className="bg-transparent border-none outline-none text-xs w-40" />
+                <input type="text" placeholder="Buscar…" className="bg-transparent border-none outline-none text-xs w-40" />
             </div>
-            <button className="h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 text-slate-400">
+            <button type="button" className="h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 text-slate-400" aria-label="Actividad">
                 <Activity size={18} />
             </button>
           </div>
 
         </header>
 
-        {/* ÁREA DE TRABAJO */}
-        <div className="flex-1 p-4 md:p-10">
+        <div className="flex-1 p-3 sm:p-4 md:p-10 pb-[max(1rem,env(safe-area-inset-bottom))]">
           
-          {/* VISTA INICIO: Muestra las 8 tarjetas dinámicas */}
           {vistaActual === "inicio" && condoDashboardData && (
             <div className="animate-in fade-in slide-in-from-top-4 duration-700">
-              <div className="mb-10 bg-[#0C1327] p-8 rounded-[2.5rem] border border-white/5 shadow-2xl relative overflow-hidden group">
-                <div className="flex items-center gap-6 relative z-10">
-                  <div>
-                    <h3 className="text-2xl font-bold italic uppercase tracking-tighter text-white">
-                      Bienvenido a VORDIA
-                    </h3>
-                    <p className="text-slate-400 text-sm font-medium mt-1">
-                      Hola <span className="text-blue-400 font-bold uppercase tracking-widest">{usuarioActivo?.nombre}</span>, el sistema está listo para operar. Seleccione una opción en el menú lateral.
+              <div className="mb-6 sm:mb-10 bg-[#0C1327] p-5 sm:p-8 rounded-[1.75rem] sm:rounded-[2.5rem] border border-white/5 shadow-2xl relative overflow-hidden group">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 relative z-10">
+                  <img
+                    src="/images/VORDIA HORIZONTAL.png"
+                    alt="Vordia"
+                    className="h-8 sm:h-10 md:h-12 w-auto max-w-[220px] object-contain object-left"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-slate-400 text-xs sm:text-sm font-medium leading-relaxed">
+                      Hola{" "}
+                      <span className="text-blue-400 font-bold uppercase tracking-widest">
+                        {usuarioActivo?.nombre}
+                      </span>
+                      , el sistema está listo para operar. Elegí una opción en el menú.
                     </p>
                   </div>
                 </div>
@@ -336,29 +333,25 @@ export default function OimaDashboard() {
             </div>
           )}
 
-          {/* VISTA CONDOMINIO: Muestra la lista/cuadrícula de unidades */}
           {vistaActual === "condominio" && (
              <div className="animate-in fade-in duration-500">
                 <CondominioDashboard empresaId={empresaId} usuario={usuarioActivo} />
              </div>
           )}
 
-          {/* OTRAS VISTAS (Mantenidas) */}
           {vistaActual === "actividades" && <ActividadesVista empresaId={empresaId} />}
           {vistaActual === "facturacion" && <FacturacionVista />}
           {vistaActual === "administracion" && (
-            <div className="relative w-full rounded-[2rem] border border-white/5 bg-[#0C1327]/50 overflow-hidden">
-              {/* Contenedor con scroll forzado y suavizado para móviles */}
+            <div className="relative w-full rounded-[1.5rem] sm:rounded-[2rem] border border-white/5 bg-[#0C1327]/50 overflow-hidden">
               <div 
-                className="w-full overflow-x-auto" 
+                className="w-full mobile-scroll-x" 
                 style={{ 
-                  WebkitOverflowScrolling: 'touch', // Suavizado en iOS
-                  display: 'block',
-                  width: '100%'
+                  WebkitOverflowScrolling: "touch",
+                  display: "block",
+                  width: "100%"
                 }}
               >
-                {/* Forzamos un ancho de 1600px para que entren todos los meses sin comprimirse */}
-                <div style={{ minWidth: '1600px', width: 'max-content' }} className="p-4">
+                <div style={{ minWidth: "1600px", width: "max-content" }} className="p-3 sm:p-4">
                   <AdministracionPage empresaId={empresaId} usuario={usuarioActivo} />
                 </div>
               </div>
@@ -368,36 +361,32 @@ export default function OimaDashboard() {
           {vistaActual === "gastos" && <GastosPage empresaId={empresaId} />}
           {vistaActual === "historico_contratos" && <HistoricoContratosPage empresaId={empresaId} />}
           {vistaActual === "usuarios" && (
-            <div className="space-y-6">
-               <div className="flex justify-between items-center bg-[#0C1327] p-8 rounded-[2rem] border border-white/5">
-                 <h2 className="text-2xl font-bold italic uppercase tracking-tighter">Usuarios y Roles</h2>
-                 <Button onClick={() => setIsModalRegistroOpen(true)} className="bg-blue-600 hover:bg-blue-700 rounded-xl font-bold">Registrar Usuario</Button>
+            <div className="space-y-4 sm:space-y-6">
+               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 bg-[#0C1327] p-5 sm:p-8 rounded-[1.75rem] sm:rounded-[2rem] border border-white/5">
+                 <h2 className="text-xl sm:text-2xl font-bold italic uppercase tracking-tighter">Usuarios y roles</h2>
+                 <Button onClick={() => setIsModalRegistroOpen(true)} className="bg-blue-600 hover:bg-blue-700 rounded-xl font-bold w-full sm:w-auto">Registrar usuario</Button>
                </div>
-               <div className="bg-[#0C1327] rounded-[2rem] border border-white/5 overflow-hidden">
-                 {/* Aquí va tu tabla de usuarios con el mismo estilo */}
+               <div className="bg-[#0C1327] rounded-[1.75rem] sm:rounded-[2rem] border border-white/5 overflow-hidden">
                </div>
-               <div className="mt-8">
+               <div className="mt-4 sm:mt-8">
                   <PermisosGranularesMatriz usuarios={usuariosAdmin} usuarioSeleccionadoId={usuarioPermisosId} onSelectUsuario={(id) => setUsuarioPermisosId(id)} />
                </div>
             </div>
           )}
         </div>
 
-        <footer className="w-full py-10 px-12 flex justify-end items-center no-print">
+        <footer className="w-full py-6 sm:py-10 px-4 sm:px-12 flex justify-center sm:justify-end items-center no-print pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           <div className="relative group">
-            {/* Efecto de resplandor azul detrás del logo (opcional, para el look premium) */}
             <div className="absolute inset-0 bg-blue-600/10 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            
             <img 
               src="/images/VORDIA HORIZONTAL.png" 
-              alt="VORDIA Logo" 
-              className="h-9 w-auto object-contain relative z-10 transition-transform duration-500 group-hover:scale-105"
+              alt="Vordia" 
+              className="h-7 sm:h-9 w-auto max-w-[180px] object-contain relative z-10 transition-transform duration-500 group-hover:scale-105"
             />
           </div>
         </footer>
       </main>
 
-      {/* MODALES */}
       <RegistroUsuarioModal isOpen={isModalRegistroOpen} onClose={() => setIsModalRegistroOpen(false)} empresaId={empresaId} rubro={usuarioActivo?.rubro || ""} />
       <EditarUsuarioModal isOpen={isModalEdicionOpen} onClose={() => setIsModalEdicionOpen(false)} usuario={usuarioAEditar} onRefresh={cargarListaUsuariosAdmin} empresaId={empresaId} />
       <ModalAccesoRestringido isOpen={alertaRestriccion.visible} onClose={() => setAlertaRestriccion({ ...alertaRestriccion, visible: false })} mensaje={alertaRestriccion.mensaje} permisoNombre={alertaRestriccion.permisoNombre} />
@@ -419,7 +408,7 @@ function SidebarItem({ icon, label, active = false, onClick }: { icon: ReactNode
       <div className={`${active ? 'text-white' : 'text-slate-500 group-hover:text-blue-400'} transition-colors`}>
         {icon}
       </div>
-      <span className="text-xs uppercase italic tracking-tighter">{label}</span>
+      <span className="text-[11px] sm:text-xs uppercase italic tracking-tight text-left leading-snug">{label}</span>
     </button>
   );
 }

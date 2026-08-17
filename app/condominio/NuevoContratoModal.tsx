@@ -162,7 +162,7 @@ export function NuevoContratoModal({
                           </div>
                         </div>
                       </SelectTrigger>
-                      <SelectContent className="rounded-xl border-border">
+                      <SelectContent className="rounded-xl border-border z-[220]">
                         {unidadesDisponibles.map((u) => (
                           <SelectItem key={u.id} value={u.id.toString()} className="text-[11px] font-bold uppercase">
                             {u.condo} - {u.code}

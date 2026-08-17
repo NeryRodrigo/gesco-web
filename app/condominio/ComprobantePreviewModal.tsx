@@ -9,6 +9,7 @@ import { numberToWords } from "@/lib/numberToWords";
 import { toast } from "sonner";
 import { ConfirmActionModal } from "@/components/ui/confirm-action-modal";
 import { PrintPortal } from "@/components/ui/print-portal";
+import { formatFechaLarga } from "@/lib/utils";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
@@ -418,14 +419,16 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
         <tbody>
           <tr>
             <td className="w-[65%] p-4 border-b-[2px] border-r-[2px] border-black align-top">
-              <h1 className="text-[18px] font-bold text-black mb-1 font-serif leading-none">Marcelo David Ortigoza Maidana</h1>
-              <div className="text-[7.5px] uppercase font-bold text-black space-y-0.5 mt-2">
-                <p>ACTIVIDADES PROFESIONALES, CIENTÍFICAS Y TÉCNICAS - OTROS ALOJAMIENTOS.</p>
-                <p>ACTIVIDADES DE SERVICIOS DE ARQUITECTURA E INGENIERÍA.</p>
-                <p>INTERMEDIACIÓN EN LA COMPRA, VENTA Y ARRENDAMIENTO DE INMUEBLES.</p>
+              <h1 className="text-[18px] font-bold text-black mb-2 font-serif leading-tight">Marcelo David Ortigoza Maidana</h1>
+              <div className="text-[10.5px] uppercase font-bold text-black space-y-0.5 mt-2 leading-[1.45]">
+                <p className="m-0">ACTIVIDADES PROFESIONALES, CIENTÍFICAS Y TÉCNICAS - OTROS ALOJAMIENTOS.</p>
+                <p className="m-0">ACTIVIDADES DE SERVICIOS DE ARQUITECTURA E INGENIERÍA.</p>
+                <p className="m-0">INTERMEDIACIÓN EN LA COMPRA, VENTA Y ARRENDAMIENTO DE INMUEBLES.</p>
               </div>
-              <p className="text-[9px] mt-4 font-bold text-black uppercase">Merlo de Portugal y Capitán Pedro Mayor Echauri - Cel.: (0994) 254 655</p>
-              <p className="text-[9px] font-bold text-black uppercase">Luque - Paraguay</p>
+              <p className="text-[11px] mt-4 font-bold text-black uppercase leading-snug m-0">
+                Merlo de Portugal y Capitán Pedro Mayor Echauri - Cel.: (0994) 254 655
+              </p>
+              <p className="text-[11px] font-bold text-black uppercase m-0 mt-0.5">Luque - Paraguay</p>
             </td>
             <td className="w-[35%] p-3 border-b-[2px] border-black text-center align-top">
               <div className="text-[8px] font-bold uppercase text-black">
@@ -434,7 +437,7 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
               </div>
               <div className="mt-4 text-black">
                 <p className="text-[12px] font-black">RUC: 3389403-5</p>
-                <h2 className="text-[26px] font-black uppercase leading-none my-1">{tipoEmision}</h2>
+                <h2 className="text-[26px] font-black uppercase leading-none my-1">{tipoEmision === "factura" ? "FACTURA" : "RECIBO"}</h2>
                 <p className="text-[12px] font-black tracking-widest">Nº {numeroFactura}</p>
               </div>
             </td>
@@ -447,7 +450,7 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
         <tbody>
           <tr className="h-10">
             <td className="px-4 border-b-[2px] border-r-[2px] border-black font-bold text-[10px] w-[65%]">
-              FECHA DE EMISIÓN: <span className="font-bold ml-2 uppercase">{new Date(pagoData.fechaPago).toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" })}</span>
+              FECHA DE EMISIÓN: <span className="font-bold ml-2">{formatFechaLarga(pagoData.fechaPago)}</span>
             </td>
             <td className="px-4 border-b-[2px] border-black font-bold text-[9px] w-[35%]">
               <div className="flex justify-between">
