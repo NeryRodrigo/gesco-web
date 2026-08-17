@@ -168,28 +168,27 @@ export function AdministracionVista({ unidades, empresaId, onTenantClick }: Admi
 
       <Card className="border-none shadow-2xl rounded-[2rem] bg-[#0C1327] overflow-hidden">
         <CardContent className="p-0">
-          {/* Contenedor de Scroll Horizontal forzado */}
-          <div className="overflow-x-auto custom-scrollbar">
-            {/* min-w-[1500px] obliga a la tabla a expandirse para que aparezca el scroll en el móvil */}
-            <table className="min-w-[1500px] w-full border-collapse table-auto">
+          {/* Un solo scroll horizontal (el padre en page.tsx también scrollea al achicar) */}
+          <div className="w-full overflow-x-auto custom-scrollbar">
+            <table className="min-w-[1500px] w-full border-collapse table-fixed">
               <thead>
                 <tr className="bg-slate-900 text-white">
                   {/* Columna Sticky (Pegajosa) a la izquierda */}
-                  <th className="sticky left-0 z-30 bg-slate-900 p-6 text-left min-w-[220px] border-r border-slate-800 shadow-[2px_0_10px_rgba(0,0,0,0.5)]">
+                  <th className="sticky left-0 z-30 bg-slate-900 p-4 sm:p-6 text-left min-w-[220px] w-[220px] border-r border-slate-800 shadow-[2px_0_10px_rgba(0,0,0,0.5)] align-middle">
                     <span className="text-[11px] font-black uppercase tracking-widest italic">Inquilino / Unidad</span>
                   </th>
-                  <th className="p-6 text-center border-r border-slate-800 min-w-[80px]">
+                  <th className="p-4 sm:p-6 text-center border-r border-slate-800 min-w-[80px] w-[80px] align-middle">
                     <span className="text-[11px] font-black uppercase tracking-widest italic">Duplex</span>
                   </th>
                   {visibleMonths.map(month => (
-                    <th key={month} className="p-6 text-center min-w-[130px] border-r border-slate-800 bg-slate-900/90">
+                    <th key={month} className="p-4 sm:p-6 text-center min-w-[130px] w-[130px] border-r border-slate-800 bg-slate-900/90 align-middle">
                       <span className="text-[11px] font-black uppercase tracking-widest italic">{month}</span>
                     </th>
                   ))}
-                  <th className="p-6 text-center min-w-[150px] bg-red-900/40 border-l border-slate-800">
+                  <th className="p-4 sm:p-6 text-center min-w-[150px] w-[150px] bg-red-900/40 border-l border-slate-800 align-middle">
                     <span className="text-[11px] font-black uppercase tracking-widest italic text-red-200">Deuda Total</span>
                   </th>
-                  <th className="p-6 text-center min-w-[150px] bg-slate-800">
+                  <th className="p-4 sm:p-6 text-center min-w-[150px] w-[150px] bg-slate-800 align-middle">
                     <span className="text-[11px] font-black uppercase tracking-widest italic">Observaciones</span>
                   </th>
                 </tr>
@@ -198,10 +197,10 @@ export function AdministracionVista({ unidades, empresaId, onTenantClick }: Admi
                 {groupedData.map((condo) => (
                   <React.Fragment key={condo.name}>
                     <tr className="bg-emerald-500/10">
-                      {/* Ajustamos el colSpan dinámicamente */}
-                      <td colSpan={visibleMonths.length + 4} className="px-6 py-4 sticky left-0 z-20">
-                        <div className="flex items-center gap-3">
-                          <Building2 className="w-5 h-5 text-emerald-400" />
+                      {/* Sin sticky en colspan: evitaba cabeceras “subidas” / recortadas */}
+                      <td colSpan={visibleMonths.length + 4} className="px-6 py-3.5 align-middle">
+                        <div className="flex items-center gap-3 min-h-[28px]">
+                          <Building2 className="w-5 h-5 text-emerald-400 shrink-0" />
                           <span className="text-sm font-black italic uppercase text-emerald-400 tracking-tighter">{condo.name}</span>
                           <div className="h-[1px] flex-1 bg-emerald-500/20 ml-4"></div>
                         </div>
@@ -218,15 +217,15 @@ export function AdministracionVista({ unidades, empresaId, onTenantClick }: Admi
                         <tr key={unit.unidadId} className="hover:bg-white/5 transition-colors group">
                           {/* Celda Sticky del Inquilino */}
                           <td 
-                            className="sticky left-0 z-20 bg-[#0C1327] group-hover:bg-slate-800 transition-colors p-5 border-r border-white/10 shadow-[2px_0_10px_rgba(0,0,0,0.3)]" 
+                            className="sticky left-0 z-20 bg-[#0C1327] group-hover:bg-slate-800 transition-colors p-4 sm:p-5 border-r border-white/10 shadow-[2px_0_10px_rgba(0,0,0,0.3)] align-middle" 
                             onDoubleClick={() => !isAvailable && onTenantClick(unit, inquilino)}
                           >
-                            <div className={`flex flex-col ${isAvailable ? 'opacity-30' : 'cursor-pointer'}`}>
-                              <span className="text-[12px] font-black uppercase text-white leading-tight italic truncate max-w-[180px]">{inquilino}</span>
-                              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{unit.nombreCondominio} - {formatDuplex(unit.codigoUnidad)}</span>
+                            <div className={`flex flex-col gap-0.5 justify-center ${isAvailable ? 'opacity-30' : 'cursor-pointer'}`}>
+                              <span className="text-[12px] font-black uppercase text-white leading-snug italic truncate max-w-[180px]">{inquilino}</span>
+                              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-snug">{unit.nombreCondominio} - {formatDuplex(unit.codigoUnidad)}</span>
                             </div>
                           </td>
-                          <td className="p-5 text-center border-r border-white/10 text-[13px] font-black italic text-blue-400">
+                          <td className="p-4 sm:p-5 text-center border-r border-white/10 text-[13px] font-black italic text-blue-400 align-middle">
                             {formatDuplex(unit.codigoUnidad).replace('Dúplex ', '')}
                           </td>
                           
@@ -240,23 +239,23 @@ export function AdministracionVista({ unidades, empresaId, onTenantClick }: Admi
                             if (isActiveInMonth) rowTotalBalance += balance;
 
                             return (
-                              <td key={mIdx} className={`p-4 border-r border-white/10 ${!isActiveInMonth ? 'bg-white/5' : ''}`}>
+                              <td key={mIdx} className={`p-3 sm:p-4 border-r border-white/10 align-middle ${!isActiveInMonth ? 'bg-white/5' : ''}`}>
                                 {isActiveInMonth ? (
                                   <TooltipProvider>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <div className="space-y-1 cursor-help">
-                                          <div className="flex justify-between text-[9px] font-bold">
-                                            <span className="text-slate-400">ACO.</span>
-                                            <span className="text-white">{formatCurrency(agreed).replace('GS. ', '')}</span>
+                                        <div className="space-y-1.5 cursor-help py-0.5">
+                                          <div className="flex justify-between items-center text-[9px] font-bold gap-1">
+                                            <span className="text-slate-400 shrink-0">ACO.</span>
+                                            <span className="text-white tabular-nums">{formatCurrency(agreed).replace('GS. ', '')}</span>
                                           </div>
-                                          <div className="flex justify-between text-[9px] font-bold">
-                                            <span className="text-emerald-400">ABO.</span>
-                                            <span className="text-emerald-500">{paid > 0 ? formatCurrency(paid).replace('GS. ', '') : "0"}</span>
+                                          <div className="flex justify-between items-center text-[9px] font-bold gap-1">
+                                            <span className="text-emerald-400 shrink-0">ABO.</span>
+                                            <span className="text-emerald-500 tabular-nums">{paid > 0 ? formatCurrency(paid).replace('GS. ', '') : "0"}</span>
                                           </div>
-                                          <div className={`flex justify-between text-[10px] font-black border-t border-white/10 mt-1 ${balance > 0 ? 'text-red-400' : 'text-blue-400'}`}>
-                                            <span className="text-[7px] opacity-50 uppercase">SALDO</span>
-                                            <span>{balance > 0 ? formatCurrency(balance).replace('GS. ', '') : "OK"}</span>
+                                          <div className={`flex justify-between items-center text-[10px] font-black border-t border-white/10 pt-1.5 gap-1 ${balance > 0 ? 'text-red-400' : 'text-blue-400'}`}>
+                                            <span className="text-[7px] opacity-50 uppercase shrink-0">SALDO</span>
+                                            <span className="tabular-nums">{balance > 0 ? formatCurrency(balance).replace('GS. ', '') : "OK"}</span>
                                           </div>
                                         </div>
                                       </TooltipTrigger>
@@ -271,13 +270,13 @@ export function AdministracionVista({ unidades, empresaId, onTenantClick }: Admi
                             );
                           })}
 
-                          <td className="p-5 border-r border-white/10 bg-red-500/5 text-center">
+                          <td className="p-4 sm:p-5 border-r border-white/10 bg-red-500/5 text-center align-middle">
                             <span className={`text-sm font-black italic ${rowTotalBalance > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
                               {rowTotalBalance > 0 ? formatCurrency(rowTotalBalance).replace('GS. ', '') : "0"}
                             </span>
                           </td>
 
-                          <td className="p-5 border-r border-white/10">
+                          <td className="p-4 sm:p-5 border-r border-white/10 align-middle">
                              <div className="text-[9px] font-bold text-slate-400 line-clamp-2 uppercase italic">{contrato?.observaciones || "-"}</div>
                           </td>
                         </tr>
