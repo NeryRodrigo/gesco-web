@@ -15,7 +15,6 @@ const syncopate = Syncopate({
   weight: ["400", "700"],
 });
 
-// --- AGREGAR ESTO PARA MÓVILES ---
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
@@ -24,19 +23,24 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "VORDIA Dashboard",
+  title: "Vordia",
   applicationName: "Vordia",
   description: "Sistema operativo de gestión inteligente",
-  // Acceso directo en celular: nombre corto + icono desde public/images
   appleWebApp: {
     capable: true,
     title: "Vordia",
     statusBarStyle: "black-translucent",
   },
+  // Iconos cuadrados oficiales (fondo #050B18 + área de protección) para acceso directo
   icons: {
-    icon: "/images/ISOTIPO.png",
-    shortcut: "/images/ISOTIPO.png",
-    apple: "/images/ISOTIPO.png",
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    shortcut: "/icons/icon-192.png",
+    apple: [
+      { url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
   },
 };
 

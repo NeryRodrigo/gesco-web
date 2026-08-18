@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import { API_BASE } from "@/lib/api";
 
 import React, { useState, useEffect } from "react";
 import {
@@ -58,7 +60,7 @@ export default function AlertasVencimientoModal({
   const cargarAlertas = async (dias = diasFiltro) => {
     setLoading(true);
     try {
-      const resp = await fetch(`http://localhost:5034/api/Contratos/alertas-vencimiento?diasMaximos=${dias}`);
+      const resp = await fetch(`${API_BASE}/api/Contratos/alertas-vencimiento?diasMaximos=${dias}`);
       if (resp.ok) {
         const data = await resp.json();
         setAlertas(data);
@@ -81,7 +83,7 @@ export default function AlertasVencimientoModal({
     }
     setSendingId(alerta.contratoId);
     try {
-      const resp = await fetch("http://localhost:5034/api/Contratos/enviar-alerta-vencimiento", {
+      const resp = await fetch(`${API_BASE}/api/Contratos/enviar-alerta-vencimiento`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -110,7 +112,7 @@ export default function AlertasVencimientoModal({
     setIsBulkSending(true);
     for (const alerta of validos) {
       try {
-        await fetch("http://localhost:5034/api/Contratos/enviar-alerta-vencimiento", {
+        await fetch(`${API_BASE}/api/Contratos/enviar-alerta-vencimiento`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

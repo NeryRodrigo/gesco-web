@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import { API_BASE } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -43,7 +45,7 @@ export function RRHHPage({ empresaId }: { empresaId: number }) {
   const cargarEmpleados = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`http://localhost:5034/api/empleados/${empresaId}`);
+      const res = await fetch(`${API_BASE}/api/empleados/${empresaId}`);
       if (res.ok) {
         const data = await res.json();
         setEmpleados(data);
@@ -154,8 +156,8 @@ export function RRHHPage({ empresaId }: { empresaId: number }) {
   const handleSave = async () => {
     try {
       const url = isEditMode 
-        ? `http://localhost:5034/api/empleados/${empleadoEditingId}`
-        : `http://localhost:5034/api/empleados`;
+        ? `${API_BASE}/api/empleados/${empleadoEditingId}`
+        : `${API_BASE}/api/empleados`;
       const method = isEditMode ? "PUT" : "POST";
 
       const res = await fetch(url, {
@@ -188,7 +190,7 @@ export function RRHHPage({ empresaId }: { empresaId: number }) {
   const handleDelete = async (id: number) => {
     if (!confirm("¿Seguro que deseas dar de baja a este empleado?")) return;
     try {
-      const res = await fetch(`http://localhost:5034/api/empleados/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE}/api/empleados/${id}`, { method: "DELETE" });
       if (res.ok) {
         toast.success("Eliminado", { description: "Empleado dado de baja." });
         cargarEmpleados();

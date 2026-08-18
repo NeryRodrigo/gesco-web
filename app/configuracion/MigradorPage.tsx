@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import { API_BASE } from "@/lib/api";
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -72,7 +74,7 @@ export function MigradorPage({ empresaId }: { empresaId?: number }) {
     
     try {
       const endpoint = onlyRelated ? "scan-relations" : "scan-binary";
-      const res = await fetch(`http://localhost:5034/api/Intelligence/${endpoint}?filePath=${encodeURIComponent(filePath)}`);
+      const res = await fetch(`${API_BASE}/api/Intelligence/${endpoint}?filePath=${encodeURIComponent(filePath)}`);
       
       if (res.ok) {
         const data = await res.json();
@@ -148,7 +150,7 @@ export function MigradorPage({ empresaId }: { empresaId?: number }) {
     setPreviewLoading(true);
     setIsDialogPreviewOpen(true);
     try {
-      const res = await fetch(`http://localhost:5034/api/Intelligence/preview-table?filePath=${encodeURIComponent(filePath)}&tableName=${encodeURIComponent(tableName)}`);
+      const res = await fetch(`${API_BASE}/api/Intelligence/preview-table?filePath=${encodeURIComponent(filePath)}&tableName=${encodeURIComponent(tableName)}`);
       if (res.ok) {
         const data = await res.json();
         setPreviewData(data);
@@ -190,7 +192,7 @@ export function MigradorPage({ empresaId }: { empresaId?: number }) {
     setMigrando(true);
     try {
       const endpoint = migracionCore ? "ejecutar-migracion-mapeada" : "ejecutar-migracion";
-      const res = await fetch(`http://localhost:5034/api/Intelligence/${endpoint}`, {
+      const res = await fetch(`${API_BASE}/api/Intelligence/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

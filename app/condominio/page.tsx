@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import { API_BASE } from "@/lib/api";
 
 import React, { useState, useMemo } from "react";
 import { 
@@ -551,8 +553,8 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
     setLoading(true);
     try {
       const [respUnits, respDashboard] = await Promise.all([
-        fetch(`http://localhost:5034/api/UnidadesCondominio/empresa/${empresaId}`),
-        fetch(`http://localhost:5034/api/Dashboard/condominio/${empresaId}`)
+        fetch(`${API_BASE}/api/UnidadesCondominio/empresa/${empresaId}`),
+        fetch(`${API_BASE}/api/Dashboard/condominio/${empresaId}`)
       ]);
 
       if (respUnits.ok) {
@@ -577,7 +579,7 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
     if (!confirm("¿Estás seguro de eliminar esta unidad y todos sus registros asociados?")) return;
     
     try {
-      const resp = await fetch(`http://localhost:5034/api/UnidadesCondominio/${id}`, { method: 'DELETE' });
+      const resp = await fetch(`${API_BASE}/api/UnidadesCondominio/${id}`, { method: 'DELETE' });
       if (resp.ok) {
         toast.success("Unidad eliminada correctamente");
         cargarUnidades();
@@ -592,7 +594,7 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
   const handleSeedAguz = async () => {
     setLoading(true);
     try {
-      const resp = await fetch(`http://localhost:5034/api/UnidadesCondominio/seed/${empresaId}`, {
+      const resp = await fetch(`${API_BASE}/api/UnidadesCondominio/seed/${empresaId}`, {
         method: "POST"
       });
       if (resp.ok) {
@@ -1025,7 +1027,7 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
                   return;
                 }
 
-                const resp = await fetch("http://localhost:5034/api/Contratos", {
+                const resp = await fetch(`${API_BASE}/api/Contratos`, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
@@ -1072,7 +1074,7 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
             empresaId={empresaId}
             onSave={async (pagos, sendAlerts) => {
               try {
-                const resp = await fetch("http://localhost:5034/api/Contratos/pagos-consolidados", {
+                const resp = await fetch(`${API_BASE}/api/Contratos/pagos-consolidados`, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify(pagos)

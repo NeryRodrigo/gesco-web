@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import { API_BASE } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,7 +50,7 @@ export function InventarioPage({ empresaId }: { empresaId: number }) {
   const cargarProductos = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`http://localhost:5034/api/inventario/empresa/${empresaId}`);
+      const res = await fetch(`${API_BASE}/api/inventario/empresa/${empresaId}`);
       if (res.ok) {
         const data = await res.json();
         setProductos(data);
@@ -68,7 +70,7 @@ export function InventarioPage({ empresaId }: { empresaId: number }) {
 
   const handleSave = async () => {
     try {
-      const res = await fetch(`http://localhost:5034/api/inventario/empresa/${empresaId}`, {
+      const res = await fetch(`${API_BASE}/api/inventario/empresa/${empresaId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData)
@@ -88,7 +90,7 @@ export function InventarioPage({ empresaId }: { empresaId: number }) {
   const handleAjustarStock = async () => {
     if (!productoToAjustar) return;
     try {
-      const res = await fetch(`http://localhost:5034/api/inventario/empresa/${empresaId}/producto/${productoToAjustar.productoId}/ajustar-stock`, {
+      const res = await fetch(`${API_BASE}/api/inventario/empresa/${empresaId}/producto/${productoToAjustar.productoId}/ajustar-stock`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(nuevoStock)

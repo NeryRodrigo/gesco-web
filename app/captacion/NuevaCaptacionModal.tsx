@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import { API_BASE } from "@/lib/api";
 import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -104,7 +106,7 @@ export function NuevaCaptacionModal({ isOpen, onClose, onSave, empresaId, mlsidS
     if (isOpen) {
         setLoading(true);
         // Nota: Aquí usas empresaId = 6 fijo, podrías usar la prop si viniera de afuera
-        fetch(`http://localhost:5034/api/Migration/agentes/6`)
+        fetch(`${API_BASE}/api/Migration/agentes/6`)
         .then(async (res) => {
             if (!res.ok) throw new Error("Error agentes");
             return res.json();

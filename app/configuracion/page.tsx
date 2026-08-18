@@ -1,5 +1,6 @@
 "use client";
 
+
 import React, { useState, useEffect } from "react";
 import { 
   Settings, 
@@ -31,6 +32,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from 'sonner';
 import { ConfiguracionModal, ConfiguracionTimbrado } from "./ConfiguracionModal";
+import { API_BASE } from "@/lib/api";
 
 interface ConfiguracionPageProps {
   empresaId?: number;
@@ -64,7 +66,7 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
   const cargarConfiguraciones = async () => {
     setLoading(true);
     try {
-      const resp = await fetch(`http://localhost:5034/api/Configuraciones/empresa/${activeEmpresaId}`);
+      const resp = await fetch(`${API_BASE}/api/Configuraciones/empresa/${activeEmpresaId}`);
       if (resp.ok) {
         const data = await resp.json();
         setConfiguraciones(data);
@@ -81,7 +83,7 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
 
   const cargarMulta = async () => {
     try {
-      const resp = await fetch(`http://localhost:5034/api/ConfiguracionMultas/empresa/${activeEmpresaId}`);
+      const resp = await fetch(`${API_BASE}/api/ConfiguracionMultas/empresa/${activeEmpresaId}`);
       if (resp.ok) {
         const data = await resp.json();
         setMontoMulta(data.montoMulta);
@@ -96,7 +98,7 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
   const fetchPlantillas = async () => {
     setLoadingPlantillas(true);
     try {
-      const res = await fetch("http://localhost:5034/api/Plantillas");
+      const res = await fetch(`${API_BASE}/api/Plantillas`);
       if (res.ok) {
         const data = await res.json();
         setPlantillasList(data);
@@ -121,7 +123,7 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
       return;
     }
     try {
-      const res = await fetch("http://localhost:5034/api/Plantillas", {
+      const res = await fetch(`${API_BASE}/api/Plantillas`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newPlantillaForm)
@@ -155,7 +157,7 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
     const formData = new FormData();
     formData.append("archivo", file);
     try {
-      const res = await fetch(`http://localhost:5034/api/Plantillas/${id}/upload`, {
+      const res = await fetch(`${API_BASE}/api/Plantillas/${id}/upload`, {
         method: "PUT",
         body: formData
       });
@@ -175,7 +177,7 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
   const handleDeletePlantilla = async (id: number) => {
     if (!confirm("¿Está seguro de eliminar esta plantilla de documento?")) return;
     try {
-      const res = await fetch(`http://localhost:5034/api/Plantillas/${id}`, {
+      const res = await fetch(`${API_BASE}/api/Plantillas/${id}`, {
         method: "DELETE"
       });
       if (res.ok) {
@@ -193,8 +195,8 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
     try {
       const isEdit = !!data.timbradoId;
       const url = isEdit 
-        ? `http://localhost:5034/api/Configuraciones/${data.timbradoId}`
-        : `http://localhost:5034/api/Configuraciones`;
+        ? `${API_BASE}/api/Configuraciones/${data.timbradoId}`
+        : `${API_BASE}/api/Configuraciones`;
       
       const resp = await fetch(url, {
         method: isEdit ? "PUT" : "POST",
@@ -219,7 +221,7 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
   const handleDelete = async (id: number) => {
     if (!confirm("¿Está seguro de eliminar este timbrado?")) return;
     try {
-      const resp = await fetch(`http://localhost:5034/api/Configuraciones/${id}`, {
+      const resp = await fetch(`${API_BASE}/api/Configuraciones/${id}`, {
         method: "DELETE"
       });
       if (resp.ok) {
@@ -237,7 +239,7 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
     e.preventDefault();
     setSavingMulta(true);
     try {
-      const resp = await fetch(`http://localhost:5034/api/ConfiguracionMultas`, {
+      const resp = await fetch(`${API_BASE}/api/ConfiguracionMultas`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

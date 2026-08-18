@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import { API_BASE } from "@/lib/api";
 
 import React, { useState, useEffect } from "react";
 import { Printer, Mail, MessageCircle, Check } from "lucide-react";
@@ -95,7 +97,7 @@ export function FacturaReporte({ facturaData, onSaved }: FacturaReporteProps) {
     };
 
     try {
-      await fetch(`http://localhost:5034/api/Contratos/pago/${facturaData.pagoId}/comprobante`, {
+      await fetch(`${API_BASE}/api/Contratos/pago/${facturaData.pagoId}/comprobante`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -174,7 +176,7 @@ export function FacturaReporte({ facturaData, onSaved }: FacturaReporteProps) {
 
     setIsSendingEmail(true);
     try {
-      const resp = await fetch("http://localhost:5034/api/Contratos/enviar-comprobante", {
+      const resp = await fetch(`${API_BASE}/api/Contratos/enviar-comprobante`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

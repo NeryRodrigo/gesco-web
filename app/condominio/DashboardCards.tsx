@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import { API_BASE } from "@/lib/api";
 
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,7 +36,7 @@ const formatMetricDisplay = (value: string | number, isCurrency: boolean) => {
   return `Gs. ${Math.round(n)}`;
 };
 
-const ANDE_API = "http://localhost:5034/api/Ande";
+const ANDE_API = `${API_BASE}/api/Ande`;
 
 type AndeFacturaLive = {
   monto: number;
@@ -422,7 +424,7 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
     if (!morosidadId) return;
     setLoadingMorosoId(morosidadId);
     try {
-      const resp = await fetch(`http://localhost:5034/api/Morosidad/${morosidadId}?t=${Date.now()}`);
+      const resp = await fetch(`${API_BASE}/api/Morosidad/${morosidadId}?t=${Date.now()}`);
       if (resp.ok) {
         const data = await resp.json();
         setMorosoCuotas(prev => ({ ...prev, [morosidadId]: data.cuotas || [] }));

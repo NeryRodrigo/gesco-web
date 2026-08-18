@@ -1,10 +1,12 @@
 "use client";
 
+
 import React from "react";
 import { Zap, FileText, Loader2, X } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { API_BASE } from "@/lib/api";
 
 export type AndeFacturaDesglose = {
   monto: number;
@@ -32,7 +34,7 @@ type Props = {
   loading?: boolean;
 };
 
-const ANDE_API = "http://localhost:5034/api/Ande";
+const ANDE_API = `${API_BASE}/api/Ande`;
 
 const formatCurrency = (val: number) =>
   new Intl.NumberFormat("es-PY", { style: "currency", currency: "PYG", maximumFractionDigits: 0 }).format(val);

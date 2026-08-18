@@ -1,5 +1,6 @@
 "use client";
 
+
 import React, { useState, useEffect } from "react";
 import { 
   Dialog, 
@@ -32,6 +33,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { numberToWords } from "@/lib/numberToWords";
+import { API_BASE } from "@/lib/api";
 
 export interface PagoConsolidadoData {
   contratoId: number;
@@ -143,8 +145,8 @@ export function RegistrarPagoModal({
       const fetchInfo = async () => {
         try {
           const [respContrato, respFine] = await Promise.all([
-            fetch(`http://localhost:5034/api/Contratos/unidad/${unidadId}`),
-            fetch(`http://localhost:5034/api/ConfiguracionMultas/empresa/${empresaId}`)
+            fetch(`${API_BASE}/api/Contratos/unidad/${unidadId}`),
+            fetch(`${API_BASE}/api/ConfiguracionMultas/empresa/${empresaId}`)
           ]);
 
           if (respContrato.ok) {
