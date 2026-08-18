@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import { API_BASE } from "@/lib/api";
 
 import React, { useState, useEffect, useMemo } from "react";
 import { 
@@ -65,7 +67,7 @@ export default function GastosInversionPage({ empresaId: propEmpresaId }: { empr
 
   // 1. Cargar Empresas
   useEffect(() => {
-    fetch("http://localhost:5034/api/Auth/empresas")
+    fetch(`${API_BASE}/api/Auth/empresas`)
         .then(res => res.json())
         .then(data => {
             setEmpresas(data);
@@ -83,11 +85,11 @@ export default function GastosInversionPage({ empresaId: propEmpresaId }: { empr
 
     setLoading(true);
     try {
-      const resDash = await fetch(`http://localhost:5034/api/Gastos/dashboard?empresaId=${idParaCarga}&mes=${mesActual}&anio=${anioActual}`);
+      const resDash = await fetch(`${API_BASE}/api/Gastos/dashboard?empresaId=${idParaCarga}&mes=${mesActual}&anio=${anioActual}`);
       if (resDash.ok) setRawData(await resDash.json());
 
       // Usando tu nuevo endpoint de UnidadesCondominio
-      const resUni = await fetch(`http://localhost:5034/api/UnidadesCondominio/empresa/${idParaCarga}`);
+      const resUni = await fetch(`${API_BASE}/api/UnidadesCondominio/empresa/${idParaCarga}`);
       if (resUni.ok) setUnidades(await resUni.json());
       
     } catch (e) {
@@ -131,7 +133,7 @@ export default function GastosInversionPage({ empresaId: propEmpresaId }: { empr
     if (formData.unidadId === 0) return toast.error("Seleccione un Dúplex");
     
     try {
-      const res = await fetch(`http://localhost:5034/api/Gastos`, {
+      const res = await fetch(`${API_BASE}/api/Gastos`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData)

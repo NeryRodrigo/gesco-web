@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import { API_BASE } from "@/lib/api";
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -22,7 +24,7 @@ export function EditarUsuarioModal({ isOpen, onClose, usuario, onRefresh, empres
   // Cargar catálogos
   useEffect(() => {
     if (isOpen && empresaId) {
-        fetch(`http://localhost:5034/api/Usuario/modulos-por-empresa/${empresaId}`)
+        fetch(`${API_BASE}/api/Usuario/modulos-por-empresa/${empresaId}`)
             .then(res => res.json())
             .then(data => setModulosDisponibles(data))
             .catch(() => toast.error("Error al obtener módulos de OIMA"));
@@ -53,7 +55,7 @@ export function EditarUsuarioModal({ isOpen, onClose, usuario, onRefresh, empres
   const handleUpdate = async () => {
     setLoading(true);
     try {
-        const res = await fetch(`http://localhost:5034/api/Usuario/actualizar-completo`, {
+        const res = await fetch(`${API_BASE}/api/Usuario/actualizar-completo`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...formData, usuarioId: usuario.usuarioId })

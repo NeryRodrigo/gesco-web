@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import { API_BASE } from "@/lib/api";
 
 import React, { useState, useEffect } from "react";
 import { 
@@ -30,7 +32,7 @@ export function MorosidadDetalleModal({ morosidadId, isOpen, onClose }: { morosi
 
   const fetchDetalle = async () => {
     try {
-      const resp = await fetch(`http://localhost:5034/api/Morosidad/${morosidadId}?t=${Date.now()}`);
+      const resp = await fetch(`${API_BASE}/api/Morosidad/${morosidadId}?t=${Date.now()}`);
       if (resp.ok) {
         setDetalle(await resp.json());
       }
@@ -43,7 +45,7 @@ export function MorosidadDetalleModal({ morosidadId, isOpen, onClose }: { morosi
     if (!confirm("¿Registrar el cobro de esta cuota? (Afectará a facturación)")) return;
     
     try {
-      const resp = await fetch(`http://localhost:5034/api/Morosidad/cuota/${cuotaId}/cobrar`, {
+      const resp = await fetch(`${API_BASE}/api/Morosidad/cuota/${cuotaId}/cobrar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -85,7 +87,7 @@ export function MorosidadDetalleModal({ morosidadId, isOpen, onClose }: { morosi
     if (!nuevoSeguimiento || !selectedCuota) return;
 
     try {
-      const resp = await fetch(`http://localhost:5034/api/Morosidad/cuota/${selectedCuota}/seguimiento`, {
+      const resp = await fetch(`${API_BASE}/api/Morosidad/cuota/${selectedCuota}/seguimiento`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ observacion: nuevoSeguimiento })

@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import { API_BASE } from "@/lib/api";
 
 import React, { useState, useEffect, useMemo } from "react";
 import { formatDuplex } from "@/lib/utils";
@@ -67,7 +69,7 @@ export default function HistoricoContratosPage({ empresaId }: HistoricoContratos
   const fetchHistorico = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:5034/api/Contratos/historico?t=${Date.now()}`);
+      const res = await fetch(`${API_BASE}/api/Contratos/historico?t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         setContratos(Array.isArray(data) ? data : []);
@@ -91,7 +93,7 @@ export default function HistoricoContratosPage({ empresaId }: HistoricoContratos
     if (!confirmAnularContrato) return;
     setAnulando(true);
     try {
-      const resp = await fetch(`http://localhost:5034/api/Contratos/${confirmAnularContrato.contratoId}/anulardesalojo`, {
+      const resp = await fetch(`${API_BASE}/api/Contratos/${confirmAnularContrato.contratoId}/anulardesalojo`, {
         method: "POST"
       });
       if (resp.ok) {

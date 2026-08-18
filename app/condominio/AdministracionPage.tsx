@@ -1,9 +1,11 @@
 "use client";
 
+
 import React, { useState, useEffect } from "react";
 import { AdministracionVista } from "./AdministracionVista";
 import { DetalleUnidadModal } from "./DetalleUnidadModal";
 import { toast } from "sonner";
+import { API_BASE } from "@/lib/api";
 
 interface Contrato {
   contratoId: number;
@@ -38,7 +40,7 @@ export function AdministracionPage({ empresaId, usuario }: { empresaId: number, 
   const cargarUnidades = async () => {
     setLoading(true);
     try {
-      const resp = await fetch(`http://localhost:5034/api/UnidadesCondominio/empresa/${empresaId}`);
+      const resp = await fetch(`${API_BASE}/api/UnidadesCondominio/empresa/${empresaId}`);
       if (resp.ok) {
         const data = await resp.json();
         setUnidades(data);

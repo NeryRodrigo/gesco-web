@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import { API_BASE } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
@@ -56,13 +58,13 @@ export function ComprasPage({ empresaId }: { empresaId: number }) {
   });
 
   const cargarProveedores = () => {
-    fetch(`http://localhost:5034/api/contactos/proveedores/${empresaId}`)
+    fetch(`${API_BASE}/api/contactos/proveedores/${empresaId}`)
       .then(res => res.json())
       .then(data => setProveedores(data));
   };
 
   const cargarHistorial = () => {
-    fetch(`http://localhost:5034/api/compras/empresa/${empresaId}/historial`)
+    fetch(`${API_BASE}/api/compras/empresa/${empresaId}/historial`)
       .then(res => res.json())
       .then(data => setCompras(data))
       .catch(err => console.error("Error al cargar historial:", err));
@@ -76,7 +78,7 @@ export function ComprasPage({ empresaId }: { empresaId: number }) {
     cargarHistorial();
 
     // Cargar Productos (Catálogo base)
-    fetch(`http://localhost:5034/api/inventario/empresa/${empresaId}`)
+    fetch(`${API_BASE}/api/inventario/empresa/${empresaId}`)
       .then(res => res.json())
       .then(data => setProductos(data));
   }, [empresaId]);
@@ -148,7 +150,7 @@ export function ComprasPage({ empresaId }: { empresaId: number }) {
     };
 
     try {
-      const res = await fetch(`http://localhost:5034/api/compras/empresa/${empresaId}/factura`, {
+      const res = await fetch(`${API_BASE}/api/compras/empresa/${empresaId}/factura`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -170,7 +172,7 @@ export function ComprasPage({ empresaId }: { empresaId: number }) {
 
   const handleCrearProveedor = async () => {
     try {
-      const res = await fetch(`http://localhost:5034/api/contactos/proveedores`, {
+      const res = await fetch(`${API_BASE}/api/contactos/proveedores`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...nuevoProveedor, empresaId })

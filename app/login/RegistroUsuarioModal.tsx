@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import { API_BASE } from "@/lib/api";
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -32,7 +34,7 @@ export function RegistroUsuarioModal({ isOpen, onClose, empresaId, rubro }: Prop
     // Cargar empresas
     useEffect(() => {
         if (isOpen) {
-            fetch("http://localhost:5034/api/Auth/empresas")
+            fetch(`${API_BASE}/api/Auth/empresas`)
                 .then(res => res.json())
                 .then(data => setEmpresas(data))
                 .catch(() => toast.error("Error al obtener catálogo de Empresas"));
@@ -42,7 +44,7 @@ export function RegistroUsuarioModal({ isOpen, onClose, empresaId, rubro }: Prop
   // Cargar módulos disponibles según la empresa seleccionada
   useEffect(() => {
         if (isOpen && selectedEmpresaId) {
-            fetch(`http://localhost:5034/api/Usuario/modulos-por-empresa/${selectedEmpresaId}`)
+            fetch(`${API_BASE}/api/Usuario/modulos-por-empresa/${selectedEmpresaId}`)
                 .then(res => res.json())
                 .then(data => {
                     setModulos(data); 
@@ -68,7 +70,7 @@ export function RegistroUsuarioModal({ isOpen, onClose, empresaId, rubro }: Prop
 
     setLoading(true);
     try {
-        const response = await fetch("http://localhost:5034/api/Auth/register", {
+        const response = await fetch(`${API_BASE}/api/Auth/register`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

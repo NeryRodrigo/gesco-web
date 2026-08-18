@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useState } from "react";
 import { ContratoImprimible, descargarContratoDoc, descargarContratoPDF } from "./ContratoImprimible";
 import { PagareImprimible } from "./PagareImprimible";
@@ -69,6 +70,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ComprobantePreviewModal } from "./ComprobantePreviewModal";
 import { GenerarEditarContratoModal } from "./GenerarEditarContratoModal";
+import { API_BASE } from "@/lib/api";
 
 interface Unidad {
   id: number;
@@ -272,7 +274,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
 
   React.useEffect(() => {
     if (isOpen) {
-      fetch("http://localhost:5034/api/Plantillas")
+      fetch(`${API_BASE}/api/Plantillas`)
         .then(r => r.ok ? r.json() : [])
         .then(data => setPlantillasList(data))
         .catch(() => {});
@@ -395,7 +397,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
               TelefonoCodeudor: `${(contractData as any)?.codeudorTelefono || ""}`,
           });
 
-          const url = `http://localhost:5034/api/Plantillas/generar/${selectedPlantillaId}?${params.toString()}`;
+          const url = `${API_BASE}/api/Plantillas/generar/${selectedPlantillaId}?${params.toString()}`;
           
           const response = await fetch(url);
           if (!response.ok) {
@@ -547,7 +549,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
     toast.info("Escaneando contrato con motor OCR Inteligente...");
 
     try {
-      const resp = await fetch("http://localhost:5034/api/Documentos/scan-contract", {
+      const resp = await fetch(`${API_BASE}/api/Documentos/scan-contract`, {
         method: "POST",
         body: formData
       });
@@ -600,7 +602,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
 
   const fetchDocuments = async (contratoId: number) => {
     try {
-      const resp = await fetch(`http://localhost:5034/api/Documentos/contrato/${contratoId}?t=${Date.now()}`);
+      const resp = await fetch(`${API_BASE}/api/Documentos/contrato/${contratoId}?t=${Date.now()}`);
       if (resp.ok) {
         const data = await resp.json();
         const urls: Record<string, string> = {};
@@ -631,7 +633,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
       formData.append("file", file);
 
       try {
-        const resp = await fetch("http://localhost:5034/api/Documentos/upload", {
+        const resp = await fetch(`${API_BASE}/api/Documentos/upload`, {
           method: "POST",
           body: formData
         });
@@ -652,7 +654,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
       }
     } else if (url.trim() !== "") {
       try {
-        const resp = await fetch("http://localhost:5034/api/Documentos/save-url", {
+        const resp = await fetch(`${API_BASE}/api/Documentos/save-url`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -756,7 +758,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
   const fetchHistoricoContratos = async () => {
     if (!unidad?.id) return;
     try {
-      const resp = await fetch(`http://localhost:5034/api/Contratos/unidad/${unidad?.id}/historico?t=${Date.now()}`);
+      const resp = await fetch(`${API_BASE}/api/Contratos/unidad/${unidad?.id}/historico?t=${Date.now()}`);
       if (resp.ok) {
         const data = await resp.json();
         setHistoricoContratos(Array.isArray(data) ? data : []);
@@ -795,7 +797,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
     setLoadingGastos(true);
     try {
       const r = await fetch(
-        `http://localhost:5034/api/GastosMantenimiento/unidad/${unidad.id}/servicios?t=${Date.now()}`
+        `${API_BASE}/api/GastosMantenimiento/unidad/${unidad.id}/servicios?t=${Date.now()}`
       );
       if (r.ok) {
         const data = (await r.json()) as GastoServicio[];
@@ -816,7 +818,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
   const fetchContract = async () => {
     setIsLoading(true);
     try {
-      const resp = await fetch(`http://localhost:5034/api/Contratos/unidad/${unidad?.id}?t=${Date.now()}`);
+      const resp = await fetch(`${API_BASE}/api/Contratos/unidad/${unidad?.id}?t=${Date.now()}`);
       if (resp.ok) {
         const data = await resp.json();
         setContractData(data);
@@ -865,7 +867,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
           observaciones: desalojoForm.observaciones || "Saldo deudor transferido a morosidad por renovación de contrato.",
           montoInteresDiario: desalojoForm.montoInteresDiario || 0
         };
-        const resMora = await fetch("http://localhost:5034/api/Morosidad", {
+        const resMora = await fetch(`${API_BASE}/api/Morosidad`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(bodyMora)
@@ -878,7 +880,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
       }
 
       if ((localNisAnde !== unidad?.nisAnde || localCodigoUnidad !== unidad?.code) && unidad?.id) {
-          await fetch(`http://localhost:5034/api/UnidadesCondominio/${unidad.id}`, {
+          await fetch(`${API_BASE}/api/UnidadesCondominio/${unidad.id}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -890,7 +892,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
           });
       }
 
-      const resp = await fetch(`http://localhost:5034/api/Contratos`, {
+      const resp = await fetch(`${API_BASE}/api/Contratos`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -935,12 +937,12 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
     if (!contractData) return;
     try {
       if ((localNisAnde !== unidad?.nisAnde || localCodigoUnidad !== unidad?.code) && unidad?.id) {
-          const respUnidad = await fetch(`http://localhost:5034/api/UnidadesCondominio/${unidad.id}`);
+          const respUnidad = await fetch(`${API_BASE}/api/UnidadesCondominio/${unidad.id}`);
           if (respUnidad.ok) {
               const unidadData = await respUnidad.json();
               unidadData.nisAnde = localNisAnde;
               unidadData.codigoUnidad = localCodigoUnidad;
-              await fetch(`http://localhost:5034/api/UnidadesCondominio/${unidad.id}`, {
+              await fetch(`${API_BASE}/api/UnidadesCondominio/${unidad.id}`, {
                   method: "PUT",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify(unidadData)
@@ -948,7 +950,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
           }
       }
 
-      const resp = await fetch(`http://localhost:5034/api/Contratos`, {
+      const resp = await fetch(`${API_BASE}/api/Contratos`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1019,11 +1021,11 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
     if (!contractData) return;
     try {
       if (localNisAnde !== unidad?.nisAnde && unidad?.id) {
-          const respUnidad = await fetch(`http://localhost:5034/api/UnidadesCondominio/${unidad.id}`);
+          const respUnidad = await fetch(`${API_BASE}/api/UnidadesCondominio/${unidad.id}`);
           if (respUnidad.ok) {
               const unidadData = await respUnidad.json();
               unidadData.nisAnde = localNisAnde;
-              await fetch(`http://localhost:5034/api/UnidadesCondominio/${unidad.id}`, {
+              await fetch(`${API_BASE}/api/UnidadesCondominio/${unidad.id}`, {
                   method: "PUT",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify(unidadData)
@@ -1031,7 +1033,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
           }
       }
       
-      const resp = await fetch(`http://localhost:5034/api/Contratos`, {
+      const resp = await fetch(`${API_BASE}/api/Contratos`, {
         method: "POST", // O PUT si la API soporta upsert
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1128,7 +1130,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
 
     try {
       setIsLoading(true);
-      const resp = await fetch(`http://localhost:5034/api/Contratos/pago`, {
+      const resp = await fetch(`${API_BASE}/api/Contratos/pago`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1260,8 +1262,8 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
 
       const url =
         serviceModalMode === "edit" && editingGastoId
-          ? `http://localhost:5034/api/GastosMantenimiento/servicios/${editingGastoId}`
-          : `http://localhost:5034/api/GastosMantenimiento/servicios`;
+          ? `${API_BASE}/api/GastosMantenimiento/servicios/${editingGastoId}`
+          : `${API_BASE}/api/GastosMantenimiento/servicios`;
       const method = serviceModalMode === "edit" && editingGastoId ? "PUT" : "POST";
 
       const resp = await fetch(url, {
@@ -1305,7 +1307,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 120000);
       const resp = await fetch(
-        `http://localhost:5034/api/Ande/jwt/consultar/${encodeURIComponent(nis)}`,
+        `${API_BASE}/api/Ande/jwt/consultar/${encodeURIComponent(nis)}`,
         { signal: controller.signal }
       );
       clearTimeout(timeoutId);
@@ -1383,7 +1385,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
         setIsConfirmActionLoading(true);
         try {
           const resp = await fetch(
-            `http://localhost:5034/api/GastosMantenimiento/servicios/${gastoId}`,
+            `${API_BASE}/api/GastosMantenimiento/servicios/${gastoId}`,
             { method: "DELETE" }
           );
           if (resp.ok) {
@@ -1462,7 +1464,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
         notas: cobroServicioForm.notas || null,
       };
       const resp = await fetch(
-        `http://localhost:5034/api/Contratos/pago/${editingPagoServicioId}`,
+        `${API_BASE}/api/Contratos/pago/${editingPagoServicioId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -1501,7 +1503,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
       onConfirm: async () => {
         setIsConfirmActionLoading(true);
         try {
-          const resp = await fetch(`http://localhost:5034/api/Contratos/pago/${pagoId}`, {
+          const resp = await fetch(`${API_BASE}/api/Contratos/pago/${pagoId}`, {
             method: "DELETE",
           });
           if (resp.ok) {
@@ -1697,7 +1699,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
           observaciones: desalojoForm.observaciones,
           montoInteresDiario: desalojoForm.montoInteresDiario
         };
-        const resMora = await fetch("http://localhost:5034/api/Morosidad", {
+        const resMora = await fetch(`${API_BASE}/api/Morosidad`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(bodyMora)
@@ -1710,7 +1712,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
       }
 
       // Desalojar / terminar contrato
-      const resDesalojo = await fetch(`http://localhost:5034/api/Contratos/${contractData.contratoId}/desalojar`, {
+      const resDesalojo = await fetch(`${API_BASE}/api/Contratos/${contractData.contratoId}/desalojar`, {
           method: "POST"
       });
 
@@ -2772,7 +2774,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                                                             onConfirm: async () => {
                                                                 setIsConfirmActionLoading(true);
                                                                 try {
-                                                                    const resp = await fetch(`http://localhost:5034/api/Contratos/pago/${row.pago.pagoId}`, { method: "DELETE" });
+                                                                    const resp = await fetch(`${API_BASE}/api/Contratos/pago/${row.pago.pagoId}`, { method: "DELETE" });
                                                                     if (resp.ok) {
                                                                         toast.success("Factura/cobro anulado correctamente. El alquiler volvió a estar pendiente.");
                                                                         await fetchContract();
@@ -2952,7 +2954,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                                                             variant="outline"
                                                             onClick={() => {
                                                                 const finalUrl = documentUrls[doc.id].startsWith("/documents/") 
-                                                                    ? `http://localhost:5034${documentUrls[doc.id]}` 
+                                                                    ? `${API_BASE}${documentUrls[doc.id]}` 
                                                                     : documentUrls[doc.id];
                                                                 window.open(finalUrl, '_blank');
                                                             }}
@@ -4116,7 +4118,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                   if (!confirmAnularContrato) return;
                   try {
                     setIsLoading(true);
-                    const res = await fetch(`http://localhost:5034/api/Contratos/${confirmAnularContrato.contratoId}/anular-desalojo`, { method: "POST" });
+                    const res = await fetch(`${API_BASE}/api/Contratos/${confirmAnularContrato.contratoId}/anular-desalojo`, { method: "POST" });
                     if (res.ok) {
                       toast.success("Desalojo anulado. Contrato e inquilino restablecidos intactos como activos.");
                       await fetchHistoricoContratos();

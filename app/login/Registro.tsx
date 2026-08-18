@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ import { Card } from "@/components/ui/card";
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { API_BASE } from "@/lib/api";
 
 interface Usuario {
   id: number;
@@ -51,7 +53,7 @@ export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: 
     modulosIds: []
   });
 
-  const API_URL = "http://localhost:5034";
+  const API_URL = `${API_BASE}`;
 
   // --- CARGA DE EMPRESAS ---
   useEffect(() => {

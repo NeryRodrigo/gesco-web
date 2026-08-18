@@ -1,5 +1,6 @@
 "use client";
 
+
 import React, { useState, useEffect } from "react";
 import { 
   Plus, Search, Edit, Trash2, Calendar, User, 
@@ -10,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import { API_BASE } from "@/lib/api";
 
 interface Actividad {
   actividadId: number;
@@ -41,7 +43,7 @@ export function ActividadesVista({ empresaId }: { empresaId: number }) {
   const cargarDatos = async () => {
     setLoading(true);
     try {
-      const respAct = await fetch(`http://localhost:5034/api/Actividades?empresaId=${empresaId}`);
+      const respAct = await fetch(`${API_BASE}/api/Actividades?empresaId=${empresaId}`);
       if (respAct.ok) {
         const data = await respAct.json();
         setActividades(data);
@@ -99,7 +101,7 @@ export function ActividadesVista({ empresaId }: { empresaId: number }) {
     };
 
     try {
-      const url = "http://localhost:5034/api/Actividades" + (editingAct ? `/${editingAct.actividadId}` : "");
+      const url = `${API_BASE}/api/Actividades` + (editingAct ? `/${editingAct.actividadId}` : "");
       const method = editingAct ? "PUT" : "POST";
       
       const response = await fetch(url, {
@@ -124,7 +126,7 @@ export function ActividadesVista({ empresaId }: { empresaId: number }) {
   const handleDelete = async (id: number) => {
     if (!confirm("¿Está seguro de eliminar esta actividad?")) return;
     try {
-      const response = await fetch(`http://localhost:5034/api/Actividades/${id}`, {
+      const response = await fetch(`${API_BASE}/api/Actividades/${id}`, {
         method: "DELETE"
       });
       if (response.ok) {

@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import { API_BASE } from "@/lib/api";
 
 import React, { useState, useEffect } from "react";
 import { formatDuplex } from "@/lib/utils";
@@ -77,7 +79,7 @@ export function MorosidadesMainModal({ isOpen, onClose }: { isOpen: boolean, onC
   const fetchMorosidades = async () => {
     setIsLoading(true);
     try {
-      const resp = await fetch("http://localhost:5034/api/Morosidad?t=" + Date.now());
+      const resp = await fetch(`${API_BASE}/api/Morosidad?t=` + Date.now());
       if (resp.ok) {
         setMorosidades(await resp.json());
       }
@@ -96,7 +98,7 @@ export function MorosidadesMainModal({ isOpen, onClose }: { isOpen: boolean, onC
     }
     
     try {
-      const resp = await fetch("http://localhost:5034/api/Morosidad", {
+      const resp = await fetch(`${API_BASE}/api/Morosidad`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -132,7 +134,7 @@ export function MorosidadesMainModal({ isOpen, onClose }: { isOpen: boolean, onC
     if (!confirm("¿Registrar el cobro de esta cuota? (Afectará a facturación)")) return;
     
     try {
-      const resp = await fetch(`http://localhost:5034/api/Morosidad/cuota/${cuotaId}/cobrar`, {
+      const resp = await fetch(`${API_BASE}/api/Morosidad/cuota/${cuotaId}/cobrar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -491,7 +493,7 @@ export function MorosidadesMainModal({ isOpen, onClose }: { isOpen: boolean, onC
                 onClick={async () => {
                   if (!confirmAnular) return;
                   try {
-                    const res = await fetch(`http://localhost:5034/api/Contratos/unidad/${confirmAnular.unidadId}/anular-desalojo`, { method: "POST" });
+                    const res = await fetch(`${API_BASE}/api/Contratos/unidad/${confirmAnular.unidadId}/anular-desalojo`, { method: "POST" });
                     if (res.ok) {
                       toast.success("Desalojo anulado y ficha restablecida exitosamente.");
                       setConfirmAnular(null);

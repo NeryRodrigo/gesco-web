@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import { API_BASE } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,13 +24,13 @@ export default function NuevaFactura() {
 
   useEffect(() => {
     // 1. Cargamos los catálogos de clientes y productos
-    fetch(`http://localhost:5034/api/Migration/catalogos/${empresaId}`)
+    fetch(`${API_BASE}/api/Migration/catalogos/${empresaId}`)
       .then(res => res.json())
       .then(data => setCatalogos(data))
       .catch(err => console.error("Error catálogos:", err));
 
     // 2. Cargamos el SIGUIENTE NÚMERO ALFANUMÉRICO automático
-    fetch(`http://localhost:5034/api/Migration/siguiente-nro/${empresaId}`)
+    fetch(`${API_BASE}/api/Migration/siguiente-nro/${empresaId}`)
       .then(res => res.json())
       .then(data => setNroFactura(data.siguienteNro))
       .catch(err => {
@@ -59,7 +61,7 @@ export default function NuevaFactura() {
     };
 
     try {
-        const res = await fetch("http://localhost:5034/api/Migration/guardar-factura", {
+        const res = await fetch(`${API_BASE}/api/Migration/guardar-factura`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(factura)

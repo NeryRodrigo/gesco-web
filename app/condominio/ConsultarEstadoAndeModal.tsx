@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import { API_BASE } from "@/lib/api";
 
 import React, { useState } from "react";
 import { Zap, ShieldCheck, ShieldAlert, AlertTriangle, CheckCircle2, Search, Loader2, FileText, RefreshCw, Info } from "lucide-react";
@@ -62,7 +64,7 @@ export function ConsultarEstadoAndeModal({ isOpen, onClose, defaultNis = "" }: C
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 120000);
       // Ciclo JWT/miCuenta: login automático + consulta (sin Acceder manual)
-      const res = await fetch(`http://localhost:5034/api/Ande/jwt/consultar/${encodeURIComponent(targetNis)}`, {
+      const res = await fetch(`${API_BASE}/api/Ande/jwt/consultar/${encodeURIComponent(targetNis)}`, {
         signal: controller.signal,
       });
       clearTimeout(timeoutId);

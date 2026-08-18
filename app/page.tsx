@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import { API_BASE } from "@/lib/api";
 import { useEffect, useState, useMemo, ReactNode } from "react";
 import { 
   AlertTriangle, LayoutDashboard, ChevronRight, MapPin, Edit, Trash2, ArrowLeft, 
@@ -90,7 +92,7 @@ export default function OimaDashboard() {
   const cargarDatos = async () => {
     if (!usuarioActivo) return;
     try {
-      const resC = await fetch(`http://localhost:5034/api/Dashboard/condominio/${empresaId}`);
+      const resC = await fetch(`${API_BASE}/api/Dashboard/condominio/${empresaId}`);
       if (resC.ok) setCondoDashboardData(await resC.json());
     } catch (e) { console.error(e); }
   };
@@ -98,7 +100,7 @@ export default function OimaDashboard() {
   useEffect(() => {
     if (isAuthenticated && usuarioActivo) {
       cargarDatos();
-      fetch(`http://localhost:5034/api/Auth/modulos/${usuarioActivo.id}`)
+      fetch(`${API_BASE}/api/Auth/modulos/${usuarioActivo.id}`)
         .then(res => res.json())
         .then(data => setModulosUsuario(data))
         .catch(console.error);
@@ -108,13 +110,13 @@ export default function OimaDashboard() {
   }, [isAuthenticated, usuarioActivo, vistaActual]);
 
   const cargarListaUsuariosAdmin = async () => {
-    const res = await fetch(`http://localhost:5034/api/Usuario/lista/${empresaId}`);
+    const res = await fetch(`${API_BASE}/api/Usuario/lista/${empresaId}`);
     if (res.ok) setUsuariosAdmin(await res.json());
   };
 
   const limpiarSesionAnde = async () => {
     try {
-      await fetch("http://localhost:5034/api/Ande/credenciales", { method: "DELETE" });
+      await fetch(`${API_BASE}/api/Ande/credenciales`, { method: "DELETE" });
     } catch {
       /* best-effort: no bloquear logout Gesco */
     }
@@ -315,14 +317,15 @@ export default function OimaDashboard() {
         <div className="flex-1 p-4 lg:p-10 max-lg:pb-[max(1rem,env(safe-area-inset-bottom))]">
           
           {vistaActual === "inicio" && condoDashboardData && (
-            <div className="animate-in fade-in slide-in-from-top-4 duration-700">
-              <DashboardCards dashboardData={condoDashboardData} onRefresh={cargarDatos} />
-              <div className="mt-6 lg:mt-10 bg-[#0C1327] p-5 lg:p-8 rounded-[1.75rem] lg:rounded-[2.5rem] border border-white/5 shadow-2xl relative overflow-hidden group">
+            <div className="flex flex-col animate-in fade-in slide-in-from-top-4 duration-700">
+              {/* Móvil/iPad: saludo arriba. PC: saludo abajo (después de las tarjetas). */}
+              <div className="order-1 lg:order-2 mb-4 lg:mb-0 lg:mt-10 bg-[#0C1327] p-5 lg:p-8 rounded-[1.75rem] lg:rounded-[2.5rem] border border-white/5 shadow-2xl relative overflow-hidden group">
                 <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6 relative z-10">
+                  {/* Logo solo en PC; en celular se saca del saludo */}
                   <img
                     src="/images/VORDIA HORIZONTAL.png"
                     alt="Vordia"
-                    className="h-8 lg:h-12 w-auto max-w-[220px] object-contain object-left shrink-0"
+                    className="hidden lg:block h-12 w-auto max-w-[220px] object-contain object-left shrink-0"
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-slate-400 text-xs lg:text-sm font-medium leading-relaxed">
@@ -334,6 +337,9 @@ export default function OimaDashboard() {
                     </p>
                   </div>
                 </div>
+              </div>
+              <div className="order-2 lg:order-1">
+                <DashboardCards dashboardData={condoDashboardData} onRefresh={cargarDatos} />
               </div>
             </div>
           )}
@@ -378,13 +384,13 @@ export default function OimaDashboard() {
           )}
         </div>
 
-        <footer className="w-full py-6 lg:py-10 px-4 lg:px-12 flex justify-center lg:justify-end items-center no-print max-lg:pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <footer className="w-full py-6 lg:py-10 px-4 lg:px-12 flex justify-end items-center no-print max-lg:pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           <div className="relative group">
             <div className="absolute inset-0 bg-blue-600/10 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             <img 
               src="/images/VORDIA HORIZONTAL.png" 
               alt="Vordia" 
-              className="h-7 lg:h-9 w-auto max-w-[180px] object-contain relative z-10 transition-transform duration-500 group-hover:scale-105 shrink-0"
+              className="h-7 lg:h-9 w-auto max-w-[160px] lg:max-w-[180px] object-contain relative z-10 transition-transform duration-500 group-hover:scale-105 shrink-0"
             />
           </div>
         </footer>

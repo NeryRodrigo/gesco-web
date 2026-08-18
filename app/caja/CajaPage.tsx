@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import { API_BASE } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,7 +42,7 @@ export function CajaPage({ empresaId }: { empresaId: number }) {
   const cargarProductos = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`http://localhost:5034/api/inventario/empresa/${empresaId}`);
+      const res = await fetch(`${API_BASE}/api/inventario/empresa/${empresaId}`);
       if (res.ok) {
         const data = await res.json();
         // Solo mostrar productos con stock para la caja
@@ -55,7 +57,7 @@ export function CajaPage({ empresaId }: { empresaId: number }) {
 
   const cargarClientes = async () => {
     try {
-      const res = await fetch(`http://localhost:5034/api/contactos/clientes/${empresaId}`);
+      const res = await fetch(`${API_BASE}/api/contactos/clientes/${empresaId}`);
       if (res.ok) {
         const data = await res.json();
         setClientes(data);
@@ -65,7 +67,7 @@ export function CajaPage({ empresaId }: { empresaId: number }) {
 
   const cargarSiguienteFactura = async () => {
     try {
-      const res = await fetch(`http://localhost:5034/api/cajapos/empresa/${empresaId}/siguiente-factura`);
+      const res = await fetch(`${API_BASE}/api/cajapos/empresa/${empresaId}/siguiente-factura`);
       if (res.ok) {
         const data = await res.json();
         setSiguienteFactura(data.siguienteFactura);
@@ -81,7 +83,7 @@ export function CajaPage({ empresaId }: { empresaId: number }) {
 
   const handleCreateClient = async () => {
     try {
-      const res = await fetch(`http://localhost:5034/api/contactos/clientes`, {
+      const res = await fetch(`${API_BASE}/api/contactos/clientes`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...newClient, empresaId, email: "" })
@@ -144,7 +146,7 @@ export function CajaPage({ empresaId }: { empresaId: number }) {
         toast.info("Conectando con SIFEN (SET)...", { description: "Generando CDC y firmando XML digitalmente." });
       }
 
-      const res = await fetch(`http://localhost:5034/api/cajapos/empresa/${empresaId}/venta`, {
+      const res = await fetch(`${API_BASE}/api/cajapos/empresa/${empresaId}/venta`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -463,7 +465,7 @@ export function CajaPage({ empresaId }: { empresaId: number }) {
             </Button>
             {lastVenta?.ventaId && (
               <Button 
-                onClick={() => window.open(`http://localhost:5034/api/cajapos/venta/${lastVenta.ventaId}/pdf`, "_blank")}
+                onClick={() => window.open(`${API_BASE}/api/cajapos/venta/${lastVenta.ventaId}/pdf`, "_blank")}
                 className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold"
               >
                 Descargar PDF (QuestPDF)

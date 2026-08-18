@@ -1,4 +1,5 @@
-﻿"use client";
+"use client";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BarChart3, PieChart, TrendingUp, Activity } from "lucide-react";

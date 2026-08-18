@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import { API_BASE } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,7 +48,7 @@ export function FinanzasPage({ empresaId }: { empresaId: number }) {
   const cargarFlujo = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:5034/api/Tesoreria/empresa/${empresaId}/flujo?mes=${mes}&anio=${anio}`);
+      const res = await fetch(`${API_BASE}/api/Tesoreria/empresa/${empresaId}/flujo?mes=${mes}&anio=${anio}`);
       if (res.ok) {
         const data = await res.json();
         setFlujo(data);
@@ -65,7 +67,7 @@ export function FinanzasPage({ empresaId }: { empresaId: number }) {
   const handleEliminarMovimiento = async (tipo: string, idOrigen: number) => {
     if (!confirm("¿Estás seguro de anular este movimiento? Esto revertirá el stock de los productos afectados.")) return;
     try {
-      const res = await fetch(`http://localhost:5034/api/Tesoreria/empresa/${empresaId}/movimiento/${tipo}/${idOrigen}`, {
+      const res = await fetch(`${API_BASE}/api/Tesoreria/empresa/${empresaId}/movimiento/${tipo}/${idOrigen}`, {
         method: "DELETE"
       });
       if (res.ok) {
@@ -87,7 +89,7 @@ export function FinanzasPage({ empresaId }: { empresaId: number }) {
   const handleEditSave = async () => {
     if (!editingMov) return;
     try {
-      const res = await fetch(`http://localhost:5034/api/Tesoreria/empresa/${empresaId}/movimiento/${editingMov.tipo}/${editingMov.idOrigen}`, {
+      const res = await fetch(`${API_BASE}/api/Tesoreria/empresa/${empresaId}/movimiento/${editingMov.tipo}/${editingMov.idOrigen}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ monto: editingMov.monto, descripcion: editingMov.descripcion })
@@ -239,7 +241,7 @@ export function FinanzasPage({ empresaId }: { empresaId: number }) {
                       size="sm" 
                       onClick={() => {
                         const path = mov.tipo === "INGRESO" ? "venta" : "compra";
-                        window.open(`http://localhost:5034/api/cajapos/${path}/${mov.idOrigen}/pdf`, "_blank");
+                        window.open(`${API_BASE}/api/cajapos/${path}/${mov.idOrigen}/pdf`, "_blank");
                       }} 
                       className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-0 h-8 w-8 mr-1"
                       title="Descargar Comprobante PDF (QuestPDF)"

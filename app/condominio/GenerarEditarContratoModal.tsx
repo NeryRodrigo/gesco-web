@@ -1,5 +1,6 @@
 "use client";
 
+
 import React, { useState, useEffect } from "react";
 import {
   Dialog,
@@ -36,6 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { API_BASE } from "@/lib/api";
 
 interface GenerarEditarContratoModalProps {
   isOpen: boolean;
@@ -199,7 +201,7 @@ export function GenerarEditarContratoModal({
 
     setLoadingSave(true);
     try {
-      const resp = await fetch("http://localhost:5034/api/Contratos", {
+      const resp = await fetch(`${API_BASE}/api/Contratos`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -7,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Search, User, Phone, Mail, Edit, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { API_BASE } from "@/lib/api";
 
 interface Cliente {
   personaId: number;
@@ -38,7 +40,7 @@ export function CRMClientesPage({ empresaId }: { empresaId: number }) {
   const cargarClientes = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`http://localhost:5034/api/contactos/clientes/${empresaId}`);
+      const res = await fetch(`${API_BASE}/api/contactos/clientes/${empresaId}`);
       if (res.ok) {
         const data = await res.json();
         setClientes(data);
@@ -57,8 +59,8 @@ export function CRMClientesPage({ empresaId }: { empresaId: number }) {
   const handleSave = async () => {
     try {
       const url = isEditMode
-        ? `http://localhost:5034/api/contactos/clientes/${clienteEditingId}`
-        : `http://localhost:5034/api/contactos/clientes`;
+        ? `${API_BASE}/api/contactos/clientes/${clienteEditingId}`
+        : `${API_BASE}/api/contactos/clientes`;
       const method = isEditMode ? "PUT" : "POST";
 
       const res = await fetch(url, {
@@ -82,7 +84,7 @@ export function CRMClientesPage({ empresaId }: { empresaId: number }) {
   const handleDelete = async (id: number) => {
     if (!confirm("¿Seguro que deseas eliminar este cliente?")) return;
     try {
-      const res = await fetch(`http://localhost:5034/api/contactos/clientes/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE}/api/contactos/clientes/${id}`, { method: "DELETE" });
       if (res.ok) {
         toast.success("Eliminado", { description: "Cliente eliminado correctamente." });
         cargarClientes();

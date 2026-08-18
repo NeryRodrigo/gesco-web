@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import { API_BASE } from "@/lib/api";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -43,7 +45,7 @@ export default function CaptacionPropiedad() {
   };
 
   const handleSave = async () => {
-    const res = await fetch("http://localhost:5034/api/Migration/guardar-propiedad", {
+    const res = await fetch(`${API_BASE}/api/Migration/guardar-propiedad`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form)

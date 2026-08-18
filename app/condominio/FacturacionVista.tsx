@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+
+import { API_BASE } from "@/lib/api";
 
 import React, { useMemo, useState } from "react";
 import { formatDuplex, formatFechaLarga } from "@/lib/utils";
@@ -99,7 +101,7 @@ export function FacturacionVista() {
 
   const fetchCobros = async () => {
     try {
-      const resp = await fetch(`http://localhost:5034/api/Contratos/pagos?t=${Date.now()}`);
+      const resp = await fetch(`${API_BASE}/api/Contratos/pagos?t=${Date.now()}`);
       if (resp.ok) setCobros(await resp.json());
     } catch (error) {
       console.error(error);
@@ -110,7 +112,7 @@ export function FacturacionVista() {
 
   const fetchDashboard = async () => {
     try {
-      const resp = await fetch(`http://localhost:5034/api/Dashboard/condominio/7?t=${Date.now()}`);
+      const resp = await fetch(`${API_BASE}/api/Dashboard/condominio/7?t=${Date.now()}`);
       if (resp.ok) {
         const data = await resp.json();
         setDashboardSummary(data.summary);
@@ -230,7 +232,7 @@ export function FacturacionVista() {
   const confirmAnularCobro = async () => {
     if (!pagoToAnular) return;
     try {
-      const resp = await fetch(`http://localhost:5034/api/Contratos/pago/${pagoToAnular}`, {
+      const resp = await fetch(`${API_BASE}/api/Contratos/pago/${pagoToAnular}`, {
         method: "DELETE",
       });
       if (resp.ok) {

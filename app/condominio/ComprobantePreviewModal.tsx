@@ -1,5 +1,6 @@
 "use client";
 
+
 import React, { useState, useEffect, useRef } from "react";
 import { Printer, X, Save, FileText, Receipt, Check, DollarSign, Trash2, MessageCircle, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { PrintPortal } from "@/components/ui/print-portal";
 import { formatFechaLarga } from "@/lib/utils";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import { API_BASE } from "@/lib/api";
 
 
 interface ComprobantePreviewModalProps {
@@ -123,7 +125,7 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
     };
 
     try {
-      const resp = await fetch(`http://localhost:5034/api/Contratos/pago/${pagoData.pagoId}/comprobante`, {
+      const resp = await fetch(`${API_BASE}/api/Contratos/pago/${pagoData.pagoId}/comprobante`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -157,7 +159,7 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
 
     setIsDeleting(true);
     try {
-      const resp = await fetch(`http://localhost:5034/api/Contratos/pago/${pagoData.pagoId}`, {
+      const resp = await fetch(`${API_BASE}/api/Contratos/pago/${pagoData.pagoId}`, {
         method: "DELETE"
       });
 
@@ -231,7 +233,7 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
     };
 
     try {
-      await fetch(`http://localhost:5034/api/Contratos/pago/${pagoData.pagoId}/comprobante`, {
+      await fetch(`${API_BASE}/api/Contratos/pago/${pagoData.pagoId}/comprobante`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -310,7 +312,7 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
 
     setIsSendingEmail(true);
     try {
-      const resp = await fetch("http://localhost:5034/api/Contratos/enviar-comprobante", {
+      const resp = await fetch(`${API_BASE}/api/Contratos/enviar-comprobante`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
