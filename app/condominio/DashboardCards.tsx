@@ -864,7 +864,7 @@ export function DashboardCards({
                   {(detailView === "ocupados" || detailView === "objetivos" || detailView === "cobrados") && onOpenFicha && item.unidadId ? (
                     <button
                       type="button"
-                      className={`font-bold text-sm text-left hover:underline hover:text-blue-400 transition-colors ${detailView === "disponibles" ? "text-emerald-400" : "text-slate-100"}`}
+                      className="font-bold text-sm text-left hover:underline hover:text-blue-400 transition-colors text-slate-100"
                       onClick={(e) => {
                         e.stopPropagation();
                         openTenantFicha(item, detailView === "cobrados" ? "pagos" : "ficha");
@@ -874,7 +874,7 @@ export function DashboardCards({
                       {item.inquilino}
                     </button>
                   ) : (
-                    <p className={`font-bold text-sm ${detailView === 'disponibles' ? 'text-emerald-400' : 'text-slate-100'}`}>{item.inquilino}</p>
+                    <p className={`font-bold text-sm ${detailView === "disponibles" ? "text-emerald-400" : "text-slate-100"}`}>{item.inquilino}</p>
                   )}
                   {detailView === "ocupados" && item.ocupantes && (
                     <p className="text-[10px] text-slate-400">{item.ocupantes} ocupantes</p>
