@@ -133,10 +133,8 @@ def main() -> None:
         OUT_IMG / "ISOTIPO-512.png", optimize=True
     )
 
-    # --- Master app icon / launcher: fondo marca + logo ~86% (llena bien el squircle del SO)
-    # Este master (_official-app-icon.png) es la fuente canónica del acceso PWA (purpose: any).
-    # NO declarar purpose "maskable" en app/manifest.ts: Android reduce el logo a la safe zone.
-    app_master = place_logo(logo, 1024, bg=BG, logo_ratio=0.86, soft_glow=True).convert("RGB")
+    # ratio ~0.94: en Android el acceso se ve grande (evita el isotipo “chico” en el cuadrado)
+    app_master = place_logo(logo, 1024, bg=BG, logo_ratio=0.94, soft_glow=False).convert("RGB")
     app_master.save(OUT_ICONS / "_official-app-icon.png", optimize=True)
 
     sizes = {
