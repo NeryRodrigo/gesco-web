@@ -134,6 +134,8 @@ def main() -> None:
     )
 
     # --- Master app icon / launcher: fondo marca + logo ~86% (llena bien el squircle del SO)
+    # Este master (_official-app-icon.png) es la fuente canónica del acceso PWA (purpose: any).
+    # NO declarar purpose "maskable" en app/manifest.ts: Android reduce el logo a la safe zone.
     app_master = place_logo(logo, 1024, bg=BG, logo_ratio=0.86, soft_glow=True).convert("RGB")
     app_master.save(OUT_ICONS / "_official-app-icon.png", optimize=True)
 
@@ -145,7 +147,8 @@ def main() -> None:
         1024: "vordia-1024.png",
     }
     for size, name in sizes.items():
-        img = place_logo(logo, size, bg=BG, logo_ratio=0.86, soft_glow=True).convert("RGB")
+        # Derivados del ícono oficial (full-bleed), no de una variante maskable
+        img = app_master.resize((size, size), Image.Resampling.LANCZOS)
         img.save(OUT_ICONS / name, optimize=True)
         print("wrote", name)
 
@@ -156,6 +159,7 @@ def main() -> None:
         "icon-256.png": "vordia-256.png",
         "icon-1024.png": "vordia-1024.png",
         "apple-touch-icon.png": "vordia-180.png",
+        # Legacy filenames only — el manifest NO debe usar purpose: maskable
         "icon-maskable-192.png": "vordia-192.png",
         "icon-maskable-512.png": "vordia-512.png",
     }

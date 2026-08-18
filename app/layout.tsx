@@ -34,13 +34,13 @@ export const metadata: Metadata = {
   // Favicon de pestaña = ISOTIPO transparente. Acceso directo PWA = vordia-* (manifest).
   icons: {
     icon: [
-      { url: "/icons/favicon-32.png?v=20260818h", sizes: "32x32", type: "image/png" },
-      { url: "/icons/favicon-48.png?v=20260818h", sizes: "48x48", type: "image/png" },
-      { url: "/icons/favicon-isotipo.png?v=20260818h", sizes: "192x192", type: "image/png" },
+      { url: "/icons/favicon-32.png?v=20260819a", sizes: "32x32", type: "image/png" },
+      { url: "/icons/favicon-48.png?v=20260819a", sizes: "48x48", type: "image/png" },
+      { url: "/icons/favicon-isotipo.png?v=20260819a", sizes: "192x192", type: "image/png" },
     ],
-    shortcut: "/icons/favicon-32.png?v=20260818h",
+    shortcut: "/icons/favicon-32.png?v=20260819a",
     apple: [
-      { url: "/icons/vordia-180.png?v=20260818g", sizes: "180x180", type: "image/png" },
+      { url: "/icons/vordia-180.png?v=20260819a", sizes: "180x180", type: "image/png" },
     ],
   },
 };
