@@ -2,7 +2,7 @@
 
 import { API_BASE } from "@/lib/api";
 
-import React, { useState } from "react";
+import React, { useMemo, useState, useDeferredValue, useEffect, startTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Home, CheckCircle2, Wallet, Clock, Calendar, AlertTriangle, Filter, Zap, Check, X, RefreshCw, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
@@ -237,7 +237,47 @@ const mapAndeLiveToRow = (live: AndeConsultaLive | undefined | null): AndeRowVie
   };
 };
 
-export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: any, onRefresh?: () => Promise<void> | void }) {
+const ANDE_LIVE_CACHE_KEY = "vordia.andeLiveByNis";
+const ANDE_SYNC_AT_KEY = "vordia.andeSyncAt";
+
+function loadAndeLiveCache(): Record<string, AndeConsultaLive> {
+  try {
+    const raw = sessionStorage.getItem(ANDE_LIVE_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveAndeLiveCache(map: Record<string, AndeConsultaLive>, syncAt: string | null) {
+  try {
+    sessionStorage.setItem(ANDE_LIVE_CACHE_KEY, JSON.stringify(map));
+    if (syncAt) sessionStorage.setItem(ANDE_SYNC_AT_KEY, syncAt);
+  } catch {
+    /* ignore quota */
+  }
+}
+
+export type DashboardFichaTarget = {
+  id: number;
+  code: string;
+  condo: string;
+  tenant: string | null;
+  status: string;
+  nisAnde?: string | null;
+};
+
+export function DashboardCards({
+  dashboardData,
+  onRefresh,
+  onOpenFicha,
+}: {
+  dashboardData: any;
+  onRefresh?: () => Promise<void> | void;
+  onOpenFicha?: (unidad: DashboardFichaTarget, tab?: "ficha" | "pagos") => void;
+}) {
   const [detailView, setDetailView] = useState<"none" | "ocupados" | "disponibles" | "objetivos" | "cobrados" | "faltaCobrar" | "vencimientos" | "morosos" | "andeNIS">("none");
   const [colFilters, setColFilters] = useState<Record<string, string>>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -253,21 +293,37 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
     saldoDeuda?: number;
     facturas: AndeFacturaLive[];
   } | null>(null);
-  const [groupByDetail, setGroupByDetail] = useState<"none" | "condominio">("none");
+  const [groupByDetail, setGroupByDetail] = useState<"none" | "condominio" | "comprobante">("condominio");
+  /** Filtros diferidos: el tipeo no bloquea el render del listado en móviles. */
+  const deferredColFilters = useDeferredValue(colFilters);
+  /** Paginación progresiva: evita pintar cientos de filas de golpe en celular. */
+  const LIST_PAGE_SIZE = 28;
+  const [listPage, setListPage] = useState(1);
+
+  useEffect(() => {
+    setListPage(1);
+  }, [detailView, deferredColFilters, groupByDetail]);
   const [isMorosidadesOpen, setIsMorosidadesOpen] = useState(false);
   const [expandedMorosoId, setExpandedMorosoId] = useState<number | null>(null);
   const [morosoCuotas, setMorosoCuotas] = useState<Record<number, any[]>>({});
   const [loadingMorosoId, setLoadingMorosoId] = useState<number | null>(null);
-  /** Datos reales ANDE por NIS (JWT). La grilla los usa en lugar de montos simulados del dashboard. */
-  const [andeLiveByNis, setAndeLiveByNis] = useState<Record<string, AndeConsultaLive>>({});
+  /** Datos reales ANDE por NIS (JWT). Persisten en sessionStorage al salir de Inicio. */
+  const [andeLiveByNis, setAndeLiveByNis] = useState<Record<string, AndeConsultaLive>>(() => loadAndeLiveCache());
   const [isAndeSyncing, setIsAndeSyncing] = useState(false);
-  const [andeSyncAt, setAndeSyncAt] = useState<string | null>(null);
+  const [andeSyncAt, setAndeSyncAt] = useState<string | null>(() => {
+    try {
+      return sessionStorage.getItem(ANDE_SYNC_AT_KEY);
+    } catch {
+      return null;
+    }
+  });
   const [andeLoginOpen, setAndeLoginOpen] = useState(false);
   const [alertaRestriccion, setAlertaRestriccion] = useState<{
     visible: boolean;
     mensaje?: string;
     permisoNombre?: string;
   }>({ visible: false });
+  const andeAutoSyncDone = React.useRef(false);
 
   const resolveAndeRow = (item: any): AndeRowView => {
     const nisKey = soloDigitosNis(item?.nisAnde);
@@ -403,7 +459,9 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
         if (key) map[key] = r as AndeConsultaLive;
       }
       setAndeLiveByNis(map);
-      setAndeSyncAt(new Date().toLocaleTimeString("es-PY"));
+      const syncLabel = new Date().toLocaleTimeString("es-PY");
+      setAndeSyncAt(syncLabel);
+      saveAndeLiveCache(map, syncLabel);
 
       const okCount = Object.values(map).filter(
         (r) => !r.esSimulado && !/fall[oó]|bloque[oó]|Radware|credenciales/i.test(r.observaciones || "")
@@ -419,6 +477,72 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
       setIsAndeSyncing(false);
     }
   };
+
+  // Al entrar a ANDE NIS: si hay credenciales y poco/nada en cache, reconsultar datos reales.
+  React.useEffect(() => {
+    if (detailView !== "andeNIS") {
+      andeAutoSyncDone.current = false;
+      return;
+    }
+    if (andeAutoSyncDone.current || isAndeSyncing) return;
+    andeAutoSyncDone.current = true;
+    const hasCache = Object.keys(andeLiveByNis).length > 0;
+    void (async () => {
+      try {
+        const estadoRes = await fetch(`${ANDE_API}/credenciales/estado`);
+        const estado = await estadoRes.json().catch(() => ({} as any));
+        if (!estadoRes.ok || !estado?.configurado) {
+          // Pedir login solo si no hay cache útil
+          if (!hasCache) setAndeLoginOpen(true);
+          return;
+        }
+        // Siempre refrescar al reentrar para datos reales (no solo cache vieja)
+        await syncAndeSaldosGrilla();
+      } catch {
+        if (!hasCache) setAndeLoginOpen(true);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detailView]);
+
+  const openTenantFicha = (item: any, tab: "ficha" | "pagos" = "ficha") => {
+    if (!onOpenFicha || !item?.unidadId) return;
+    onOpenFicha(
+      {
+        id: Number(item.unidadId),
+        code: String(item.duplex || ""),
+        condo: String(item.condominio || ""),
+        tenant: item.inquilino ?? null,
+        status: "Ocupado",
+        nisAnde: String(item.nisAnde ?? "")
+          .trim()
+          .replace(/^["']+|["']+$/g, "") || null,
+      },
+      tab
+    );
+  };
+
+  // Si cambia un NIS en ocupados mientras estamos en ANDE NIS, reconsultar lote.
+  const ocupadosNisFingerprint = useMemo(
+    () =>
+      (dashboardData?.ocupados || [])
+        .map((u: any) => `${u.unidadId}:${soloDigitosNis(u?.nisAnde)}`)
+        .sort()
+        .join("|"),
+    [dashboardData?.ocupados]
+  );
+  const prevOcupadosNisFp = React.useRef<string>("");
+  React.useEffect(() => {
+    if (detailView !== "andeNIS") {
+      prevOcupadosNisFp.current = ocupadosNisFingerprint;
+      return;
+    }
+    if (prevOcupadosNisFp.current && prevOcupadosNisFp.current !== ocupadosNisFingerprint) {
+      void syncAndeSaldosGrilla();
+    }
+    prevOcupadosNisFp.current = ocupadosNisFingerprint;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ocupadosNisFingerprint, detailView]);
 
   const loadMorosoCuotas = async (morosidadId: number) => {
     if (!morosidadId) return;
@@ -469,8 +593,14 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
         });
         return;
       }
-      setDetailView(view);
-      setColFilters({});
+      startTransition(() => {
+        setDetailView(view);
+        setColFilters({});
+        setListPage(1);
+        if (view !== "cobrados" && groupByDetail === "comprobante") {
+          setGroupByDetail("condominio");
+        }
+      });
     }
   };
 
@@ -497,27 +627,27 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
     if (detailView === "ocupados") {
         list = dashboardData.ocupados;
         title = "Listado de Dúplex Ocupados";
-        color = "text-primary bg-primary/5";
+        color = "text-blue-400 bg-[#0C1327]";
     } else if (detailView === "disponibles") {
         list = dashboardData.disponibles;
         title = "Listado de Dúplex Disponibles";
-        color = "text-emerald-700 bg-emerald-50";
+        color = "text-emerald-400 bg-[#0C1327]";
     } else if (detailView === "objetivos") {
         list = dashboardData.objetivosMes;
         title = "Objetivos del Mes (Proyección)";
-        color = "text-indigo-700 bg-indigo-50";
+        color = "text-indigo-400 bg-[#0C1327]";
     } else if (detailView === "cobrados") {
         list = dashboardData.cobrados;
         title = "Listado de Cobros del Mes";
-        color = "text-emerald-700 bg-emerald-50";
+        color = "text-emerald-400 bg-[#0C1327]";
     } else if (detailView === "faltaCobrar") {
         list = dashboardData.faltaCobrar;
         title = "Listado de Pendientes de Cobro";
-        color = "text-amber-700 bg-amber-50";
+        color = "text-amber-400 bg-[#0C1327]";
     } else if (detailView === "vencimientos") {
         list = dashboardData.vencimientos;
         title = "Listado de Finalización de Contratos";
-        color = "text-orange-700 bg-orange-50";
+        color = "text-orange-400 bg-[#0C1327]";
         // Ordenar por fecha de fin (más próximos primero)
         list = [...(list || [])].sort((a: any, b: any) => {
           const da = a.fecha ? new Date(a.fecha).getTime() : Number.MAX_SAFE_INTEGER;
@@ -527,103 +657,122 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
     } else if (detailView === "morosos") {
         list = dashboardData.morosos;
         title = "Listado de Morosos (Desalojados)";
-        color = "text-red-700 bg-red-50";
+        color = "text-red-400 bg-[#0C1327]";
     } else if (detailView === "andeNIS") {
         list = dashboardData.ocupados;
         title = "Consulta de Medidores ANDE";
-        color = "text-blue-700 bg-blue-50";
+        color = "text-blue-400 bg-[#0C1327]";
     }
 
     // ... (Tu lógica de filteredList se mantiene exactamente igual hasta el final del filtro)
     const filteredList = (list || []).filter((item: any) => {
         // ... (todo tu bloque de filtros actual)
-        if (colFilters.duplex) {
+        if (deferredColFilters.duplex) {
             const str = `${item.duplex || ""} ${item.condominio || ""}`.toLowerCase();
-            if (!str.includes(colFilters.duplex.toLowerCase())) return false;
+            if (!str.includes(deferredColFilters.duplex.toLowerCase())) return false;
         }
-        if (colFilters.inquilino) {
+        if (deferredColFilters.inquilino) {
           const str = `${item.inquilino || ""}`.toLowerCase();
-          if (!str.includes(colFilters.inquilino.toLowerCase())) return false;
+          if (!str.includes(deferredColFilters.inquilino.toLowerCase())) return false;
         }
-        if (colFilters.docNis) {
+        if (deferredColFilters.docNis) {
           const str = `${item.cedula || ""} ${item.nisAnde || ""}`.toLowerCase();
-          if (!str.includes(colFilters.docNis.toLowerCase())) return false;
+          if (!str.includes(deferredColFilters.docNis.toLowerCase())) return false;
         }
-        if (colFilters.nis) {
+        if (deferredColFilters.nis) {
           const str = `${item.nisAnde || ""}`.toLowerCase();
-          if (!str.includes(colFilters.nis.toLowerCase())) return false;
+          if (!str.includes(deferredColFilters.nis.toLowerCase())) return false;
         }
-        if (colFilters.vencimiento) {
+        if (deferredColFilters.vencimiento) {
           if (detailView === "andeNIS") {
             const ande = resolveAndeRow(item);
             const dateStr = ande.vencimientoLabel;
-            if (!dateStr.toLowerCase().includes(colFilters.vencimiento.toLowerCase())) return false;
+            if (!dateStr.toLowerCase().includes(deferredColFilters.vencimiento.toLowerCase())) return false;
           } else {
             const dateStr = item.fecha ? new Date(item.fecha).toLocaleDateString() : "";
-            if (!dateStr.toLowerCase().includes(colFilters.vencimiento.toLowerCase())) return false;
+            if (!dateStr.toLowerCase().includes(deferredColFilters.vencimiento.toLowerCase())) return false;
           }
         }
-        if (colFilters.fechaPago) {
+        if (deferredColFilters.fechaPago) {
           if (detailView === "andeNIS") {
             const ande = resolveAndeRow(item);
             const dateStr = ande.fechaPagoLabel || "";
-            if (!dateStr.toLowerCase().includes(colFilters.fechaPago.toLowerCase())) return false;
+            if (!dateStr.toLowerCase().includes(deferredColFilters.fechaPago.toLowerCase())) return false;
           } else {
             const isPagado = item.andePagadoEsteMes;
             const dateStr = isPagado && item.andeFechaPago ? new Date(item.andeFechaPago).toLocaleDateString() : "";
-            if (!dateStr.toLowerCase().includes(colFilters.fechaPago.toLowerCase())) return false;
+            if (!dateStr.toLowerCase().includes(deferredColFilters.fechaPago.toLowerCase())) return false;
           }
         }
-        if (colFilters.estadoPago) {
+        if (deferredColFilters.estadoPago) {
           if (detailView === "andeNIS") {
             const ande = resolveAndeRow(item);
             const str = ande.consulted
               ? (ande.isPagado ? "al dia al día pagado sin deuda" : "pendiente activa no pagado factura emitida")
               : "sin consultar";
-            if (!str.includes(colFilters.estadoPago.toLowerCase())) return false;
+            if (!str.includes(deferredColFilters.estadoPago.toLowerCase())) return false;
           } else {
             const isPagado = item.andePagadoEsteMes;
             const str = isPagado ? "al dia al día pagado sin deuda" : "pendiente activa no pagado emitido factura emitida prox proxima próxima emisión";
-            if (!str.includes(colFilters.estadoPago.toLowerCase())) return false;
+            if (!str.includes(deferredColFilters.estadoPago.toLowerCase())) return false;
           }
         }
-        if (colFilters.consumo) {
+        if (deferredColFilters.consumo) {
           if (detailView === "andeNIS") {
             const ande = resolveAndeRow(item);
             const str = `${ande.consumoKw} kw`.toLowerCase();
-            if (!str.includes(colFilters.consumo.toLowerCase())) return false;
+            if (!str.includes(deferredColFilters.consumo.toLowerCase())) return false;
           } else {
             const isPagado = item.andePagadoEsteMes;
             const montoFactura = item.andeMontoDeuda || 0;
             const montoReal = item.andeMontoDeuda ? item.andeMontoDeuda : (isPagado ? ((parseInt((item.nisAnde || "0").slice(-2)) * 2500) + 85000) : montoFactura);
             const kWConsumo = item.andeConsumoKw || Math.round((montoReal - 85000) / 450);
             const str = `${kWConsumo} kw`.toLowerCase();
-            if (!str.includes(colFilters.consumo.toLowerCase())) return false;
+            if (!str.includes(deferredColFilters.consumo.toLowerCase())) return false;
           }
         }
-        if (colFilters.monto) {
+        if (deferredColFilters.monto) {
           if (detailView === "andeNIS") {
             const ande = resolveAndeRow(item);
             const val = ande.monto || 0;
-            if (!val.toString().includes(colFilters.monto) && !val.toLocaleString().includes(colFilters.monto)) return false;
+            if (!val.toString().includes(deferredColFilters.monto) && !val.toLocaleString().includes(deferredColFilters.monto)) return false;
           } else {
             const isPagado = item.andePagadoEsteMes;
             const montoFactura = item.andeMontoDeuda || 0;
             const montoReal = montoFactura;
             const val = item.montoRestante || montoReal || item.monto || 0;
-            if (!val.toString().includes(colFilters.monto) && !val.toLocaleString().includes(colFilters.monto)) return false;
+            if (!val.toString().includes(deferredColFilters.monto) && !val.toLocaleString().includes(deferredColFilters.monto)) return false;
           }
         }
-        if (colFilters.factura) {
-          const str = `${item.factura || item.numeroFactura || item.estadoFactura || ""}`.toLowerCase();
-          if (!str.includes(colFilters.factura.toLowerCase())) return false;
+        if (deferredColFilters.factura) {
+          const f = deferredColFilters.factura.toLowerCase();
+          if (detailView === "cobrados") {
+            const tipo =
+              item.facturaEmitida ||
+              String(item.tipoComprobante || "").toLowerCase().includes("factura")
+                ? "factura"
+                : "recibo";
+            const str = `${tipo} ${item.numeroFactura || item.factura || item.tipoComprobante || item.estadoFactura || ""}`.toLowerCase();
+            if (!str.includes(f)) return false;
+          } else {
+            const str = `${item.factura || item.numeroFactura || item.estadoFactura || ""}`.toLowerCase();
+            if (!str.includes(f)) return false;
+          }
         }
-        if (colFilters.interes) {
+        if (deferredColFilters.interes) {
           const val = item.interesAcumulado || 0;
-          if (!val.toString().includes(colFilters.interes) && !val.toLocaleString().includes(colFilters.interes)) return false;
+          if (!val.toString().includes(deferredColFilters.interes) && !val.toLocaleString().includes(deferredColFilters.interes)) return false;
+        }
+        if (deferredColFilters.fecha) {
+          const dateStr = item.fecha ? new Date(item.fecha).toLocaleDateString("es-PY") : "";
+          if (!dateStr.toLowerCase().includes(deferredColFilters.fecha.toLowerCase())) return false;
         }
         return true;
     });
+
+    const visibleLimit = listPage * LIST_PAGE_SIZE;
+    const pagedList = filteredList.slice(0, visibleLimit);
+    const hasMoreRows = filteredList.length > pagedList.length;
 
     // Recalcular total para el footer global
     if (detailView === "ocupados" || detailView === "objetivos" || detailView === "cobrados" || detailView === "vencimientos" || detailView === "morosos") {
@@ -637,7 +786,8 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
         }, 0);
     }
 
-    // Lógica de Agrupación por Condominio
+    // Agrupación: condominio (todos) o tipo comprobante (solo cobrados)
+    // Se agrupa sobre la lista filtrada completa; la paginación limita filas visibles.
     const groups: Record<string, any[]> = {};
     if (groupByDetail === "condominio") {
         filteredList.forEach(item => {
@@ -645,6 +795,47 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
             if (!groups[key]) groups[key] = [];
             groups[key].push(item);
         });
+    } else if (groupByDetail === "comprobante") {
+        filteredList.forEach(item => {
+            const esFactura =
+              !!item.facturaEmitida ||
+              String(item.tipoComprobante || "").toLowerCase().includes("factura");
+            const key = esFactura ? "Facturas" : "Recibos";
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(item);
+        });
+    }
+
+    const groupNamesSorted =
+      groupByDetail === "none"
+        ? []
+        : Object.keys(groups).sort((a, b) => {
+            if (groupByDetail === "comprobante") {
+              if (a === "Facturas") return -1;
+              if (b === "Facturas") return 1;
+            }
+            return a.localeCompare(b, "es");
+          });
+
+    /** Filas a pintar (paginadas) respetando orden de grupos. */
+    const pagedGroups: { name: string; items: any[]; subtotal: number }[] = [];
+    if (groupByDetail !== "none") {
+      let budget = visibleLimit;
+      for (const groupName of groupNamesSorted) {
+        if (budget <= 0) break;
+        const allItems = groups[groupName];
+        const items = allItems.slice(0, budget);
+        budget -= items.length;
+        const groupSubtotal = allItems.reduce((acc, curr) => {
+          if (detailView === "faltaCobrar") return acc + (curr.montoRestante || 0);
+          if (detailView === "andeNIS") {
+            const ande = resolveAndeRow(curr);
+            return acc + (ande.consulted && !ande.isPagado ? ande.monto : 0);
+          }
+          return acc + (curr.monto || 0);
+        }, 0);
+        pagedGroups.push({ name: groupName, items, subtotal: groupSubtotal });
+      }
     }
 
     // Función auxiliar para renderizar una fila (para no repetir código)
@@ -656,23 +847,37 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
       return (
       <React.Fragment key={idx}>
         <tr
-          className={`hover:bg-muted/50 transition-colors h-[56px] ${detailView === "morosos" ? "cursor-pointer" : ""}`}
+          className={`hover:bg-white/5 transition-colors h-[56px] text-white ${detailView === "morosos" ? "cursor-pointer" : ""}`}
           onClick={detailView === "morosos" ? (e) => handleMorosoClick(item, e) : undefined}
           title={detailView === "morosos" ? "Clic: ver cuotas · Doble clic: cerrar" : undefined}
         >
             <td className="px-8 py-4">
-              <p className="font-black italic uppercase text-foreground text-sm tracking-tighter">{formatDuplex(item.duplex)}</p>
-              <p className="text-[10px] font-bold text-muted-foreground uppercase">{item.condominio}</p>
+              <p className="font-black italic uppercase text-white text-sm tracking-tighter">{formatDuplex(item.duplex)}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">{item.condominio}</p>
             </td>
             <td className="px-8 py-4">
               <div className="flex items-center gap-2">
                 {detailView === "morosos" && (
-                  isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-red-500" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                  isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-red-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
                 )}
                 <div>
-                  <p className={`font-bold text-sm ${detailView === 'disponibles' ? 'text-emerald-500' : 'text-muted-foreground'}`}>{item.inquilino}</p>
+                  {(detailView === "ocupados" || detailView === "objetivos" || detailView === "cobrados") && onOpenFicha && item.unidadId ? (
+                    <button
+                      type="button"
+                      className={`font-bold text-sm text-left hover:underline hover:text-blue-400 transition-colors ${detailView === "disponibles" ? "text-emerald-400" : "text-slate-100"}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openTenantFicha(item, detailView === "cobrados" ? "pagos" : "ficha");
+                      }}
+                      title={detailView === "cobrados" ? "Abrir ficha · Historial de pagos" : "Abrir ficha del inquilino"}
+                    >
+                      {item.inquilino}
+                    </button>
+                  ) : (
+                    <p className={`font-bold text-sm ${detailView === 'disponibles' ? 'text-emerald-400' : 'text-slate-100'}`}>{item.inquilino}</p>
+                  )}
                   {detailView === "ocupados" && item.ocupantes && (
-                    <p className="text-[10px] text-muted-foreground">{item.ocupantes} ocupantes</p>
+                    <p className="text-[10px] text-slate-400">{item.ocupantes} ocupantes</p>
                   )}
                   {detailView === "morosos" && (
                     <p className="text-[9px] text-red-400 font-bold uppercase tracking-wider">
@@ -685,8 +890,8 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
             {/* ... (Aquí van TODAS las celdas <td> que ya tienes en tu código original, cópialas tal cual) ... */}
             {detailView === "ocupados" && (
                 <td className="px-8 py-4 text-center">
-                <p className="text-xs font-bold text-muted-foreground">{item.cedula}</p>
-                <p className="text-[10px] text-muted-foreground">NIS: {item.nisAnde}</p>
+                <p className="text-xs font-bold text-slate-300">{item.cedula}</p>
+                <p className="text-[10px] text-slate-400">NIS: {item.nisAnde}</p>
                 </td>
             )}
             {detailView === "faltaCobrar" && (
@@ -868,7 +1073,7 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
             })()}
             {detailView !== "andeNIS" && (
                 <td className="px-8 py-4 text-right">
-                <p className={`font-black italic ${detailView === 'morosos' ? 'text-red-600' : detailView === 'faltaCobrar' ? 'text-amber-600' : detailView === 'disponibles' ? 'text-muted-foreground' : 'text-blue-600'}`}>
+                <p className={`font-black italic ${detailView === 'morosos' ? 'text-red-400' : detailView === 'faltaCobrar' ? 'text-amber-400' : detailView === 'disponibles' ? 'text-slate-400' : 'text-blue-400'}`}>
                     {detailView === 'faltaCobrar' ? formatCurrency(item.montoRestante || 0) : detailView === 'disponibles' ? 'A DEFINIR' : formatCurrency(item.monto)}
                 </p>
                 </td>
@@ -883,9 +1088,30 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
             {detailView === "cobrados" && (
                 <>
                 <td className="px-8 py-4 text-center">
-                    <Badge className={`${item.facturaEmitida ? 'bg-emerald-100 text-emerald-700' : 'bg-muted text-muted-foreground'} border-none font-black italic text-[9px] uppercase`}>
-                    {item.estadoFactura}
-                    </Badge>
+                    {(() => {
+                      const esFactura =
+                        !!item.facturaEmitida ||
+                        String(item.tipoComprobante || "").toLowerCase().includes("factura");
+                      const nro = item.numeroFactura || item.nroComprobante || "";
+                      return (
+                        <div className="flex flex-col items-center gap-1">
+                          <Badge
+                            className={`${
+                              esFactura
+                                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                                : "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                            } font-black italic text-[9px] uppercase`}
+                          >
+                            {esFactura ? "Factura" : "Recibo"}
+                          </Badge>
+                          {nro ? (
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">
+                              {nro}
+                            </span>
+                          ) : null}
+                        </div>
+                      );
+                    })()}
                 </td>
                 <td className="px-8 py-4 text-center">
                     <p className="text-[10px] font-bold text-muted-foreground uppercase">
@@ -972,30 +1198,55 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
     };
 
     return (
-      <Card className="border-none shadow-2xl rounded-[2rem] bg-card overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500 mb-12 mt-4">
-        <CardHeader className={`${color} p-8 flex flex-row items-center justify-between`}>
+      <Card className="border border-white/5 shadow-2xl rounded-[2rem] bg-[#0C1327] overflow-hidden mb-12 mt-4 text-white">
+        <CardHeader className={`${color} p-6 sm:p-8 flex flex-row items-center justify-between border-b border-white/5`}>
           <div>
-            <CardTitle className="text-2xl font-black italic uppercase tracking-tighter flex items-center gap-3">
+            <CardTitle className="text-xl sm:text-2xl font-black italic uppercase tracking-tighter flex items-center gap-3 text-inherit">
               {title}
-              <Badge className="bg-black/10 text-current border-none text-xs px-2.5 py-0.5">
+              <Badge className="bg-white/10 text-white border-none text-xs px-2.5 py-0.5">
                 {filteredList.length} registro{filteredList.length !== 1 ? 's' : ''}
               </Badge>
             </CardTitle>
-            <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">Detalle de operaciones por unidad · Filtrado por columna</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-white/60">Detalle de operaciones por unidad · Filtrado por columna</p>
           </div>
           <div className="flex items-center gap-2">
-            {/* NUEVO BOTÓN: Agrupar por Condominio */}
-            <div className="flex items-center gap-1 bg-card/50 p-1 rounded-full border border-black/5 mr-2">
+            {/* Agrupar: Condominio | Facturas/Recibos (en Cobrado) | Ninguno */}
+            <div className="flex items-center gap-1 bg-card/50 p-1 rounded-full border border-black/5 mr-2 flex-wrap">
                <span className="text-[9px] font-black uppercase px-2 opacity-60">Agrupar:</span>
                <button 
-                 onClick={() => setGroupByDetail(groupByDetail === "none" ? "condominio" : "none")}
-                 className={`text-[10px] font-black uppercase px-4 py-2 rounded-full transition-all ${
+                 type="button"
+                 onClick={() => setGroupByDetail("condominio")}
+                 className={`text-[10px] font-black uppercase px-3 py-2 rounded-full transition-all ${
                    groupByDetail === "condominio" 
                    ? "bg-primary text-white shadow-md" 
                    : "bg-card text-foreground hover:bg-muted"
                  }`}
                >
-                 {groupByDetail === "condominio" ? "✅ Condominio" : "Ninguno"}
+                 Condominio
+               </button>
+               {detailView === "cobrados" && (
+                 <button
+                   type="button"
+                   onClick={() => setGroupByDetail("comprobante")}
+                   className={`text-[10px] font-black uppercase px-3 py-2 rounded-full transition-all ${
+                     groupByDetail === "comprobante"
+                       ? "bg-emerald-600 text-white shadow-md"
+                       : "bg-card text-foreground hover:bg-muted"
+                   }`}
+                 >
+                   Facturas / Recibos
+                 </button>
+               )}
+               <button
+                 type="button"
+                 onClick={() => setGroupByDetail("none")}
+                 className={`text-[10px] font-black uppercase px-3 py-2 rounded-full transition-all ${
+                   groupByDetail === "none"
+                     ? "bg-slate-600 text-white shadow-md"
+                     : "bg-card text-foreground hover:bg-muted"
+                 }`}
+               >
+                 Ninguno
                </button>
             </div>
 
@@ -1068,6 +1319,11 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
                 } else {
                   window.location.reload();
                 }
+                // Tras refrescar dashboard (p.ej. NIS editado), reconsultar ANDE si estamos en esa vista
+                if (detailView === "andeNIS") {
+                  andeAutoSyncDone.current = false;
+                  await syncAndeSaldosGrilla();
+                }
                 setTimeout(() => setIsRefreshing(false), 800);
               }}
               disabled={isRefreshing}
@@ -1078,7 +1334,7 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
               <span>Actualizar</span>
             </button>
             <button 
-              onClick={() => { setDetailView("none"); setColFilters({}); setGroupByDetail("none"); }} 
+              onClick={() => { setDetailView("none"); setColFilters({}); setGroupByDetail("condominio"); }} 
               className="p-2 rounded-full hover:bg-black/10 transition-colors ml-2 bg-black/5"
               title="Cerrar vista de detalle"
             >
@@ -1088,8 +1344,8 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto mobile-scroll-x custom-scrollbar" data-mobile-scroll="x">
-            <table className="w-full min-w-[920px] text-left font-sans">
-              <thead className="bg-muted text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border">
+            <table className="w-full min-w-[920px] text-left font-sans dashboard-detail-table">
+              <thead className="bg-[#0A1631] text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-white border-b border-white/10">
                 {/* ... (Tu TableHead se mantiene igual) ... */}
                 <tr>
                   <th className="px-8 py-4">Dúplex / Condominio</th>
@@ -1125,7 +1381,7 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
                   )}
                   {detailView === "cobrados" && (
                     <>
-                      <th className="px-8 py-4 text-center">Factura</th>
+                      <th className="px-8 py-4 text-center">Comprobante</th>
                       <th className="px-8 py-4 text-center">Fecha Pago</th>
                     </>
                   )}
@@ -1273,10 +1529,11 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
                         <th className="px-4 py-2">
                             <input
                             type="text"
-                            placeholder="🔍 Factura..."
+                            placeholder="🔍 Factura / Recibo..."
                             value={colFilters.factura || ""}
                             onChange={(e) => setColFilters({ ...colFilters, factura: e.target.value })}
                             className="w-full bg-card border border-border rounded-md px-2 py-1 text-[10px] font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs text-center"
+                            title="Ej: factura, recibo o número"
                             />
                         </th>
                         <th className="px-4 py-2">
@@ -1306,61 +1563,74 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
               <tbody className="divide-y divide-border bg-background">
                 {filteredList.length === 0 ? (
                   <tr>
-                    <td colSpan={12} className="px-8 py-12 text-center text-muted-foreground font-bold text-sm">
+                    <td colSpan={12} className="px-8 py-12 text-center text-slate-400 font-bold text-sm">
                       No se encontraron registros.
                     </td>
                   </tr>
                 ) : groupByDetail === "none" ? (
-                  // MODO NORMAL: Lista plana
-                  filteredList.map((item, idx) => renderRow(item, idx))
+                  pagedList.map((item, idx) => renderRow(item, idx))
                 ) : (
-                  // MODO AGRUPADO: Por Condominio
-                  Object.keys(groups).map((condoName) => {
-                    const groupItems = groups[condoName];
-                    const groupSubtotal = groupItems.reduce((acc, curr) => {
-                        if (detailView === "faltaCobrar") return acc + (curr.montoRestante || 0);
-                        if (detailView === "andeNIS") {
-                            const ande = resolveAndeRow(curr);
-                            return acc + (ande.consulted && !ande.isPagado ? ande.monto : 0);
-                        }
-                        return acc + (curr.monto || 0);
-                    }, 0);
+                  pagedGroups.map(({ name: groupName, items: groupItems, subtotal: groupSubtotal }) => {
+                    const isComprobanteGroup = groupByDetail === "comprobante";
+                    const groupIconTone = isComprobanteGroup
+                      ? groupName === "Facturas"
+                        ? "text-emerald-400"
+                        : "text-blue-400"
+                      : "text-blue-400";
+                    const groupBadgeTone = isComprobanteGroup
+                      ? groupName === "Facturas"
+                        ? "bg-emerald-600/20 text-emerald-300"
+                        : "bg-blue-600/20 text-blue-300"
+                      : "bg-blue-600/20 text-blue-300";
 
                     return (
-                      <React.Fragment key={condoName}>
-                        {/* Fila separadora de Condominio */}
-                        <tr className="bg-muted/40 border-y border-border/50">
-                          <td colSpan={12} className="px-8 py-2.5">
+                      <React.Fragment key={groupName}>
+                        <tr className="bg-[#0A1631] border-y border-white/10">
+                          <td colSpan={12} className="px-8 py-3">
                              <div className="flex justify-between items-center">
                                 <div className="flex items-center gap-2">
-                                  <Home className="w-3.5 h-3.5 text-primary" />
-                                  <span className="text-[11px] font-black uppercase italic tracking-wider text-primary">
-                                    CONDOMINIO: {condoName}
+                                  <Home className={`w-4 h-4 ${groupIconTone}`} />
+                                  <span className="text-sm sm:text-base font-black uppercase italic tracking-wider text-white">
+                                    {isComprobanteGroup ? groupName : `CONDOMINIO: ${groupName}`}
                                   </span>
-                                  <Badge className="bg-primary/10 text-primary border-none text-[9px] font-bold">
-                                    {groupItems.length} UNIDADES
+                                  <Badge className={`${groupBadgeTone} border-none text-[10px] font-bold`}>
+                                    {groups[groupName]?.length || groupItems.length}{" "}
+                                    {isComprobanteGroup ? "COBROS" : "UNIDADES"}
                                   </Badge>
                                 </div>
-                                <span className="text-[10px] font-black text-muted-foreground uppercase">
-                                  Subtotal Grupo: <span className="text-foreground">{formatCurrency(groupSubtotal)}</span>
+                                <span className="text-xs font-black text-slate-400 uppercase">
+                                  Subtotal Grupo: <span className="text-white">{formatCurrency(groupSubtotal)}</span>
                                 </span>
                              </div>
                           </td>
                         </tr>
-                        {/* Filas del grupo */}
-                        {groupItems.map((item, idx) => renderRow(item, `${condoName}-${idx}`))}
+                        {groupItems.map((item, idx) => renderRow(item, `${groupName}-${idx}`))}
                       </React.Fragment>
                     );
                   })
                 )}
+                {hasMoreRows && (
+                  <tr>
+                    <td colSpan={12} className="px-8 py-5 text-center bg-[#0A1631]/80">
+                      <button
+                        type="button"
+                        onClick={() => startTransition(() => setListPage((p) => p + 1))}
+                        className="inline-flex items-center justify-center min-h-11 px-6 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black uppercase tracking-wide touch-manipulation active:scale-95"
+                      >
+                        Ver más ({pagedList.length} de {filteredList.length})
+                      </button>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
-          <div className="bg-muted p-4 sm:p-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 text-foreground border-t border-border">
-            <p className="text-[10px] font-semibold uppercase tracking-widest font-sans">
+          <div className="bg-[#0A1631] p-4 sm:p-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 text-white border-t border-white/10">
+            <p className="text-[10px] font-semibold uppercase tracking-widest font-sans text-slate-400">
               {detailView === 'andeNIS' ? 'Total facturas activas pendientes' : 'Totalización del listado'}
+              {hasMoreRows ? ` · mostrando ${Math.min(visibleLimit, filteredList.length)}/${filteredList.length}` : ""}
             </p>
-            <h3 className="text-xl sm:text-2xl font-black italic tracking-tighter">{formatCurrency(total)}</h3>
+            <h3 className="text-xl sm:text-2xl font-black italic tracking-tighter text-white">{formatCurrency(total)}</h3>
           </div>
         </CardContent>
       </Card>
@@ -1370,8 +1640,8 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
   return (
     <div>
       
-      {/* Móvil/iPad: SIEMPRE 2 columnas. Desktop: 4. (CSS .dashboard-metric-grid refuerza <1024px) */}
-      <div className="dashboard-metric-grid grid grid-cols-2 gap-2 sm:gap-2.5 lg:grid-cols-3 xl:grid-cols-4 mb-2 sm:mb-4 lg:mb-8">
+      {/* Misma presentación en móvil y PC: tarjetas horizontales compactas */}
+      <div className="dashboard-metric-grid grid grid-cols-2 gap-2 sm:gap-2.5 lg:grid-cols-3 xl:grid-cols-4 mb-2 sm:mb-4">
         {[
           { id: "ocupados", label: "Ocupados", labelShort: "Ocupados", value: stats.occupied, icon: Users, color: "text-primary", bg: "bg-primary/10", suffix: " Dúplex", currency: false },
           { id: "disponibles", label: "Disponibles", labelShort: "Disponibles", value: stats.available === 0 ? "Completo" : stats.available, icon: Home, color: "text-emerald-400", bg: "bg-emerald-400/10", suffix: stats.available === 0 ? "" : " Dúplex", currency: false },
@@ -1385,7 +1655,7 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
           const fullTitle = metric.currency && typeof metric.value === "number"
             ? formatCurrency(metric.value)
             : `${metric.value}${metric.suffix || ""}`;
-          const mobileText = metric.currency && typeof metric.value === "number"
+          const displayText = metric.currency && typeof metric.value === "number"
             ? formatMetricDisplay(metric.value, true)
             : String(metric.value);
 
@@ -1395,45 +1665,26 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
             onClick={() => toggleDetail(metric.id)}
             className={`border border-border shadow-sm transition-all duration-200 cursor-pointer ${detailView === metric.id ? 'ring-2 ring-primary' : ''} rounded-xl sm:rounded-2xl bg-card overflow-hidden group min-w-0`}
           >
-            {/* Móvil: layout horizontal legible en 2 columnas */}
-            <CardContent className="lg:hidden p-2.5 relative flex flex-row items-center gap-2 min-h-[64px] min-w-0">
-              <div className={`w-9 h-9 rounded-lg ${metric.bg} ${metric.color} flex items-center justify-center shrink-0`}>
-                <metric.icon className="w-4 h-4 stroke-[2px]" />
+            <CardContent className="p-2.5 lg:p-3 relative flex flex-row items-center gap-2 lg:gap-3 min-h-[64px] lg:min-h-[72px] min-w-0">
+              <div className={`w-9 h-9 lg:w-10 lg:h-10 rounded-lg ${metric.bg} ${metric.color} flex items-center justify-center shrink-0`}>
+                <metric.icon className="w-4 h-4 lg:w-[18px] lg:h-[18px] stroke-[2px]" />
               </div>
               <div className="min-w-0 flex-1 text-left">
-                <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground leading-tight truncate">
+                <p className="text-[9px] lg:text-[10px] font-bold uppercase tracking-wide text-muted-foreground leading-tight truncate">
                   {metric.labelShort}
                 </p>
                 <h3
                   title={fullTitle}
-                  className="mt-0.5 text-[0.95rem] font-heading font-extrabold text-foreground leading-snug tabular-nums tracking-tight break-words"
+                  className="mt-0.5 text-[0.95rem] lg:text-lg font-heading font-extrabold text-foreground leading-snug tabular-nums tracking-tight break-words"
                 >
-                  {mobileText}
+                  {displayText}
                 </h3>
                 {metric.suffix ? (
-                  <span className="block text-[9px] font-sans font-semibold text-muted-foreground">
+                  <span className="block text-[9px] lg:text-[10px] font-sans font-semibold text-muted-foreground">
                     {metric.suffix.trim()}
                   </span>
                 ) : null}
               </div>
-            </CardContent>
-            {/* Desktop / pantallas grandes: layout centrado original */}
-            <CardContent className="hidden lg:flex p-4 xl:p-5 relative flex-col items-center text-center justify-center min-h-[148px]">
-              <div className={`w-12 h-12 rounded-xl ${metric.bg} ${metric.color} flex items-center justify-center mb-3 shrink-0`}>
-                <metric.icon className="w-5 h-5 stroke-[2px]" />
-              </div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 font-sans leading-tight px-1">
-                {metric.label}
-              </p>
-              <h3
-                title={fullTitle}
-                className="w-full px-1 text-xl xl:text-2xl font-heading font-bold text-foreground leading-tight tabular-nums tracking-tight"
-              >
-                {metric.currency && typeof metric.value === "number" ? formatCurrency(metric.value) : metric.value}
-                {metric.suffix ? (
-                  <span className="text-sm font-sans text-muted-foreground ml-1 font-semibold">{metric.suffix}</span>
-                ) : null}
-              </h3>
             </CardContent>
           </Card>
           );

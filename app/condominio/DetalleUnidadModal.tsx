@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { ContratoImprimible, descargarContratoDoc, descargarContratoPDF } from "./ContratoImprimible";
+import { ContratoImprimible, descargarContratoDoc, descargarContratoPDF, resolveCodeudor } from "./ContratoImprimible";
 import { PagareImprimible } from "./PagareImprimible";
 import {
   ExpedienteUnidadImprimible,
@@ -56,7 +56,10 @@ import {
   ArrowUp,
   ArrowDown,
   CheckCircle2,
-  Phone
+  Phone,
+  Eye,
+  CheckSquare,
+  Square
 } from "lucide-react";
 import { 
   Table, 
@@ -64,12 +67,13 @@ import {
   TableCell, 
   TableHead, 
   TableHeader, 
-  TableRow 
+  TableRow
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ComprobantePreviewModal } from "./ComprobantePreviewModal";
 import { GenerarEditarContratoModal } from "./GenerarEditarContratoModal";
+import { VistaPreviaDocumentosModal, type DatosPlantillaPreview } from "./VistaPreviaDocumentosModal";
 import { API_BASE } from "@/lib/api";
 
 interface Unidad {
@@ -185,12 +189,30 @@ interface Contrato {
   pagos: Pago[];
 }
 
+type DetalleUnidadTab = "ficha" | "pagos" | "gastos" | "documentos" | "historico" | "comprobantes";
+
 interface DetalleUnidadModalProps {
   isOpen: boolean;
   onClose: () => void;
   unidad: Unidad | null;
-  onUpdate?: () => void;
+  onUpdate?: (patch?: Partial<Unidad>) => void;
+  /** Tab inicial al abrir (ej. "pagos" = Historial de pagos). */
+  initialTab?: DetalleUnidadTab;
 }
+
+const normalizeNisValue = (raw?: string | null): string => {
+  if (raw == null) return "";
+  let s = String(raw).trim();
+  while (
+    (s.startsWith('"') && s.endsWith('"') && s.length >= 2) ||
+    (s.startsWith("'") && s.endsWith("'") && s.length >= 2)
+  ) {
+    s = s.slice(1, -1).trim();
+  }
+  // Evita guardar basura tipo undefined/null literales
+  if (!s || s === "N/A" || s === "SIN NIS" || s === "null" || s === "undefined") return "";
+  return s;
+};
 
 interface EditItem {
     label: string;
@@ -210,8 +232,8 @@ const formatCodigoFicha = (codigo?: string) => {
   });
 };
 
-export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: DetalleUnidadModalProps) {
-  const [activeTab, setActiveTab] = useState<"ficha" | "pagos" | "gastos" | "documentos" | "historico" | "comprobantes">("ficha");
+export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialTab = "ficha" }: DetalleUnidadModalProps) {
+  const [activeTab, setActiveTab] = useState<DetalleUnidadTab>(initialTab);
   const [isEditing, setIsEditing] = useState(false);
   const [isRenewing, setIsRenewing] = useState(false);
   const [showRenewedPreviewModal, setShowRenewedPreviewModal] = useState(false);
@@ -242,8 +264,9 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
   
   // Estado para Generación de Documentos Word (Plantillas)
   const [plantillasList, setPlantillasList] = useState<any[]>([]);
-  const [selectedPlantillaId, setSelectedPlantillaId] = useState<number>(0);
+  const [selectedPlantillaIds, setSelectedPlantillaIds] = useState<number[]>([]);
   const [isGeneratingDoc, setIsGeneratingDoc] = useState(false);
+  const [isVistaPreviaDocsOpen, setIsVistaPreviaDocsOpen] = useState(false);
 
   const [isPreviewComprobanteOpen, setIsPreviewComprobanteOpen] = useState(false);
   const [comprobantePagoData, setComprobantePagoData] = useState<any>(null);
@@ -276,7 +299,11 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
     if (isOpen) {
       fetch(`${API_BASE}/api/Plantillas`)
         .then(r => r.ok ? r.json() : [])
-        .then(data => setPlantillasList(data))
+        .then((data) => {
+          const list = Array.isArray(data) ? data : [];
+          setPlantillasList(list);
+          setSelectedPlantillaIds(list.map((p: any) => Number(p.plantillaId)).filter(Boolean));
+        })
         .catch(() => {});
     }
   }, [isOpen]);
@@ -325,117 +352,144 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
       return leerMillones(num);
   };
 
-  const handleDescargarWord = async () => {
-      if (!selectedPlantillaId || selectedPlantillaId === 0) {
-          toast.error("Seleccione una plantilla primero.");
-          return;
+  const buildDatosPlantillaPreview = (): DatosPlantillaPreview | null => {
+      if (!contractData?.contratoId) return null;
+
+      const montoAlquiler = Number(contractData?.montoMensualAlquiler || 0);
+      const montoGarantia = Number(contractData?.depositoGarantia || 0);
+      const montoLetras = convertirNumeroALetras(montoGarantia);
+      const hoy = new Date();
+
+      const codigoOriginal = unidad?.code || "";
+      const matchDigitos = codigoOriginal.match(/\d+/);
+      const soloDigito = matchDigitos ? matchDigitos[0] : codigoOriginal;
+
+      const fmtGs = (n: number) =>
+          n > 0 ? new Intl.NumberFormat("es-PY").format(n) : "";
+
+      const fechaInicio = contractData?.fechaInicioContrato
+          ? formatFechaCorta(contractData.fechaInicioContrato)
+          : "";
+      const fechaFin = contractData?.fechaFinContrato
+          ? formatFechaCorta(contractData.fechaFinContrato)
+          : "";
+
+      let duracionMeses = "";
+      if (contractData?.fechaInicioContrato && contractData?.fechaFinContrato) {
+          const ini = new Date(contractData.fechaInicioContrato);
+          const fin = new Date(contractData.fechaFinContrato);
+          if (!Number.isNaN(ini.getTime()) && !Number.isNaN(fin.getTime())) {
+              const meses =
+                  (fin.getFullYear() - ini.getFullYear()) * 12 +
+                  (fin.getMonth() - ini.getMonth());
+              duracionMeses = String(meses > 0 ? meses : 12);
+          }
       }
 
+      const codeudor = resolveCodeudor(contractData);
+      return {
+          FechaFirma: hoy.toLocaleDateString("es-PY"),
+          DiaEntrega: hoy.getDate().toString(),
+          MesEntrega: hoy.toLocaleDateString("es-PY", { month: "long" }),
+          AnioEntrega: hoy.getFullYear().toString(),
+          Duplex: soloDigito,
+          Condominio: unidad?.condo || "",
+          NisAnde: `${localNisAnde || unidad?.nisAnde || ""}`,
+          MontoAlquiler: fmtGs(montoAlquiler),
+          MontoGarantia: fmtGs(montoGarantia),
+          MontoPagare: fmtGs(montoGarantia),
+          MontoPagareLetras: montoGarantia > 0 ? `GUARANÍES ${montoLetras}` : "",
+          FechaInicio: fechaInicio,
+          FechaFin: fechaFin,
+          DuracionMeses: duracionMeses,
+          Locatario: `${(contractData?.inquilino?.razonSocial || unidad?.tenant || "").toUpperCase()}`,
+          CedulaLocatario: `${contractData?.inquilino?.documento || ""}`,
+          DomicilioLocatario: `${((contractData as any)?.domicilioLocatario || unidad?.condo || "Luque, Paraguay").toUpperCase()}`,
+          TelefonoLocatario: `${contractData?.inquilino?.telefono || ""}`,
+          Codeudor: `${(codeudor.nombre || (contractData as any)?.codeudorNombre || "").toUpperCase()}`,
+          CedulaCodeudor: `${codeudor.cedula || (contractData as any)?.codeudorCedula || ""}`,
+          DomicilioCodeudor: `${(codeudor.direccion || (contractData as any)?.codeudorDireccion || "").toUpperCase()}`,
+          TelefonoCodeudor: `${codeudor.telefono || (contractData as any)?.codeudorTelefono || ""}`,
+      } as DatosPlantillaPreview;
+  };
+
+  const togglePlantillaId = (id: number) => {
+      setSelectedPlantillaIds((prev) =>
+          prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+      );
+  };
+
+  const seleccionarTodasPlantillas = () => {
+      setSelectedPlantillaIds(plantillasList.map((p: any) => Number(p.plantillaId)).filter(Boolean));
+  };
+
+  const deseleccionarTodasPlantillas = () => setSelectedPlantillaIds([]);
+
+  const handleAbrirVistaPreviaDocs = () => {
+      if (selectedPlantillaIds.length === 0) {
+          toast.error("Seleccioná al menos una plantilla.");
+          return;
+      }
       if (!contractData?.contratoId) {
           toast.error("No hay contrato activo", {
               description: "Registre o seleccione un inquilino con contrato para autocompletar el documento."
           });
           return;
       }
+      setIsVistaPreviaDocsOpen(true);
+  };
+
+  const handleConfirmarGenerarZip = async () => {
+      const datos = buildDatosPlantillaPreview();
+      if (!datos || !contractData?.contratoId) {
+          toast.error("No hay contrato activo");
+          return;
+      }
+      if (selectedPlantillaIds.length === 0) {
+          toast.error("Seleccioná al menos una plantilla.");
+          return;
+      }
 
       setIsGeneratingDoc(true);
       try {
-          const montoAlquiler = Number(contractData?.montoMensualAlquiler || 0);
-          const montoGarantia = Number(contractData?.depositoGarantia || 0);
-          const montoLetras = convertirNumeroALetras(montoGarantia);
-          const hoy = new Date();
-
-          const codigoOriginal = unidad?.code || "";
-          const matchDigitos = codigoOriginal.match(/\d+/);
-          const soloDigito = matchDigitos ? matchDigitos[0] : codigoOriginal;
-
-          const fmtGs = (n: number) =>
-              n > 0 ? new Intl.NumberFormat("es-PY").format(n) : "";
-
-          const fechaInicio = contractData?.fechaInicioContrato
-              ? formatFechaCorta(contractData.fechaInicioContrato)
-              : "";
-          const fechaFin = contractData?.fechaFinContrato
-              ? formatFechaCorta(contractData.fechaFinContrato)
-              : "";
-
-          let duracionMeses = "";
-          if (contractData?.fechaInicioContrato && contractData?.fechaFinContrato) {
-              const ini = new Date(contractData.fechaInicioContrato);
-              const fin = new Date(contractData.fechaFinContrato);
-              if (!Number.isNaN(ini.getTime()) && !Number.isNaN(fin.getTime())) {
-                  const meses =
-                      (fin.getFullYear() - ini.getFullYear()) * 12 +
-                      (fin.getMonth() - ini.getMonth());
-                  duracionMeses = String(meses > 0 ? meses : 12);
-              }
-          }
-
-          const params = new URLSearchParams({
-              contratoId: String(contractData.contratoId),
-              FechaFirma: hoy.toLocaleDateString("es-PY"),
-              DiaEntrega: hoy.getDate().toString(),
-              MesEntrega: hoy.toLocaleDateString("es-PY", { month: "long" }),
-              AnioEntrega: hoy.getFullYear().toString(),
-              Duplex: soloDigito,
-              Condominio: unidad?.condo || "",
-              NisAnde: `${localNisAnde || unidad?.nisAnde || ""}`,
-              MontoAlquiler: fmtGs(montoAlquiler),
-              MontoGarantia: fmtGs(montoGarantia),
-              MontoPagare: fmtGs(montoGarantia),
-              MontoPagareLetras: montoGarantia > 0 ? `GUARANÍES ${montoLetras}` : "",
-              FechaInicio: fechaInicio,
-              FechaFin: fechaFin,
-              DuracionMeses: duracionMeses,
-              Locatario: `${contractData?.inquilino?.razonSocial || unidad?.tenant || ""}`,
-              CedulaLocatario: `${contractData?.inquilino?.documento || ""}`,
-              DomicilioLocatario: `${(contractData as any)?.domicilioLocatario || unidad?.condo || "Luque, Paraguay"}`,
-              TelefonoLocatario: `${contractData?.inquilino?.telefono || ""}`,
-              Codeudor: `${(contractData as any)?.codeudorNombre || ""}`,
-              CedulaCodeudor: `${(contractData as any)?.codeudorCedula || ""}`,
-              DomicilioCodeudor: `${(contractData as any)?.codeudorDireccion || ""}`,
-              TelefonoCodeudor: `${(contractData as any)?.codeudorTelefono || ""}`,
+          const params = new URLSearchParams();
+          Object.entries(datos).forEach(([k, v]) => {
+              if (v != null && String(v).length > 0) params.set(k, String(v));
           });
+          params.set("ids", selectedPlantillaIds.join(","));
 
-          const url = `${API_BASE}/api/Plantillas/generar/${selectedPlantillaId}?${params.toString()}`;
-          
+          const url = `${API_BASE}/api/Plantillas/generar-zip/${contractData.contratoId}?${params.toString()}`;
           const response = await fetch(url);
           if (!response.ok) {
               const errText = await response.text().catch(() => "");
-              throw new Error(errText || "No se pudo generar el documento");
+              throw new Error(errText || "No se pudo generar el ZIP");
           }
 
           const blob = await response.blob();
           const downloadUrl = window.URL.createObjectURL(blob);
-
-          const plantillaSeleccionada = plantillasList.find(p => p.plantillaId === Number(selectedPlantillaId));
-          const nombreDocumento = plantillaSeleccionada 
-              ? plantillaSeleccionada.nombre.replace(/\s+/g, '_') 
-              : "Documento";
-          const nombreInquilino = (contractData?.inquilino?.razonSocial || "Inquilino")
-              .replace(/\s+/g, "_");
-
+          const nombreInquilino = (datos.Locatario || "Inquilino").replace(/\s+/g, "_");
           const a = document.createElement("a");
           a.href = downloadUrl;
-          a.download = `${nombreDocumento}_${nombreInquilino}_Duplex-${soloDigito}.docx`;
-          
+          a.download = `Documentos_Alquiler_${nombreInquilino}.zip`;
           document.body.appendChild(a);
           a.click();
           a.remove();
           window.URL.revokeObjectURL(downloadUrl);
-          toast.success(`¡${plantillaSeleccionada?.nombre || "Documento"} generado!`, {
-              description: "Datos del inquilino y dúplex autocompletados según la plantilla oficial."
+
+          setIsVistaPreviaDocsOpen(false);
+          toast.success(`¡${selectedPlantillaIds.length} documento(s) generado(s)!`, {
+              description: "ZIP con plantillas Word oficiales y datos autocompletados."
           });
       } catch (e: any) {
           console.error(e);
-          toast.error("Error al generar el documento", {
+          toast.error("Error al generar los documentos", {
               description: e?.message || "Verifique que la API esté en marcha y las plantillas en wwwroot/plantillas."
           });
       } finally {
           setIsGeneratingDoc(false);
       }
   };
-  
+
   // Estados para OCR / Escaneo de Contrato
   const [isScanning, setIsScanning] = useState(false);
   const [ocrData, setOcrData] = useState<{
@@ -774,19 +828,74 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
     if (isOpen && unidad?.id) {
       fetchContract();
       fetchHistoricoContratos();
-      setLocalNisAnde(unidad?.nisAnde || "");
+      setLocalNisAnde(normalizeNisValue(unidad?.nisAnde));
       setLocalCodigoUnidad(unidad?.code || "");
       setAndeLuzConsulta(null);
       setFilterDesde("");
       setFilterHasta("");
       setFilterContratoDesde("");
       setFilterContratoHasta("");
+      setActiveTab(initialTab || "ficha");
+      // Recargar NIS real desde API (no depender solo del prop del dashboard)
+      void (async () => {
+        try {
+          const r = await fetch(`${API_BASE}/api/UnidadesCondominio/${unidad.id}?t=${Date.now()}`);
+          if (!r.ok) return;
+          const data = await r.json();
+          const nis = normalizeNisValue(data?.nisAnde ?? data?.NisAnde);
+          const codigo = String(data?.codigoUnidad ?? data?.CodigoUnidad ?? unidad.code ?? "");
+          setLocalNisAnde(nis);
+          if (codigo) setLocalCodigoUnidad(codigo);
+        } catch {
+          /* ignore */
+        }
+      })();
     } else {
       setIsEditing(false);
       setIsRenewing(false);
       setIsContratando(false);
     }
-  }, [isOpen, unidad?.id, unidad?.nisAnde, unidad?.code]);
+  }, [isOpen, unidad?.id, unidad?.nisAnde, unidad?.code, initialTab]);
+
+  const persistUnidadCampos = async (): Promise<{ ok: boolean; nis: string; codigo: string; error?: string }> => {
+    const nis = normalizeNisValue(localNisAnde);
+    const codigo = (localCodigoUnidad || unidad?.code || "").trim();
+    if (!unidad?.id) return { ok: false, nis, codigo, error: "Sin unidadId" };
+    try {
+      const getRes = await fetch(`${API_BASE}/api/UnidadesCondominio/${unidad.id}?t=${Date.now()}`);
+      if (!getRes.ok) {
+        const t = await getRes.text().catch(() => "");
+        return { ok: false, nis, codigo, error: `GET ${getRes.status}: ${t || "unidad no encontrada"}` };
+      }
+      const current = await getRes.json();
+      const payload = {
+        empresaId: current.empresaId ?? current.EmpresaId ?? 0,
+        nombreCondominio: current.nombreCondominio ?? current.NombreCondominio ?? unidad.condo ?? "",
+        codigoUnidad: codigo || current.codigoUnidad || current.CodigoUnidad || "",
+        estado: current.estado ?? current.Estado ?? unidad.status ?? "Ocupado",
+        nisAnde: nis || null,
+        medidorAgua: current.medidorAgua ?? current.MedidorAgua ?? null,
+        observaciones: current.observaciones ?? current.Observaciones ?? null,
+      };
+      const putRes = await fetch(`${API_BASE}/api/UnidadesCondominio/${unidad.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!putRes.ok) {
+        const t = await putRes.text().catch(() => "");
+        return { ok: false, nis, codigo, error: `PUT ${putRes.status}: ${t || "error al guardar"}` };
+      }
+      const saved = await putRes.json().catch(() => null);
+      const savedNis = normalizeNisValue(saved?.nisAnde ?? saved?.NisAnde ?? nis);
+      const savedCodigo = String(saved?.codigoUnidad ?? saved?.CodigoUnidad ?? codigo);
+      setLocalNisAnde(savedNis);
+      if (savedCodigo) setLocalCodigoUnidad(savedCodigo);
+      return { ok: true, nis: savedNis, codigo: savedCodigo };
+    } catch (e: any) {
+      return { ok: false, nis, codigo, error: e?.message || "Error de red" };
+    }
+  };
 
   React.useEffect(() => {
     setAndeLuzConsulta(null);
@@ -879,17 +988,10 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
         }
       }
 
-      if ((localNisAnde !== unidad?.nisAnde || localCodigoUnidad !== unidad?.code) && unidad?.id) {
-          await fetch(`${API_BASE}/api/UnidadesCondominio/${unidad.id}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                  ...unidad,
-                  unidadId: unidad.id,
-                  codigoUnidad: localCodigoUnidad,
-                  nisAnde: localNisAnde
-              })
-          });
+      if ((normalizeNisValue(localNisAnde) !== normalizeNisValue(unidad?.nisAnde) || localCodigoUnidad !== unidad?.code) && unidad?.id) {
+          const saved = await persistUnidadCampos();
+          if (!saved.ok) toast.error("No se pudo guardar el NIS / código de unidad", { description: saved.error });
+          else if (onUpdate) onUpdate({ nisAnde: saved.nis, code: saved.codigo });
       }
 
       const resp = await fetch(`${API_BASE}/api/Contratos`, {
@@ -934,20 +1036,24 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
   };
 
   const handleUpdate = async () => {
-    if (!contractData) return;
     try {
-      if ((localNisAnde !== unidad?.nisAnde || localCodigoUnidad !== unidad?.code) && unidad?.id) {
-          const respUnidad = await fetch(`${API_BASE}/api/UnidadesCondominio/${unidad.id}`);
-          if (respUnidad.ok) {
-              const unidadData = await respUnidad.json();
-              unidadData.nisAnde = localNisAnde;
-              unidadData.codigoUnidad = localCodigoUnidad;
-              await fetch(`${API_BASE}/api/UnidadesCondominio/${unidad.id}`, {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(unidadData)
-              });
-          }
+      // Siempre persiste NIS/código al guardar la ficha (no depender solo del prop del dashboard)
+      if (unidad?.id) {
+        const saved = await persistUnidadCampos();
+        if (!saved.ok) {
+          toast.error("No se pudo guardar el NIS / código de la unidad", {
+            description: saved.error || "Revisá que la API esté en marcha.",
+          });
+          return;
+        }
+        if (onUpdate) onUpdate({ nisAnde: saved.nis, code: saved.codigo });
+      }
+
+      // Sin contrato solo se guarda la unidad (NIS)
+      if (!contractData) {
+        toast.success("NIS actualizado correctamente");
+        setIsEditing(false);
+        return;
       }
 
       const resp = await fetch(`${API_BASE}/api/Contratos`, {
@@ -978,7 +1084,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
         toast.success("Datos actualizados correctamente");
         setIsEditing(false);
         fetchContract();
-        if (onUpdate) onUpdate();
+        if (onUpdate) onUpdate({ nisAnde: normalizeNisValue(localNisAnde), code: localCodigoUnidad });
       } else {
         const errText = await resp.text();
         console.error("Error API:", errText);
@@ -1020,17 +1126,10 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
   const handleContratar = async () => {
     if (!contractData) return;
     try {
-      if (localNisAnde !== unidad?.nisAnde && unidad?.id) {
-          const respUnidad = await fetch(`${API_BASE}/api/UnidadesCondominio/${unidad.id}`);
-          if (respUnidad.ok) {
-              const unidadData = await respUnidad.json();
-              unidadData.nisAnde = localNisAnde;
-              await fetch(`${API_BASE}/api/UnidadesCondominio/${unidad.id}`, {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(unidadData)
-              });
-          }
+      if (normalizeNisValue(localNisAnde) !== normalizeNisValue(unidad?.nisAnde) && unidad?.id) {
+          const saved = await persistUnidadCampos();
+          if (!saved.ok) toast.error("No se pudo guardar el NIS", { description: saved.error });
+          else if (onUpdate) onUpdate({ nisAnde: saved.nis });
       }
       
       const resp = await fetch(`${API_BASE}/api/Contratos`, {
@@ -2452,11 +2551,13 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                                     {(isEditing || isContratando) ? (
                                         <Input 
                                             value={localNisAnde} 
-                                            onChange={(e) => setLocalNisAnde(e.target.value)} 
+                                            onChange={(e) => setLocalNisAnde(normalizeNisValue(e.target.value))} 
                                             className="h-8 w-32 text-right font-black italic text-foreground"
+                                            inputMode="numeric"
+                                            placeholder="Ej. 3070876"
                                         />
                                     ) : (
-                                        <p className="text-sm font-black italic text-foreground">{localNisAnde}</p>
+                                        <p className="text-sm font-black italic text-foreground">{normalizeNisValue(localNisAnde) || "—"}</p>
                                     )}
                                 </div>
                             </div>
@@ -2828,35 +2929,81 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
                                         <h3 className="text-xl font-black italic uppercase tracking-tighter text-white">Generar Contrato / Documento Legal (.DOCX)</h3>
                                         <Badge className="bg-amber-500 text-slate-950 font-black text-[9px] uppercase px-2 py-0.5 border-none">OFICIAL</Badge>
                                     </div>
-                                    <p className="text-muted-foreground text-[11px] font-medium">Autocompleta las variables del prototipo Word ({'{'}Locatario{'}'}, {'{'}Duplex{'}'}, {'{'}MontoAlquiler{'}'}, etc.) con los datos de <strong className="text-amber-300 font-bold">{contractData?.inquilino?.razonSocial || contractData?.inquilino?.nombre || unidad?.tenant || "este inquilino"}</strong> en el Dúplex <strong className="text-amber-300 font-bold">{unidad?.code}</strong> ({unidad?.condo || "condominio"}).</p>
+                                    <p className="text-muted-foreground text-[11px] font-medium">Seleccioná una o varias plantillas, revisá la vista previa con los datos de <strong className="text-amber-300 font-bold">{contractData?.inquilino?.razonSocial || contractData?.inquilino?.nombre || unidad?.tenant || "este inquilino"}</strong> (Dúplex <strong className="text-amber-300 font-bold">{unidad?.code}</strong>) y recién ahí se generan los <strong className="text-white">.docx</strong> oficiales en un ZIP.</p>
                                 </div>
                             </div>
-                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
-                                <select 
-                                    value={selectedPlantillaId}
-                                    onChange={(e) => setSelectedPlantillaId(Number(e.target.value))}
-                                    className="bg-slate-800/90 border border-slate-600 text-white text-xs rounded-xl px-4 py-3 font-bold uppercase outline-none focus:border-amber-400 transition-all w-full sm:w-64"
-                                >
-                                    <option value={0}>— Seleccionar Plantilla Word —</option>
-                                    {plantillasList.map((p: any) => (
-                                        <option key={p.plantillaId} value={p.plantillaId}>{p.nombre} ({p.tipo})</option>
-                                    ))}
-                                </select>
-                                <Button 
-                                    onClick={handleDescargarWord}
-                                    disabled={!selectedPlantillaId || selectedPlantillaId === 0 || isGeneratingDoc}
-                                    className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs px-6 py-6 rounded-xl uppercase tracking-wider shadow-lg shadow-amber-500/20 whitespace-nowrap transition-all hover:scale-105 active:scale-95"
-                                >
-                                    <Download className="w-4 h-4 mr-2 stroke-[2.5]" />
-                                    {isGeneratingDoc ? "Generando Word..." : "Descargar Word"}
-                                </Button>
-                                <Button 
-                                    onClick={() => setIsGenerarContratoModalOpen(true)}
-                                    className="bg-slate-900 hover:bg-slate-800 text-white font-black text-xs px-5 py-6 rounded-xl uppercase tracking-wider shadow-lg whitespace-nowrap transition-all hover:scale-105 active:scale-95"
-                                >
-                                    <Pencil className="w-4 h-4 mr-2" />
-                                    Editar Datos y Generar Contrato
-                                </Button>
+                            <div className="flex flex-col gap-3 w-full lg:w-[min(100%,420px)]">
+                                <div className="flex items-center justify-between gap-2">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                        Plantillas ({selectedPlantillaIds.length}/{plantillasList.length})
+                                    </p>
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={seleccionarTodasPlantillas}
+                                            className="text-[9px] font-black uppercase text-amber-400 hover:text-amber-300 inline-flex items-center gap-1"
+                                        >
+                                            <CheckSquare className="w-3 h-3" /> Todas
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={deseleccionarTodasPlantillas}
+                                            className="text-[9px] font-black uppercase text-slate-400 hover:text-slate-200 inline-flex items-center gap-1"
+                                        >
+                                            <Square className="w-3 h-3" /> Ninguna
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="bg-slate-800/90 border border-slate-600 rounded-xl max-h-48 overflow-y-auto divide-y divide-slate-700/80">
+                                    {plantillasList.map((p: any) => {
+                                        const id = Number(p.plantillaId);
+                                        const checked = selectedPlantillaIds.includes(id);
+                                        return (
+                                            <label
+                                                key={id}
+                                                className={`flex items-start gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
+                                                    checked ? "bg-amber-500/10" : "hover:bg-slate-700/40"
+                                                }`}
+                                            >
+                                                <Checkbox
+                                                    checked={checked}
+                                                    onCheckedChange={() => togglePlantillaId(id)}
+                                                    className="mt-0.5 border-slate-500 data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500 data-[state=checked]:text-slate-950"
+                                                />
+                                                <span className="min-w-0">
+                                                    <span className="block text-[11px] font-bold uppercase text-white leading-tight">
+                                                        {p.nombre}
+                                                    </span>
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                                        {p.tipo || "DOC"}
+                                                    </span>
+                                                </span>
+                                            </label>
+                                        );
+                                    })}
+                                    {plantillasList.length === 0 && (
+                                        <p className="text-[10px] text-slate-400 p-4 text-center font-bold uppercase">
+                                            No hay plantillas cargadas
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="flex flex-col sm:flex-row items-stretch gap-2">
+                                    <Button 
+                                        onClick={handleAbrirVistaPreviaDocs}
+                                        disabled={selectedPlantillaIds.length === 0 || isGeneratingDoc}
+                                        className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs px-6 py-6 rounded-xl uppercase tracking-wider shadow-lg shadow-amber-500/20 whitespace-nowrap transition-all hover:scale-105 active:scale-95 flex-1"
+                                    >
+                                        <Eye className="w-4 h-4 mr-2 stroke-[2.5]" />
+                                        {isGeneratingDoc ? "Generando..." : "Vista previa y generar"}
+                                    </Button>
+                                    <Button 
+                                        onClick={() => setIsGenerarContratoModalOpen(true)}
+                                        className="bg-slate-900 hover:bg-slate-800 text-white font-black text-xs px-5 py-6 rounded-xl uppercase tracking-wider shadow-lg whitespace-nowrap transition-all hover:scale-105 active:scale-95"
+                                    >
+                                        <Pencil className="w-4 h-4 mr-2" />
+                                        Editar Datos
+                                    </Button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -4172,6 +4319,26 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate }: Detall
           }}
         />
       )}
+
+      {isVistaPreviaDocsOpen && (() => {
+        const datosPrev = buildDatosPlantillaPreview();
+        const seleccionadas = plantillasList.filter((p: any) =>
+          selectedPlantillaIds.includes(Number(p.plantillaId))
+        );
+        if (!datosPrev) return null;
+        return (
+          <VistaPreviaDocumentosModal
+            isOpen={isVistaPreviaDocsOpen}
+            onClose={() => setIsVistaPreviaDocsOpen(false)}
+            plantillas={seleccionadas}
+            datos={datosPrev}
+            contractData={contractData}
+            unidad={{ ...unidad, codigo: unidad?.code, code: unidad?.code, nisAnde: localNisAnde || unidad?.nisAnde }}
+            isGenerating={isGeneratingDoc}
+            onConfirmGenerate={handleConfirmarGenerarZip}
+          />
+        );
+      })()}
 
       {/* MODAL DE VISTA PREVIA Y COMPARTIR POR WHATSAPP */}
       {showWhatsAppPreviewModal && (

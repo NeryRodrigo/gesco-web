@@ -272,33 +272,33 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] p-4 md:p-8 font-sans">
+    <div className="min-h-0 p-4 md:p-8 font-sans bg-transparent">
       <div className="max-w-6xl mx-auto space-y-8">
         
         {/* HEADER */}
-        <div className="flex justify-between items-center bg-card p-6 rounded-3xl shadow-sm border border-border">
+        <div className="flex justify-between items-center bg-[#0C1327] p-6 rounded-3xl shadow-sm border border-white/5">
           <div>
-            <h1 className="text-3xl font-black italic uppercase tracking-tighter text-foreground flex items-center gap-3">
-              <div className="bg-slate-900 p-2 rounded-xl">
+            <h1 className="text-3xl font-black italic uppercase tracking-tighter text-white flex items-center gap-3">
+              <div className="bg-blue-600 p-2 rounded-xl">
                 <Settings className="text-white w-6 h-6" />
               </div>
-              Panel de <span className="text-blue-600">Configuración</span>
+              Panel de <span className="text-blue-400">Configuración</span>
             </h1>
-            <p className="text-muted-foreground font-bold text-sm uppercase tracking-widest mt-1">Gestión de Timbrados y Facturación</p>
+            <p className="text-slate-400 font-bold text-sm uppercase tracking-widest mt-1">Gestión de Timbrados y Facturación</p>
           </div>
           <Button 
             onClick={openNewModal}
-            className="bg-blue-600 text-white font-black italic rounded-xl px-6 hover:scale-105 transition-all shadow-lg shadow-blue-200"
+            className="bg-blue-600 text-white font-black italic rounded-xl px-6 hover:scale-105 transition-all shadow-lg shadow-blue-600/20"
           >
             <Plus className="mr-2 w-4 h-4" /> NUEVO TIMBRADO
           </Button>
         </div>
 
         {/* TIMBRADO TABLE */}
-        <Card className="border-none shadow-xl shadow-slate-200/50 rounded-3xl overflow-hidden">
-          <CardHeader className="bg-card border-b border-slate-50 p-6">
-            <CardTitle className="text-lg font-black uppercase italic text-foreground flex items-center gap-2">
-              <FileText className="w-5 h-5 text-blue-500" /> Registro de Timbrados
+        <Card className="border border-white/5 shadow-xl bg-[#0C1327] rounded-3xl overflow-hidden">
+          <CardHeader className="bg-[#0C1327] border-b border-white/5 p-6">
+            <CardTitle className="text-lg font-black uppercase italic text-white flex items-center gap-2">
+              <FileText className="w-5 h-5 text-blue-400" /> Registro de Timbrados
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -385,31 +385,31 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
         </Card>
 
         {/* CONFIGURACIÓN DE MULTAS MORATORIAS */}
-        <Card className="border border-border/50 shadow-sm rounded-3xl overflow-hidden bg-card">
-          <CardHeader className="bg-muted/50 border-b border-border p-6">
-            <CardTitle className="text-lg font-black uppercase italic text-foreground flex items-center gap-2">
-              <Settings className="w-5 h-5 text-blue-500" /> Configuración de Multas Moratorias (Mora)
+        <Card className="border border-white/5 shadow-sm rounded-3xl overflow-hidden bg-[#0C1327]">
+          <CardHeader className="bg-[#0C1327] border-b border-white/5 p-6">
+            <CardTitle className="text-lg font-black uppercase italic text-white flex items-center gap-2">
+              <Settings className="w-5 h-5 text-blue-400" /> Configuración de Multas Moratorias (Mora)
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6">
             <form onSubmit={handleSaveMulta} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Monto de Multa (Gs.)</label>
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Monto de Multa (Gs.)</label>
                   <Input 
                     type="number" 
                     value={montoMulta} 
                     onChange={(e) => setMontoMulta(Number(e.target.value))}
-                    className="h-12 rounded-xl font-bold border-border bg-[#F8F9FA] text-slate-900" 
+                    className="h-12 rounded-xl font-bold border-white/10 bg-[#0A1631] text-white" 
                     min="0"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Regla de Aplicación</label>
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Regla de Aplicación</label>
                   <select
                     value={tipoAplicacion}
                     onChange={(e) => setTipoAplicacion(e.target.value)}
-                    className="w-full h-12 px-4 rounded-xl font-bold border border-border bg-[#F8F9FA] text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary/10"
+                    className="w-full h-12 px-4 rounded-xl font-bold border border-white/10 bg-[#0A1631] text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                   >
                     <option value="FinMesAtrasado">Al Fin del Mes Atrasado</option>
                     <option value="CincoDias">Pasando Días de Gracia</option>
@@ -417,12 +417,12 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
                 </div>
                 {tipoAplicacion === "CincoDias" && (
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Días de Gracia</label>
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Días de Gracia</label>
                     <Input 
                       type="number" 
                       value={diasGracia} 
                       onChange={(e) => setDiasGracia(Number(e.target.value))}
-                      className="h-12 rounded-xl font-bold border-border bg-[#F8F9FA] text-slate-900"
+                      className="h-12 rounded-xl font-bold border-white/10 bg-[#0A1631] text-white"
                       min="1"
                     />
                   </div>
@@ -432,7 +432,7 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
                 <Button 
                   type="submit" 
                   disabled={savingMulta}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-black italic rounded-xl px-6 h-12 shadow-lg shadow-blue-200"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-black italic rounded-xl px-6 h-12 shadow-lg shadow-blue-600/20"
                 >
                   {savingMulta ? "Guardando..." : "GUARDAR CONFIGURACIÓN"}
                 </Button>
@@ -442,29 +442,29 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
         </Card>
 
         {/* HEADER PLANTILLAS DE CONTRATOS Y LEGALES */}
-        <div className="flex justify-between items-center bg-card p-6 rounded-3xl shadow-sm border border-border mt-12">
+        <div className="flex justify-between items-center bg-[#0C1327] p-6 rounded-3xl shadow-sm border border-white/5 mt-12">
           <div>
-            <h1 className="text-3xl font-black italic uppercase tracking-tighter text-foreground flex items-center gap-3">
-              <div className="bg-slate-900 p-2 rounded-xl">
+            <h1 className="text-3xl font-black italic uppercase tracking-tighter text-white flex items-center gap-3">
+              <div className="bg-blue-600 p-2 rounded-xl">
                 <FileSignature className="text-white w-6 h-6" />
               </div>
-              Plantillas de <span className="text-blue-600">Contrato</span>
+              Plantillas de <span className="text-blue-400">Contrato</span>
             </h1>
-            <p className="text-muted-foreground font-bold text-sm uppercase tracking-widest mt-1">Formatos predefinidos para la generación automática</p>
+            <p className="text-slate-400 font-bold text-sm uppercase tracking-widest mt-1">Formatos predefinidos para la generación automática</p>
           </div>
           <Button 
             onClick={() => setIsCreatingPlantilla(true)}
-            className="bg-blue-600 text-white font-black italic rounded-xl px-6 hover:scale-105 transition-all shadow-lg shadow-blue-200"
+            className="bg-blue-600 text-white font-black italic rounded-xl px-6 hover:scale-105 transition-all shadow-lg shadow-blue-600/20"
           >
             <Plus className="mr-2 w-4 h-4" /> NUEVA PLANTILLA
           </Button>
         </div>
 
         {/* PLANTILLAS TABLE */}
-        <Card className="border-none shadow-xl shadow-slate-200/50 rounded-3xl overflow-hidden">
-          <CardHeader className="bg-card border-b border-slate-50 p-6">
-            <CardTitle className="text-lg font-black uppercase italic text-foreground flex items-center gap-2">
-              <FileSignature className="w-5 h-5 text-blue-500" /> Documentos Legales y Contratos
+        <Card className="border border-white/5 shadow-xl bg-[#0C1327] rounded-3xl overflow-hidden">
+          <CardHeader className="bg-[#0C1327] border-b border-white/5 p-6">
+            <CardTitle className="text-lg font-black uppercase italic text-white flex items-center gap-2">
+              <FileSignature className="w-5 h-5 text-blue-400" /> Documentos Legales y Contratos
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -484,7 +484,7 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
                   <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground font-bold uppercase text-xs">No hay plantillas registradas</TableCell></TableRow>
                 ) : (
                   plantillasList.map((p) => (
-                    <TableRow key={p.plantillaId} className="border-slate-50 hover:bg-muted/50">
+                    <TableRow key={p.plantillaId} className="border-white/5 hover:bg-white/5">
                       <TableCell className="pl-8 py-5">
                         <div className="flex items-center gap-2">
                           <p className="font-black text-foreground uppercase text-sm">{p.nombre}</p>
@@ -543,7 +543,7 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
 
         {/* INFO CARD */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-blue-600 p-8 rounded-3xl text-white shadow-xl shadow-blue-200 flex items-center gap-6">
+          <div className="bg-blue-600 p-8 rounded-3xl text-white shadow-xl shadow-blue-600/20 flex items-center gap-6">
             <div className="bg-card/20 p-4 rounded-2xl">
               <FileText className="w-8 h-8" />
             </div>
@@ -555,13 +555,13 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
             </div>
           </div>
 
-          <div className="bg-card p-8 rounded-3xl border border-border shadow-sm flex items-center gap-6">
-            <div className="bg-muted p-4 rounded-2xl text-muted-foreground">
+          <div className="bg-[#0C1327] p-8 rounded-3xl border border-white/5 shadow-sm flex items-center gap-6">
+            <div className="bg-[#0A1631] p-4 rounded-2xl text-slate-400">
               <Hash className="w-8 h-8" />
             </div>
             <div>
-              <h3 className="font-black italic uppercase text-xl mb-1 text-foreground">Siguiente Número</h3>
-              <p className="text-muted-foreground text-sm font-medium">
+              <h3 className="font-black italic uppercase text-xl mb-1 text-white">Siguiente Número</h3>
+              <p className="text-slate-400 text-sm font-medium">
                 Verifique que el rango de números esté correctamente cargado y coincida con el de la SET.
               </p>
             </div>

@@ -117,7 +117,7 @@ function buildClausulasFinalesHtml(codeudor: CodeudorInfo) {
 
   if (codeudor.tieneCodeudor && t.codeudor) {
     parts.push(
-      `<p><strong>${t.codeudor}:</strong> El/La Señor/a <strong>${codeudor.nombre.toUpperCase()}</strong>, con documento <strong>${codeudor.cedula || "_________________"}</strong> con domicilio particular en <strong>${codeudor.direccion || "_________________"}</strong> ${TEXTO_CODEUDOR_REST}</p>`
+      `<p><strong>${t.codeudor}:</strong> El/La Señor/a <strong>${codeudor.nombre.toUpperCase()}</strong>, con documento <strong>${codeudor.cedula || "_________________"}</strong> con domicilio particular en <strong>${(codeudor.direccion || "_________________").toUpperCase()}</strong> ${TEXTO_CODEUDOR_REST}</p>`
     );
   }
 
@@ -146,7 +146,7 @@ function buildFirmaCodeudorHtml(codeudor: CodeudorInfo) {
                     <td style="text-align: center; width: 100%;">
                         ____________________________________<br/>
                         <strong>GARANTE / CODEUDOR</strong><br/>
-                        ${codeudor.nombre.toUpperCase()}<br/>
+                        <strong>${codeudor.nombre.toUpperCase()}</strong><br/>
                         C.I. N° ${codeudor.cedula || "_____________________"}
                     </td>
                 </tr>
@@ -201,6 +201,12 @@ export const ContratoImprimible = ({ contractData, dataUnidad, localNisAnde, isP
     const codeudor = resolveCodeudor(contractData);
     const observaciones = codeudor.observacionesLimpias;
     const titulos = titulosClausulasFinales(codeudor.tieneCodeudor, Boolean(observaciones));
+    const nombreLocatario = String(
+      contractData.inquilino?.razonSocial ||
+        contractData.inquilino?.nombre ||
+        contractData.nombreCompleto ||
+        "__________________________"
+    ).toUpperCase();
 
     const content = (
             <div 
@@ -221,7 +227,7 @@ export const ContratoImprimible = ({ contractData, dataUnidad, localNisAnde, isP
             <h1 className="text-center font-bold text-lg mb-6 uppercase">CONTRATO DE LOCACIÓN</h1>
 
             <p className="mb-4">
-                Entre el Señor <strong>MARCELO ORTIGOZA</strong> con C.I. 3.389.403, en adelante denominado LOCADOR, por una parte, y el/la señor/a <strong>{contractData.inquilino?.razonSocial || contractData.inquilino?.nombre || contractData.nombreCompleto || "__________________________"}</strong> con nro de documento <strong>{contractData.inquilino?.documento || contractData.inquilino?.cedula || contractData.cedula || "_________________"}</strong>, de Nacionalidad Paraguaya, fijando domicilio en la calle Melo de Portugal c/ Amistad, durante la duración del presente contrato, en adelante designado como: EL LOCATARIO, acuerdan libre y voluntariamente la celebración del presente contrato de locación de inmueble a ser ejecutado de conformidad con las cláusulas y condiciones siguientes:-------------
+                Entre el Señor <strong>MARCELO ORTIGOZA</strong> con C.I. 3.389.403, en adelante denominado LOCADOR, por una parte, y el/la señor/a <strong>{nombreLocatario}</strong> con nro de documento <strong>{contractData.inquilino?.documento || contractData.inquilino?.cedula || contractData.cedula || "_________________"}</strong>, de Nacionalidad Paraguaya, fijando domicilio en la calle Melo de Portugal c/ Amistad, durante la duración del presente contrato, en adelante designado como: EL LOCATARIO, acuerdan libre y voluntariamente la celebración del presente contrato de locación de inmueble a ser ejecutado de conformidad con las cláusulas y condiciones siguientes:-------------
             </p>
 
             <p className="mb-4">
@@ -286,7 +292,7 @@ export const ContratoImprimible = ({ contractData, dataUnidad, localNisAnde, isP
 
             {codeudor.tieneCodeudor && titulos.codeudor && (
             <p className="mb-4">
-                <strong>{titulos.codeudor}:</strong> El/La Señor/a <strong>{codeudor.nombre.toUpperCase()}</strong>, con documento <strong>{codeudor.cedula || "_________________"}</strong> con domicilio particular en <strong>{codeudor.direccion || "_________________"}</strong> {TEXTO_CODEUDOR_REST}
+                <strong>{titulos.codeudor}:</strong> El/La Señor/a <strong>{codeudor.nombre.toUpperCase()}</strong>, con documento <strong>{codeudor.cedula || "_________________"}</strong> con domicilio particular en <strong>{(codeudor.direccion || "_________________").toUpperCase()}</strong> {TEXTO_CODEUDOR_REST}
             </p>
             )}
 
@@ -331,7 +337,7 @@ export const ContratoImprimible = ({ contractData, dataUnidad, localNisAnde, isP
                     <div className="text-center w-[30%]">
                         <div className="border-t border-black mb-2"></div>
                         <p className="font-bold">EL LOCATARIO</p>
-                        <p className="text-xs">{(contractData.inquilino?.razonSocial || contractData.inquilino?.nombre || contractData.nombreCompleto || "_________________________")?.toUpperCase()}</p>
+                        <p className="text-xs font-bold">{nombreLocatario}</p>
                         <p className="text-xs">C.I. N° {contractData.inquilino?.documento || contractData.inquilino?.cedula || contractData.cedula || "_____________________"}</p>
                     </div>
                 </div>
@@ -341,7 +347,7 @@ export const ContratoImprimible = ({ contractData, dataUnidad, localNisAnde, isP
                     <div className="text-center w-[30%]">
                         <div className="border-t border-black mb-2"></div>
                         <p className="font-bold">GARANTE / CODEUDOR</p>
-                        <p className="text-xs">{codeudor.nombre.toUpperCase()}</p>
+                        <p className="text-xs font-bold">{codeudor.nombre.toUpperCase()}</p>
                         <p className="text-xs">C.I. N° {codeudor.cedula || "_____________________"}</p>
                     </div>
                 </div>
@@ -472,7 +478,7 @@ export const ContratoImprimible = ({ contractData, dataUnidad, localNisAnde, isP
 
 export const descargarContratoDoc = (contractData: any, dataUnidad: any) => {
     if (!contractData) return;
-    const nombre = contractData?.inquilino?.razonSocial || contractData?.inquilino?.nombre || contractData?.nombreCompleto || "__________________________";
+    const nombre = String(contractData?.inquilino?.razonSocial || contractData?.inquilino?.nombre || contractData?.nombreCompleto || "__________________________").toUpperCase();
     const cedula = contractData?.inquilino?.documento || contractData?.inquilino?.cedula || contractData?.cedula || "_________________";
     const code = dataUnidad?.codigo || dataUnidad?.code || "_______";
     const monto = Number(contractData?.montoMensualAlquiler || contractData?.montoAlquiler || 0).toLocaleString("es-PY");
@@ -557,7 +563,7 @@ export const descargarContratoDoc = (contractData: any, dataUnidad: any) => {
                     <td style="text-align: center; width: 45%;">
                         ____________________________________<br/>
                         <strong>EL LOCATARIO</strong><br/>
-                        ${nombre.toUpperCase()}<br/>
+                        <strong>${nombre}</strong><br/>
                         C.I. N° ${cedula}
                     </td>
                 </tr>
@@ -580,7 +586,7 @@ ${firmaCodeudor}
 
 export const descargarContratoPDF = async (contractData: any, dataUnidad: any, soloRetornarFile = false) => {
     if (!contractData) return;
-    const nombre = contractData?.inquilino?.razonSocial || contractData?.inquilino?.nombre || contractData?.nombreCompleto || "__________________________";
+    const nombre = String(contractData?.inquilino?.razonSocial || contractData?.inquilino?.nombre || contractData?.nombreCompleto || "__________________________").toUpperCase();
     const cedula = contractData?.inquilino?.documento || contractData?.inquilino?.cedula || contractData?.cedula || "_________________";
     const code = dataUnidad?.codigo || dataUnidad?.code || "_______";
     const monto = Number(contractData?.montoMensualAlquiler || contractData?.montoAlquiler || 0).toLocaleString("es-PY");
@@ -680,7 +686,7 @@ export const descargarContratoPDF = async (contractData: any, dataUnidad: any, s
                     <td style="text-align: center; width: 45%;">
                         ____________________________________<br/>
                         <strong>EL LOCATARIO</strong><br/>
-                        ${nombre.toUpperCase()}<br/>
+                        <strong>${nombre}</strong><br/>
                         C.I. N° ${cedula}
                     </td>
                 </tr>

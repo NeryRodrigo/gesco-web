@@ -162,7 +162,7 @@ export function GenerarEditarContratoModal({
   useEffect(() => {
     if (isOpen) {
       if (contractData) {
-        setNombreCompleto(contractData.inquilino?.razonSocial || contractData.inquilino?.nombre || "");
+        setNombreCompleto((contractData.inquilino?.razonSocial || contractData.inquilino?.nombre || "").toUpperCase());
         const docRaw = String(contractData.inquilino?.documento || contractData.inquilino?.cedula || "");
         const esRuc = docRaw.includes("-");
         setTipoDocumento(esRuc ? "RUC" : "CI");
@@ -177,9 +177,9 @@ export function GenerarEditarContratoModal({
         setCantidadOcupantes(Number(contractData.cantidadOcupantes || 1));
         setVehiculo(contractData.vehiculoInfo || "");
         const cod = resolveCodeudor(contractData);
-        setCodeudorNombre(cod.nombre || contractData.codeudorNombre || "");
+        setCodeudorNombre((cod.nombre || contractData.codeudorNombre || "").toUpperCase());
         setCodeudorCedula(cod.cedula || contractData.codeudorCedula || "");
-        setCodeudorDireccion(cod.direccion || contractData.codeudorDireccion || "");
+        setCodeudorDireccion((cod.direccion || contractData.codeudorDireccion || "").toUpperCase());
         setCodeudorTelefono(cod.telefono || contractData.codeudorTelefono || "");
         setObservaciones(cod.observacionesLimpias || "");
         const sInc = contractData.serviciosIncluidos;
@@ -209,7 +209,7 @@ export function GenerarEditarContratoModal({
           inquilinoId: contractData.inquilinoId,
           empresaId: contractData.inquilino?.empresaId || 7,
           unidadId: contractData.unidadId || unidad?.id || 0,
-          nombreCompleto: nombreCompleto.trim(),
+          nombreCompleto: nombreCompleto.trim().toUpperCase(),
           cedula: documentoCompleto.trim(),
           telefono: telefono.trim(),
           email: email.trim(),
@@ -221,9 +221,9 @@ export function GenerarEditarContratoModal({
           cantidadOcupantes: Number(cantidadOcupantes || 1),
           vehiculo: vehiculo.trim(),
           observaciones: serializeCodeudorEnObservaciones(observaciones.trim(), {
-            nombre: codeudorNombre,
+            nombre: codeudorNombre.trim().toUpperCase(),
             cedula: codeudorCedula,
-            direccion: codeudorDireccion,
+            direccion: codeudorDireccion.trim().toUpperCase(),
             telefono: codeudorTelefono,
           }),
           serviciosIncluidos: typeof serviciosIncluidos === "string" ? (serviciosIncluidos.trim() || null) : Array.isArray(serviciosIncluidos) ? (serviciosIncluidos as any).join(", ") : null
@@ -444,8 +444,8 @@ export function GenerarEditarContratoModal({
                 <Input
                   type="text"
                   value={nombreCompleto}
-                  onChange={(e) => setNombreCompleto(e.target.value)}
-                  className="rounded-xl border-border font-bold"
+                  onChange={(e) => setNombreCompleto(e.target.value.toUpperCase())}
+                  className="rounded-xl border-border font-bold uppercase"
                   placeholder="Ej. Juan Pérez"
                 />
               </div>
@@ -622,8 +622,8 @@ export function GenerarEditarContratoModal({
                 <Input
                   type="text"
                   value={codeudorNombre}
-                  onChange={(e) => setCodeudorNombre(e.target.value)}
-                  className="rounded-xl border-border font-bold"
+                  onChange={(e) => setCodeudorNombre(e.target.value.toUpperCase())}
+                  className="rounded-xl border-border font-bold uppercase"
                   placeholder="Ej. María López"
                 />
               </div>
@@ -658,8 +658,8 @@ export function GenerarEditarContratoModal({
                 <Input
                   type="text"
                   value={codeudorDireccion}
-                  onChange={(e) => setCodeudorDireccion(e.target.value)}
-                  className="rounded-xl border-border font-bold"
+                  onChange={(e) => setCodeudorDireccion(e.target.value.toUpperCase())}
+                  className="rounded-xl border-border font-bold uppercase"
                   placeholder="Ej. Calle X c/ Y, Luque"
                 />
               </div>
