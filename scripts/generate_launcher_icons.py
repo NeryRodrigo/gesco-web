@@ -47,10 +47,16 @@ def load_logo() -> Image.Image:
     return logo
 
 
+# Proporción del isotipo vs canvas (icono oficial de app).
+# Android suele preferir "maskable"; si queda chico ahí, el acceso se ve vacío.
+RATIO_ANY = 0.88
+RATIO_MASKABLE = 0.78
+
+
 def make_icon(
     logo: Image.Image,
     size: int,
-    logo_ratio: float = 0.64,
+    logo_ratio: float = RATIO_ANY,
     rounded: bool = False,
     radius_ratio: float = 0.20,
 ) -> Image.Image:
@@ -105,19 +111,19 @@ def main() -> None:
     }
     for size, name in any_sizes.items():
         # Cuadrado opaco: el SO aplica el squircle del launcher
-        make_icon(logo, size, logo_ratio=0.64, rounded=False).save(OUT / name, optimize=True)
-        print("wrote", name)
+        make_icon(logo, size, logo_ratio=RATIO_ANY, rounded=False).save(OUT / name, optimize=True)
+        print("wrote", name, f"ratio={RATIO_ANY}")
 
     for size, name in ((192, "icon-maskable-192.png"), (512, "icon-maskable-512.png")):
-        make_icon(logo, size, logo_ratio=0.52, rounded=False).save(OUT / name, optimize=True)
-        print("wrote", name)
+        make_icon(logo, size, logo_ratio=RATIO_MASKABLE, rounded=False).save(OUT / name, optimize=True)
+        print("wrote", name, f"ratio={RATIO_MASKABLE}")
 
-    make_icon(logo, 180, logo_ratio=0.64).save(OUT / "apple-touch-icon.png", optimize=True)
-    make_icon(logo, 512, logo_ratio=0.64).save(APP / "icon.png", optimize=True)
-    make_icon(logo, 180, logo_ratio=0.64).save(APP / "apple-icon.png", optimize=True)
+    make_icon(logo, 180, logo_ratio=RATIO_ANY).save(OUT / "apple-touch-icon.png", optimize=True)
+    make_icon(logo, 512, logo_ratio=RATIO_ANY).save(APP / "icon.png", optimize=True)
+    make_icon(logo, 180, logo_ratio=RATIO_ANY).save(APP / "apple-icon.png", optimize=True)
 
-    # Vista previa visual estilo USO EN LAUNCHER (squircle 20%)
-    make_icon(logo, 512, logo_ratio=0.64, rounded=True).save(
+    # Vista previa visual estilo icono oficial (squircle 20%)
+    make_icon(logo, 512, logo_ratio=RATIO_ANY, rounded=True).save(
         OUT / "_preview-launcher-squircle.png", optimize=True
     )
     print("done")
