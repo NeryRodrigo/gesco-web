@@ -316,7 +316,8 @@ export default function OimaDashboard() {
           
           {vistaActual === "inicio" && condoDashboardData && (
             <div className="animate-in fade-in slide-in-from-top-4 duration-700">
-              <div className="mb-6 lg:mb-10 bg-[#0C1327] p-5 lg:p-8 rounded-[1.75rem] lg:rounded-[2.5rem] border border-white/5 shadow-2xl relative overflow-hidden group">
+              <DashboardCards dashboardData={condoDashboardData} onRefresh={cargarDatos} />
+              <div className="mt-6 lg:mt-10 bg-[#0C1327] p-5 lg:p-8 rounded-[1.75rem] lg:rounded-[2.5rem] border border-white/5 shadow-2xl relative overflow-hidden group">
                 <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6 relative z-10">
                   <img
                     src="/images/VORDIA HORIZONTAL.png"
@@ -333,8 +334,7 @@ export default function OimaDashboard() {
                     </p>
                   </div>
                 </div>
-               </div>
-               <DashboardCards dashboardData={condoDashboardData} onRefresh={cargarDatos} />
+              </div>
             </div>
           )}
 

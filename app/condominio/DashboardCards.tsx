@@ -22,9 +22,16 @@ const formatMetricDisplay = (value: string | number, isCurrency: boolean) => {
   if (typeof value === "string") return value;
   if (!isCurrency) return String(value);
   const n = Number(value) || 0;
-  if (n >= 1_000_000_000) return `Gs. ${(n / 1_000_000_000).toLocaleString("es-PY", { maximumFractionDigits: 1 })} mil M`;
-  if (n >= 1_000_000) return `Gs. ${(n / 1_000_000).toLocaleString("es-PY", { maximumFractionDigits: 1 })} M`;
-  return formatCurrency(n);
+  if (n >= 1_000_000_000) {
+    return `Gs. ${(n / 1_000_000_000).toLocaleString("es-PY", { maximumFractionDigits: 1 })} mil M`;
+  }
+  if (n >= 1_000_000) {
+    return `Gs. ${(n / 1_000_000).toLocaleString("es-PY", { maximumFractionDigits: 1 })} M`;
+  }
+  if (n >= 1_000) {
+    return `Gs. ${Math.round(n).toLocaleString("es-PY")}`;
+  }
+  return `Gs. ${Math.round(n)}`;
 };
 
 const ANDE_API = "http://localhost:5034/api/Ande";
@@ -1078,8 +1085,8 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto mobile-scroll-x" data-mobile-scroll="x">
-            <table className="w-full text-left font-sans">
+          <div className="overflow-x-auto mobile-scroll-x custom-scrollbar" data-mobile-scroll="x">
+            <table className="w-full min-w-[920px] text-left font-sans">
               <thead className="bg-muted text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border">
                 {/* ... (Tu TableHead se mantiene igual) ... */}
                 <tr>
@@ -1361,16 +1368,17 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
   return (
     <div>
       
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 mb-8">
+      {/* Móvil/iPad: SIEMPRE 2 columnas. Desktop: 4. (CSS .dashboard-metric-grid refuerza <1024px) */}
+      <div className="dashboard-metric-grid grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4 mb-6 sm:mb-8">
         {[
-          { id: "ocupados", label: "Ocupados", value: stats.occupied, icon: Users, color: "text-primary", bg: "bg-primary/10", suffix: " Dúplex", currency: false },
-          { id: "disponibles", label: "Disponibles", value: stats.available === 0 ? "Ocupación completa" : stats.available, icon: Home, color: "text-emerald-400", bg: "bg-emerald-400/10", suffix: stats.available === 0 ? "" : " Dúplex", currency: false },
-          { id: "objetivos", label: "Objetivos Mes", value: stats.objective, icon: CheckCircle2, color: "text-indigo-400", bg: "bg-indigo-400/10", suffix: "", currency: true },
-          { id: "cobrados", label: "Cobrado Mes", value: stats.collected, icon: Wallet, color: "text-emerald-400", bg: "bg-emerald-400/10", suffix: "", currency: true },
-          { id: "faltaCobrar", label: "Falta Cobrar", value: stats.pending, icon: Clock, color: "text-amber-400", bg: "bg-amber-400/10", suffix: "", currency: true },
-          { id: "vencimientos", label: "Finalización Contratos", value: dashboardData?.vencimientos?.length || 0, icon: Calendar, color: "text-orange-400", bg: "bg-orange-400/10", suffix: " Contratos", currency: false },
-          { id: "morosos", label: "Morosos (Desalojados)", value: stats.debtors, icon: AlertTriangle, color: "text-red-400", bg: "bg-red-400/10", suffix: "", currency: true },
-          { id: "andeNIS", label: "ANDE NIS", value: stats.occupied, icon: Zap, color: "text-blue-400", bg: "bg-blue-400/10", suffix: " Medidores", currency: false }
+          { id: "ocupados", label: "Ocupados", labelShort: "Ocupados", value: stats.occupied, icon: Users, color: "text-primary", bg: "bg-primary/10", suffix: " Dúplex", currency: false },
+          { id: "disponibles", label: "Disponibles", labelShort: "Disponibles", value: stats.available === 0 ? "Completo" : stats.available, icon: Home, color: "text-emerald-400", bg: "bg-emerald-400/10", suffix: stats.available === 0 ? "" : " Dúplex", currency: false },
+          { id: "objetivos", label: "Objetivos Mes", labelShort: "Objetivos", value: stats.objective, icon: CheckCircle2, color: "text-indigo-400", bg: "bg-indigo-400/10", suffix: "", currency: true },
+          { id: "cobrados", label: "Cobrado Mes", labelShort: "Cobrado", value: stats.collected, icon: Wallet, color: "text-emerald-400", bg: "bg-emerald-400/10", suffix: "", currency: true },
+          { id: "faltaCobrar", label: "Falta Cobrar", labelShort: "Falta cobrar", value: stats.pending, icon: Clock, color: "text-amber-400", bg: "bg-amber-400/10", suffix: "", currency: true },
+          { id: "vencimientos", label: "Finalización Contratos", labelShort: "Vencimientos", value: dashboardData?.vencimientos?.length || 0, icon: Calendar, color: "text-orange-400", bg: "bg-orange-400/10", suffix: " Contratos", currency: false },
+          { id: "morosos", label: "Morosos (Desalojados)", labelShort: "Morosos", value: stats.debtors, icon: AlertTriangle, color: "text-red-400", bg: "bg-red-400/10", suffix: "", currency: true },
+          { id: "andeNIS", label: "ANDE NIS", labelShort: "ANDE NIS", value: stats.occupied, icon: Zap, color: "text-blue-400", bg: "bg-blue-400/10", suffix: " Medidores", currency: false }
         ].map((metric, i) => {
           const fullTitle = metric.currency && typeof metric.value === "number"
             ? formatCurrency(metric.value)
@@ -1383,31 +1391,41 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
           <Card 
             key={i} 
             onClick={() => toggleDetail(metric.id)}
-            className={`border border-border shadow-sm transition-all duration-200 cursor-pointer ${detailView === metric.id ? 'ring-2 ring-primary' : ''} rounded-2xl bg-card overflow-hidden group`}
+            className={`border border-border shadow-sm transition-all duration-200 cursor-pointer ${detailView === metric.id ? 'ring-2 ring-primary' : ''} rounded-xl sm:rounded-2xl bg-card overflow-hidden group min-w-0`}
           >
-            <CardContent className="p-3 sm:p-4 md:p-5 relative flex flex-col items-center text-center justify-center min-h-[120px] sm:min-h-[130px] md:min-h-[148px]">
-              <div className={`w-9 h-9 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-xl ${metric.bg} ${metric.color} flex items-center justify-center mb-2 md:mb-3 shrink-0`}>
-                <metric.icon className="w-4 h-4 md:w-5 md:h-5 stroke-[2px]" />
+            {/* Móvil: layout horizontal legible en 2 columnas */}
+            <CardContent className="lg:hidden p-3 relative flex flex-row items-center gap-2.5 min-h-[72px] min-w-0">
+              <div className={`w-9 h-9 rounded-lg ${metric.bg} ${metric.color} flex items-center justify-center shrink-0`}>
+                <metric.icon className="w-4 h-4 stroke-[2px]" />
               </div>
-              <p className="text-[9px] sm:text-[10px] md:text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 font-sans leading-tight px-1">
-                {metric.label}
-              </p>
-              {/* Móvil / tablet (&lt; md): número compacto */}
-              <h3
-                title={fullTitle}
-                className="md:hidden w-full px-1 text-[clamp(0.72rem,3.1vw,1.05rem)] font-heading font-extrabold text-foreground leading-tight tabular-nums tracking-tight break-words"
-              >
-                {mobileText}
+              <div className="min-w-0 flex-1 text-left">
+                <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground leading-tight truncate">
+                  {metric.labelShort}
+                </p>
+                <h3
+                  title={fullTitle}
+                  className="mt-0.5 text-[0.95rem] font-heading font-extrabold text-foreground leading-snug tabular-nums tracking-tight break-words"
+                >
+                  {mobileText}
+                </h3>
                 {metric.suffix ? (
-                  <span className="block mt-0.5 text-[9px] font-sans font-semibold text-muted-foreground normal-case tracking-normal">
+                  <span className="block text-[9px] font-sans font-semibold text-muted-foreground">
                     {metric.suffix.trim()}
                   </span>
                 ) : null}
-              </h3>
-              {/* Escritorio (md+): formato completo */}
+              </div>
+            </CardContent>
+            {/* Desktop / pantallas grandes: layout centrado original */}
+            <CardContent className="hidden lg:flex p-4 xl:p-5 relative flex-col items-center text-center justify-center min-h-[148px]">
+              <div className={`w-12 h-12 rounded-xl ${metric.bg} ${metric.color} flex items-center justify-center mb-3 shrink-0`}>
+                <metric.icon className="w-5 h-5 stroke-[2px]" />
+              </div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 font-sans leading-tight px-1">
+                {metric.label}
+              </p>
               <h3
                 title={fullTitle}
-                className="hidden md:block w-full px-1 text-xl lg:text-2xl font-heading font-bold text-foreground leading-tight tabular-nums tracking-tight"
+                className="w-full px-1 text-xl xl:text-2xl font-heading font-bold text-foreground leading-tight tabular-nums tracking-tight"
               >
                 {metric.currency && typeof metric.value === "number" ? formatCurrency(metric.value) : metric.value}
                 {metric.suffix ? (
