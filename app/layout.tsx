@@ -34,12 +34,12 @@ export const metadata: Metadata = {
   // Iconos cuadrados oficiales (fondo #050B18 + área de protección) para acceso directo
   icons: {
     icon: [
-      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/icons/icon-192.png?v=20260818", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png?v=20260818", sizes: "512x512", type: "image/png" },
     ],
-    shortcut: "/icons/icon-192.png",
+    shortcut: "/icons/icon-192.png?v=20260818",
     apple: [
-      { url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+      { url: "/icons/apple-touch-icon.png?v=20260818", sizes: "180x180", type: "image/png" },
     ],
   },
 };

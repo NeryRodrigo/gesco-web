@@ -1371,7 +1371,7 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
     <div>
       
       {/* Móvil/iPad: SIEMPRE 2 columnas. Desktop: 4. (CSS .dashboard-metric-grid refuerza <1024px) */}
-      <div className="dashboard-metric-grid grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4 mb-6 sm:mb-8">
+      <div className="dashboard-metric-grid grid grid-cols-2 gap-2 sm:gap-2.5 lg:grid-cols-3 xl:grid-cols-4 mb-2 sm:mb-4 lg:mb-8">
         {[
           { id: "ocupados", label: "Ocupados", labelShort: "Ocupados", value: stats.occupied, icon: Users, color: "text-primary", bg: "bg-primary/10", suffix: " Dúplex", currency: false },
           { id: "disponibles", label: "Disponibles", labelShort: "Disponibles", value: stats.available === 0 ? "Completo" : stats.available, icon: Home, color: "text-emerald-400", bg: "bg-emerald-400/10", suffix: stats.available === 0 ? "" : " Dúplex", currency: false },
@@ -1396,7 +1396,7 @@ export function DashboardCards({ dashboardData, onRefresh }: { dashboardData: an
             className={`border border-border shadow-sm transition-all duration-200 cursor-pointer ${detailView === metric.id ? 'ring-2 ring-primary' : ''} rounded-xl sm:rounded-2xl bg-card overflow-hidden group min-w-0`}
           >
             {/* Móvil: layout horizontal legible en 2 columnas */}
-            <CardContent className="lg:hidden p-3 relative flex flex-row items-center gap-2.5 min-h-[72px] min-w-0">
+            <CardContent className="lg:hidden p-2.5 relative flex flex-row items-center gap-2 min-h-[64px] min-w-0">
               <div className={`w-9 h-9 rounded-lg ${metric.bg} ${metric.color} flex items-center justify-center shrink-0`}>
                 <metric.icon className="w-4 h-4 stroke-[2px]" />
               </div>
