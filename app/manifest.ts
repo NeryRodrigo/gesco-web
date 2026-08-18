@@ -11,30 +11,19 @@ export default function manifest(): MetadataRoute.Manifest {
     orientation: "any",
     background_color: "#050B18",
     theme_color: "#050B18",
+    // Solo "any": Android achica los maskable (safe zone) y el isotipo queda chico.
     icons: [
       {
-        src: "/icons/icon-192.png?v=20260818c",
+        src: "/icons/vordia-192.png?v=20260818f",
         sizes: "192x192",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/icons/icon-512.png?v=20260818c",
+        src: "/icons/vordia-512.png?v=20260818f",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",
-      },
-      {
-        src: "/icons/icon-maskable-192.png?v=20260818c",
-        sizes: "192x192",
-        type: "image/png",
-        purpose: "maskable",
-      },
-      {
-        src: "/icons/icon-maskable-512.png?v=20260818c",
-        sizes: "512x512",
-        type: "image/png",
-        purpose: "maskable",
       },
     ],
   };
