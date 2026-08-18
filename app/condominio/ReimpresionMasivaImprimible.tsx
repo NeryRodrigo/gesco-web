@@ -64,7 +64,7 @@ function PieVordia({ extra }: { extra?: string }) {
   return (
     <footer className="flex items-end justify-between border-t border-[#e2e8f0] pt-4 mt-8">
       <div className="flex items-center gap-3">
-        <img src="/images/ISOTIPO.png" alt="Vordia" className="h-10 w-auto object-contain" />
+        <img src="/images/ISOTIPO.png" alt="Vordia" className="h-8 sm:h-10 w-auto max-h-10 object-contain shrink-0" />
         <div>
           <p className="m-0 text-[10px] font-bold text-[#0f172a]">Vordia</p>
           <p className="m-0 text-[9px] text-[#64748b]">

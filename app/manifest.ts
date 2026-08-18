@@ -14,13 +14,13 @@ export default function manifest(): MetadataRoute.Manifest {
     // Solo "any": Android achica los maskable (safe zone) y el isotipo queda chico.
     icons: [
       {
-        src: "/icons/vordia-192.png?v=20260818f",
+        src: "/icons/vordia-192.png?v=20260818g",
         sizes: "192x192",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/icons/vordia-512.png?v=20260818f",
+        src: "/icons/vordia-512.png?v=20260818g",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",

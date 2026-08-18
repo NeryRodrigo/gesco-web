@@ -281,3 +281,57 @@ html {
     min-width: 880px;
   }
 }
+
+/* Planilla Administración: scroll fluido (un solo contenedor) */
+.admin-planilla-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
+  /* Evita que el navegador “pelee” el gesto entre ejes */
+  scroll-behavior: auto;
+}
+
+.admin-planilla-scroll table {
+  transform: translateZ(0);
+}
+
+.content-visibility-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 72px;
+}
+
+.contain-layout {
+  contain: layout style;
+}
+
+/* Menú hamburguesa: área táctil grande y respuesta inmediata */
+.vordia-menu-btn {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  min-width: 3.25rem;
+  min-height: 3.25rem;
+  width: 3.25rem;
+  height: 3.25rem;
+  margin-top: 0.2rem;
+}
+@media (max-width: 1023px) {
+  .vordia-menu-btn {
+    min-width: 3.5rem;
+    min-height: 3.5rem;
+    width: 3.5rem;
+    height: 3.5rem;
+    margin-top: 0.35rem;
+  }
+}
+
+/* Listados dashboard: menos trabajo de pintura en móvil */
+@media (max-width: 1023px) {
+  .dashboard-detail-table tbody tr {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 56px;
+  }
+  .dashboard-detail-table tbody tr:hover {
+    background: transparent !important;
+  }
+}
+

@@ -31,15 +31,16 @@ export const metadata: Metadata = {
     title: "Vordia",
     statusBarStyle: "black-translucent",
   },
-  // Iconos de acceso directo (celular). Nombres nuevos para evitar caché.
+  // Favicon de pestaña = ISOTIPO transparente. Acceso directo PWA = vordia-* (manifest).
   icons: {
     icon: [
-      { url: "/icons/vordia-192.png?v=20260818f", sizes: "192x192", type: "image/png" },
-      { url: "/icons/vordia-512.png?v=20260818f", sizes: "512x512", type: "image/png" },
+      { url: "/icons/favicon-32.png?v=20260818h", sizes: "32x32", type: "image/png" },
+      { url: "/icons/favicon-48.png?v=20260818h", sizes: "48x48", type: "image/png" },
+      { url: "/icons/favicon-isotipo.png?v=20260818h", sizes: "192x192", type: "image/png" },
     ],
-    shortcut: "/icons/vordia-192.png?v=20260818f",
+    shortcut: "/icons/favicon-32.png?v=20260818h",
     apple: [
-      { url: "/icons/vordia-180.png?v=20260818f", sizes: "180x180", type: "image/png" },
+      { url: "/icons/vordia-180.png?v=20260818g", sizes: "180x180", type: "image/png" },
     ],
   },
 };

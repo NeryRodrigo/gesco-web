@@ -20,6 +20,7 @@ import { AdministracionPage } from "./condominio/AdministracionPage";
 import { ActividadesVista } from "./condominio/ActividadesVista";
 import CondominioDashboard from "./condominio/page";
 import { DashboardCards } from "./condominio/DashboardCards";
+import { DetalleUnidadModal } from "./condominio/DetalleUnidadModal";
 import { FacturacionVista } from "./condominio/FacturacionVista";
 import GastosPage from "./condominio/GastosPage";
 import HistoricoContratosPage from "./condominio/HistoricoContratosPage";
@@ -54,6 +55,16 @@ export default function OimaDashboard() {
   const [usuarioPermisosId, setUsuarioPermisosId] = useState<number | null>(null);
   const [condoDashboardData, setCondoDashboardData] = useState<any>(null);
   const [alertaRestriccion, setAlertaRestriccion] = useState({ visible: false, mensaje: '', permisoNombre: '' });
+  const [fichaUnidad, setFichaUnidad] = useState<{
+    id: number;
+    code: string;
+    condo: string;
+    tenant: string | null;
+    status: string;
+    nisAnde?: string | null;
+  } | null>(null);
+  const [fichaTab, setFichaTab] = useState<"ficha" | "pagos">("ficha");
+  const [isFichaOpen, setIsFichaOpen] = useState(false);
 
   const empresaId = usuarioActivo?.empresaId || 7;
   const isUsuarioCondominio = true; // Forzado según tu lógica
@@ -130,6 +141,10 @@ export default function OimaDashboard() {
         label: "Cerrar Sesión",
         onClick: async () => {
           await limpiarSesionAnde();
+          try {
+            sessionStorage.removeItem("vordia.andeLiveByNis");
+            sessionStorage.removeItem("vordia.andeSyncAt");
+          } catch { /* ignore */ }
           setIsAuthenticated(false);
           setUsuarioActivo(null);
           setVistaActual("inicio");
@@ -157,7 +172,7 @@ export default function OimaDashboard() {
         lg:translate-x-0
         flex w-[min(18rem,88vw)] lg:w-72 lg:max-w-none bg-[#080E1E] flex-col border-r border-white/5
         fixed inset-y-0 left-0 z-50 h-full
-        transition-transform duration-300 ease-out
+        transition-transform duration-200 ease-out will-change-transform
         max-lg:pt-[env(safe-area-inset-top)] max-lg:pb-[env(safe-area-inset-bottom)]
         `}
         aria-label="Menú de navegación"
@@ -198,7 +213,7 @@ export default function OimaDashboard() {
             <div className="space-y-1.5">
               <SidebarItem 
                 icon={<LayoutDashboard size={18}/>} 
-                label="Condominios Aguzi" 
+                label="Condominio Agus" 
                 active={vistaActual === "condominio"} 
                 onClick={() => navegarConPermiso("condominio")} 
               />
@@ -273,24 +288,24 @@ export default function OimaDashboard() {
 
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden" 
+          className="fixed inset-0 bg-black/55 z-40 lg:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
           aria-hidden
         />
       )}
 
-      <main className="flex-1 flex flex-col min-h-screen lg:ml-72 transition-all duration-300 w-full overflow-x-hidden">
+      <main className="flex-1 flex flex-col min-h-screen lg:ml-72 transition-all duration-200 w-full overflow-x-hidden">
       
-        <header className="h-16 lg:h-20 flex items-center justify-between gap-3 px-4 lg:px-12 bg-[#050B18]/80 backdrop-blur-xl sticky top-0 z-30 border-b border-white/5 max-lg:pt-[env(safe-area-inset-top)]">
+        <header className="vordia-app-header h-16 lg:h-20 flex items-center justify-between gap-3 px-4 lg:px-12 bg-[#050B18]/90 lg:bg-[#050B18]/80 backdrop-blur-sm lg:backdrop-blur-xl sticky top-0 z-30 border-b border-white/5 max-lg:h-auto max-lg:min-h-[4.5rem] max-lg:pt-[max(0.9rem,env(safe-area-inset-top))] max-lg:pb-3">
           
           <div className="flex items-center gap-3 lg:gap-4 min-w-0 flex-1">
             <button 
               type="button"
               onClick={() => setIsMobileMenuOpen(true)}
-              className="lg:hidden p-2.5 text-slate-400 hover:bg-white/5 rounded-xl flex-shrink-0"
+              className="vordia-menu-btn lg:hidden text-white bg-white/10 border border-white/15 rounded-2xl flex-shrink-0 flex items-center justify-center touch-manipulation active:scale-95 active:bg-white/20"
               aria-label="Abrir menú"
             >
-              <Menu size={22} />
+              <Menu size={28} strokeWidth={2.5} />
             </button>   
 
             <h2 className="mobile-title lg:text-2xl font-semibold text-white tracking-tight truncate capitalize lg:normal-case">
@@ -314,13 +329,13 @@ export default function OimaDashboard() {
 
         </header>
 
-        <div className="flex-1 p-4 lg:p-10 max-lg:pb-2">
+        <div className="flex-1 p-4 lg:p-6 pb-2">
           
           {vistaActual === "inicio" && condoDashboardData && (
-            <div className="flex flex-col animate-in fade-in slide-in-from-top-4 duration-700">
-              {/* MÓVIL / iPad: saludo arriba, más alto, sin logo Vordia */}
-              <div className="lg:hidden mb-2.5 bg-[#0C1327] px-5 py-9 min-h-[8rem] rounded-[1.75rem] border border-white/5 shadow-2xl flex items-center">
-                <p className="text-slate-300 text-sm font-medium leading-relaxed">
+            <div className="flex flex-col animate-in fade-in duration-300">
+              {/* Saludo arriba (móvil y PC): sin logo Vordia */}
+              <div className="mb-2.5 bg-[#0C1327] px-5 py-9 min-h-[8rem] rounded-[1.75rem] border border-white/5 shadow-2xl flex items-center">
+                <p className="text-slate-300 text-sm lg:text-base font-medium leading-relaxed">
                   Hola{" "}
                   <span className="text-blue-400 font-bold uppercase tracking-widest">
                     {usuarioActivo?.nombre}
@@ -329,29 +344,17 @@ export default function OimaDashboard() {
                 </p>
               </div>
 
-              {/* 8 tarjetas — en móvil más cerca del saludo y del pie */}
-              <div className="max-lg:mb-1">
-                <DashboardCards dashboardData={condoDashboardData} onRefresh={cargarDatos} />
-              </div>
-
-              {/* PC: saludo abajo CON logo Vordia (como antes) */}
-              <div className="hidden lg:block mt-10 bg-[#0C1327] p-8 rounded-[2.5rem] border border-white/5 shadow-2xl relative overflow-hidden group">
-                <div className="flex flex-row items-center gap-6 relative z-10">
-                  <img
-                    src="/images/VORDIA HORIZONTAL.png"
-                    alt="Vordia"
-                    className="h-12 w-auto max-w-[220px] object-contain object-left shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-slate-400 text-sm font-medium leading-relaxed">
-                      Hola{" "}
-                      <span className="text-blue-400 font-bold uppercase tracking-widest">
-                        {usuarioActivo?.nombre}
-                      </span>
-                      , el sistema está listo para operar. Elegí una opción en el menú.
-                    </p>
-                  </div>
-                </div>
+              {/* 8 tarjetas */}
+              <div className="mb-1">
+                <DashboardCards
+                  dashboardData={condoDashboardData}
+                  onRefresh={cargarDatos}
+                  onOpenFicha={(unidad, tab) => {
+                    setFichaUnidad(unidad);
+                    setFichaTab(tab === "pagos" ? "pagos" : "ficha");
+                    setIsFichaOpen(true);
+                  }}
+                />
               </div>
             </div>
           )}
@@ -365,17 +368,9 @@ export default function OimaDashboard() {
           {vistaActual === "actividades" && <ActividadesVista empresaId={empresaId} />}
           {vistaActual === "facturacion" && <FacturacionVista />}
           {vistaActual === "administracion" && (
-            <div className="relative w-full rounded-[1.5rem] sm:rounded-[2rem] border border-white/5 bg-[#0C1327]/50 overflow-hidden">
-              {/* overflow-x-auto siempre (PC al achicar + móvil). mobile-scroll-x solo suma touch. */}
-              <div
-                className="w-full max-w-full overflow-x-auto overscroll-x-contain custom-scrollbar mobile-scroll-x"
-                data-mobile-scroll="x"
-                style={{ WebkitOverflowScrolling: "touch" }}
-              >
-                <div className="min-w-[1500px] p-3 sm:p-4">
-                  <AdministracionPage empresaId={empresaId} usuario={usuarioActivo} />
-                </div>
-              </div>
+            <div className="relative w-full rounded-[1.5rem] sm:rounded-[2rem] border border-white/5 bg-[#0C1327]/50 p-3 sm:p-4">
+              {/* Sin scroll horizontal acá: lo maneja solo AdministracionVista (evita scroll anidado que cuelga) */}
+              <AdministracionPage empresaId={empresaId} usuario={usuarioActivo} />
             </div>
           )}
           {vistaActual === "configuracion" && <ConfiguracionPage empresaId={empresaId} />}
@@ -396,7 +391,7 @@ export default function OimaDashboard() {
           )}
         </div>
 
-        <footer className="w-full pt-3 pb-8 lg:py-10 px-4 lg:px-12 flex justify-end items-center no-print max-lg:min-h-[5.25rem] max-lg:pb-[max(2rem,env(safe-area-inset-bottom))]">
+        <footer className="w-full pt-3 px-4 lg:px-12 flex justify-end items-center no-print min-h-[5.25rem] pb-[max(2rem,env(safe-area-inset-bottom))]">
           <div className="relative group">
             <div className="absolute inset-0 bg-blue-600/10 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             <img 
@@ -411,6 +406,25 @@ export default function OimaDashboard() {
       <RegistroUsuarioModal isOpen={isModalRegistroOpen} onClose={() => setIsModalRegistroOpen(false)} empresaId={empresaId} rubro={usuarioActivo?.rubro || ""} />
       <EditarUsuarioModal isOpen={isModalEdicionOpen} onClose={() => setIsModalEdicionOpen(false)} usuario={usuarioAEditar} onRefresh={cargarListaUsuariosAdmin} empresaId={empresaId} />
       <ModalAccesoRestringido isOpen={alertaRestriccion.visible} onClose={() => setAlertaRestriccion({ ...alertaRestriccion, visible: false })} mensaje={alertaRestriccion.mensaje} permisoNombre={alertaRestriccion.permisoNombre} />
+      <DetalleUnidadModal
+        isOpen={isFichaOpen}
+        onClose={() => {
+          setIsFichaOpen(false);
+          setFichaUnidad(null);
+        }}
+        unidad={fichaUnidad}
+        initialTab={fichaTab}
+        onUpdate={async (patch) => {
+          if (patch && fichaUnidad) {
+            setFichaUnidad({
+              ...fichaUnidad,
+              ...(patch.nisAnde !== undefined ? { nisAnde: patch.nisAnde } : {}),
+              ...(patch.code !== undefined ? { code: patch.code } : {}),
+            });
+          }
+          await cargarDatos();
+        }}
+      />
     </div>
   );
 }
@@ -422,14 +436,14 @@ function SidebarItem({ icon, label, active = false, onClick }: { icon: ReactNode
       onClick={onClick}
       className={`w-full flex items-center gap-4 px-5 py-3 rounded-2xl transition-all duration-300 group ${
         active 
-        ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 font-bold' 
+        ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 font-bold' 
         : 'text-slate-400 hover:bg-white/5 hover:text-white'
       }`}
     >
       <div className={`${active ? 'text-white' : 'text-slate-500 group-hover:text-blue-400'} transition-colors`}>
         {icon}
       </div>
-      <span className="text-[11px] sm:text-xs uppercase italic tracking-tight text-left leading-snug">{label}</span>
+      <span className={`text-[11px] sm:text-xs uppercase italic tracking-tight text-left leading-snug ${active ? 'text-white' : ''}`}>{label}</span>
     </button>
   );
 }
