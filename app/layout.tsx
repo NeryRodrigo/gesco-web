@@ -31,15 +31,15 @@ export const metadata: Metadata = {
     title: "Vordia",
     statusBarStyle: "black-translucent",
   },
-  // Iconos cuadrados oficiales (fondo #050B18 + área de protección) para acceso directo
+  // Iconos de acceso directo (celular). Nombres nuevos para evitar caché.
   icons: {
     icon: [
-      { url: "/icons/icon-192.png?v=20260818c", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512.png?v=20260818c", sizes: "512x512", type: "image/png" },
+      { url: "/icons/vordia-192.png?v=20260818f", sizes: "192x192", type: "image/png" },
+      { url: "/icons/vordia-512.png?v=20260818f", sizes: "512x512", type: "image/png" },
     ],
-    shortcut: "/icons/icon-192.png?v=20260818c",
+    shortcut: "/icons/vordia-192.png?v=20260818f",
     apple: [
-      { url: "/icons/apple-touch-icon.png?v=20260818c", sizes: "180x180", type: "image/png" },
+      { url: "/icons/vordia-180.png?v=20260818f", sizes: "180x180", type: "image/png" },
     ],
   },
 };
