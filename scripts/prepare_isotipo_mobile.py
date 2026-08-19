@@ -134,8 +134,9 @@ def main() -> None:
         OUT_IMG / "ISOTIPO-512.png", optimize=True
     )
 
-    # overscale ~1.18: Android achica el acceso; el asset ya viene “grande” para compensar
-    app_master = place_logo(logo, 1024, bg=BG, logo_ratio=1.18, soft_glow=False).convert("RGB")
+    # Misma proporción que “ÍCONO OFICIAL DE APP” (área de protección ≈ X ≈ 78%).
+    # Sin overscale: si se agranda, Android recorta las puntas del squircle.
+    app_master = place_logo(logo, 1024, bg=BG, logo_ratio=0.78, soft_glow=False).convert("RGB")
     app_master.save(OUT_ICONS / "_official-app-icon.png", optimize=True)
 
     sizes = {
