@@ -156,7 +156,7 @@ export function MorosidadesMainModal({ isOpen, onClose }: { isOpen: boolean, onC
             monto: cuota?.monto || 0,
             concepto: `Recuperación de mora - Cuota #${cuota?.numeroCuota || "?"}`,
             unidadCodigo: morosidad.unidad?.codigoUnidad || "S/D",
-            condominio: morosidad.unidad?.nombreCondominio || "Aguz",
+            condominio: morosidad.unidad?.nombreCondominio || "Agus",
             fechaPago: new Date().toISOString(),
             metodoPago: "Efectivo"
           });

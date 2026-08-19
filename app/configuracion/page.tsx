@@ -275,20 +275,22 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
     <div className="min-h-0 p-4 md:p-8 font-sans bg-transparent">
       <div className="max-w-6xl mx-auto space-y-8">
         
-        {/* HEADER */}
-        <div className="flex justify-between items-center bg-[#0C1327] p-6 rounded-3xl shadow-sm border border-white/5">
-          <div>
-            <h1 className="text-3xl font-black italic uppercase tracking-tighter text-white flex items-center gap-3">
-              <div className="bg-blue-600 p-2 rounded-xl">
-                <Settings className="text-white w-6 h-6" />
+        {/* HEADER — en móvil apila el botón para no solapar el título */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center bg-[#0C1327] p-4 sm:p-6 rounded-3xl shadow-sm border border-white/5">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-3xl font-black italic uppercase tracking-tighter text-white flex items-center gap-3">
+              <div className="bg-blue-600 p-2 rounded-xl shrink-0">
+                <Settings className="text-white w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              Panel de <span className="text-blue-400">Configuración</span>
+              <span className="min-w-0 leading-tight">
+                Panel de <span className="text-blue-400">Configuración</span>
+              </span>
             </h1>
-            <p className="text-slate-400 font-bold text-sm uppercase tracking-widest mt-1">Gestión de Timbrados y Facturación</p>
+            <p className="text-slate-400 font-bold text-[10px] sm:text-sm uppercase tracking-widest mt-1">Gestión de Timbrados y Facturación</p>
           </div>
           <Button 
             onClick={openNewModal}
-            className="bg-blue-600 text-white font-black italic rounded-xl px-6 hover:scale-105 transition-all shadow-lg shadow-blue-600/20"
+            className="w-full sm:w-auto shrink-0 bg-blue-600 text-white font-black italic rounded-xl px-6 hover:scale-105 transition-all shadow-lg shadow-blue-600/20"
           >
             <Plus className="mr-2 w-4 h-4" /> NUEVO TIMBRADO
           </Button>

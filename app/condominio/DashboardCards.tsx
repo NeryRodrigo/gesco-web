@@ -853,7 +853,7 @@ export function DashboardCards({
         >
             <td className="px-8 py-4">
               <p className="font-black italic uppercase text-white text-sm tracking-tighter">{formatDuplex(item.duplex)}</p>
-              <p className="text-[10px] font-bold text-slate-400 uppercase">{item.condominio}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">{String(item.condominio || "").replace(/Aguz/gi, "Agus")}</p>
             </td>
             <td className="px-8 py-4">
               <div className="flex items-center gap-2">
@@ -1591,7 +1591,7 @@ export function DashboardCards({
                                 <div className="flex items-center gap-2">
                                   <Home className={`w-4 h-4 ${groupIconTone}`} />
                                   <span className="text-sm sm:text-base font-black uppercase italic tracking-wider text-white">
-                                    {isComprobanteGroup ? groupName : `CONDOMINIO: ${groupName}`}
+                                    {isComprobanteGroup ? groupName : `CONDOMINIO: ${String(groupName).replace(/Aguz/gi, "Agus")}`}
                                   </span>
                                   <Badge className={`${groupBadgeTone} border-none text-[10px] font-bold`}>
                                     {groups[groupName]?.length || groupItems.length}{" "}
