@@ -83,7 +83,7 @@ def place_logo(
     logo_ratio: float,
     soft_glow: bool = False,
 ) -> Image.Image:
-    """Centra el logo en un canvas cuadrado conservando proporción."""
+    """Centra el logo en un canvas cuadrado. ratio>1 = overscale (compensa safe-zone Android)."""
     if bg is None:
         canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     else:
@@ -98,15 +98,16 @@ def place_logo(
         glow = glow.filter(ImageFilter.GaussianBlur(radius=max(2, size // 28)))
         canvas = Image.alpha_composite(canvas, glow)
 
-    target = int(size * logo_ratio)
+    target = max(1, int(size * logo_ratio))
     lw, lh = logo.size
     scale = target / max(lw, lh)
     nw, nh = max(1, int(lw * scale)), max(1, int(lh * scale))
     resized = logo.resize((nw, nh), Image.Resampling.LANCZOS)
     ox = (size - nw) // 2
     oy = (size - nh) // 2
-    canvas.alpha_composite(resized, (ox, oy))
-    return canvas
+    layer = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    layer.paste(resized, (ox, oy), resized)
+    return Image.alpha_composite(canvas, layer)
 
 
 def main() -> None:
@@ -133,8 +134,8 @@ def main() -> None:
         OUT_IMG / "ISOTIPO-512.png", optimize=True
     )
 
-    # ratio ~0.94: en Android el acceso se ve grande (evita el isotipo “chico” en el cuadrado)
-    app_master = place_logo(logo, 1024, bg=BG, logo_ratio=0.94, soft_glow=False).convert("RGB")
+    # overscale ~1.18: Android achica el acceso; el asset ya viene “grande” para compensar
+    app_master = place_logo(logo, 1024, bg=BG, logo_ratio=1.18, soft_glow=False).convert("RGB")
     app_master.save(OUT_ICONS / "_official-app-icon.png", optimize=True)
 
     sizes = {
