@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 /** Solo afecta "Agregar a inicio" / PWA en celulares. */
 export default function manifest(): MetadataRoute.Manifest {
   // Cache-bust: al cambiar íconos, subir el sufijo ?v=… y pedir re-agregar a inicio.
-  const ICON_V = "20260819c";
+  const ICON_V = "20260819f";
   return {
     name: "Vordia",
     short_name: "Vordia",
