@@ -67,7 +67,7 @@ export function MorosidadDetalleModal({ morosidadId, isOpen, onClose }: { morosi
             monto: cuotaCobrada?.monto || 0,
             concepto: `Recuperación de mora - Cuota #${cuotaCobrada?.numeroCuota || "?"}`,
             unidadCodigo: detalle.unidad?.codigoUnidad || "S/D",
-            condominio: detalle.unidad?.nombreCondominio || "Aguz",
+            condominio: detalle.unidad?.nombreCondominio || "Agus",
             fechaPago: new Date().toISOString(),
             metodoPago: "Efectivo"
           });

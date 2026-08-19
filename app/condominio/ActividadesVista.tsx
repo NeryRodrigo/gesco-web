@@ -162,40 +162,84 @@ export function ActividadesVista({ empresaId }: { empresaId: number }) {
   return (
     <div className="space-y-12">
       {/* PANEL HEADER */}
-      <div className="bg-card p-8 rounded-[2rem] shadow-sm border border-border flex flex-col md:flex-row justify-between items-center gap-6">
-        <div className="flex items-center gap-6">
-          <div className="bg-primary p-4 rounded-3xl shadow-xl shadow-primary/20 text-white">
-            <Calendar className="w-10 h-10" />
+      <div className="bg-card p-4 sm:p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-border flex flex-col md:flex-row justify-between items-center gap-4 md:gap-6">
+        <div className="flex items-center gap-4 md:gap-6 w-full md:w-auto">
+          <div className="bg-primary p-3 md:p-4 rounded-2xl md:rounded-3xl shadow-xl shadow-primary/20 text-white shrink-0">
+            <Calendar className="w-7 h-7 md:w-10 md:h-10" />
           </div>
-          <div>
-            <h1 className="text-4xl font-black italic uppercase tracking-tighter text-primary leading-none">Actividades</h1>
-            <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.2em] mt-1">Planificación y Seguimiento del Personal</p>
+          <div className="min-w-0">
+            <h1 className="text-2xl md:text-4xl font-black italic uppercase tracking-tighter text-primary leading-none">Actividades</h1>
+            <p className="text-muted-foreground text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] mt-1">Planificación y Seguimiento del Personal</p>
           </div>
         </div>
         <Button 
           onClick={openCreateModal}
-          className="h-14 px-8 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black italic text-xs tracking-widest uppercase shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+          className="w-full md:w-auto h-12 md:h-14 px-6 md:px-8 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black italic text-xs tracking-widest uppercase shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
         >
           <Plus className="w-4 h-4 mr-2" /> Nueva Actividad
         </Button>
       </div>
 
       {/* SEARCH BAR */}
-      <div className="bg-card p-6 rounded-[2rem] shadow-sm border border-border">
+      <div className="bg-card p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-border">
         <div className="relative">
-          <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <Search className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
           <input 
             type="text" 
             placeholder="Buscar actividades por título, descripción, responsable o estado..." 
-            className="w-full pl-16 pr-6 py-5 bg-[#F8F9FA] rounded-2xl border-none font-bold text-sm focus:ring-2 focus:ring-primary/10 transition-all text-slate-900"
+            className="w-full pl-12 md:pl-16 pr-4 md:pr-6 py-4 md:py-5 bg-[#F8F9FA] rounded-2xl border-none font-bold text-sm focus:ring-2 focus:ring-primary/10 transition-all text-slate-900"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
       </div>
 
-      {/* DATATABLE */}
-      <Card className="border border-border/50 shadow-sm rounded-[2rem] overflow-hidden bg-card">
+      {/* MÓVIL / iPad: tarjetas (evita tabla distorsionada). Desktop: tabla. */}
+      <div className="md:hidden space-y-3">
+        {loading ? (
+          <div className="py-16 text-center">
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.2em]">Cargando actividades...</p>
+          </div>
+        ) : filteredActividades.length === 0 ? (
+          <Card className="border border-border/50 rounded-2xl bg-card p-8 text-center text-muted-foreground font-bold italic">
+            No se encontraron actividades registradas.
+          </Card>
+        ) : (
+          filteredActividades.map((act) => (
+            <Card key={act.actividadId} className="border border-border/50 rounded-2xl bg-card overflow-hidden">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-black uppercase italic text-sm text-foreground tracking-tight break-words">{act.titulo}</p>
+                    <p className="text-xs text-muted-foreground mt-1 break-words">{act.descripcion}</p>
+                  </div>
+                  {getEstadoBadge(act.estado)}
+                </div>
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="font-bold text-muted-foreground">
+                    {new Date(act.fecha).toLocaleDateString("es-PY", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                  </span>
+                  <span className="font-bold uppercase text-foreground truncate">
+                    {act.responsableNombre || "Sin Asignar"}
+                  </span>
+                </div>
+                <div className="flex justify-end gap-1 pt-1 border-t border-border/40">
+                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl" onClick={() => openEditModal(act)}>
+                    <Edit className="w-4 h-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-red-400" onClick={() => handleDelete(act.actividadId)}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
+
+      {/* DATATABLE (desktop) */}
+      <Card className="hidden md:block border border-border/50 shadow-sm rounded-[2rem] overflow-hidden bg-card">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">

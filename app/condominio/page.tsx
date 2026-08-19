@@ -32,7 +32,7 @@ import { ComprobantePreviewModal } from "./ComprobantePreviewModal";
 import AlertasVencimientoModal from "./AlertasVencimientoModal";
 import { Download, Printer, FileSpreadsheet, LayoutGrid, Table as TableIcon, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatDuplex } from "@/lib/utils";
+import { formatDuplex, displayCondoName } from "@/lib/utils";
 
 // --- Interfaces ---
 interface Contrato {
@@ -232,7 +232,7 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
   const [comprobantePagoData, setComprobantePagoData] = useState<any>(null);
 
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
-  const [groupBy, setGroupBy] = useState<"none" | "condominio" | "estado">("none");
+  const [groupBy, setGroupBy] = useState<"none" | "condominio" | "estado">("condominio");
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [columnOrder, setColumnOrder] = useState<string[]>([
     "condominio",
@@ -449,11 +449,18 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
     
     switch (colKey) {
       case "condominio":
-        return <span className="font-bold text-foreground">{unit.nombreCondominio}</span>;
+        return <span className="font-bold text-foreground">{displayCondoName(unit.nombreCondominio)}</span>;
       case "duplex":
         return <Badge className="bg-primary/5 text-primary border-none font-bold">{formatDuplex(unit.codigoUnidad)}</Badge>;
       case "inquilino":
-        return <span className={`font-black uppercase italic ${contratoActivo ? 'text-foreground' : 'text-muted-foreground'}`}>{inquilino || "DISPONIBLE"}</span>;
+        return (
+          <span
+            className={`font-black uppercase italic break-words max-w-[220px] inline-block ${contratoActivo ? 'text-foreground' : 'text-muted-foreground'}`}
+            title={inquilino || "DISPONIBLE"}
+          >
+            {inquilino || "DISPONIBLE"}
+          </span>
+        );
       case "estado":
         return (
           <span className={`text-[10px] font-black uppercase italic ${unit.estado === 'Ocupado' ? 'text-primary' : 'text-emerald-500'}`}>
@@ -503,7 +510,7 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
                 <div className="flex items-center gap-3">
                   <span className="text-primary font-black text-xs shrink-0">
                     {isExpanded ? <ChevronDown className="w-4 h-4 inline-block mr-1 align-text-top" /> : <ChevronRight className="w-4 h-4 inline-block mr-1 align-text-top" />}
-                    GRUPO: {groupName.toUpperCase() || "SIN ASIGNAR"}
+                    GRUPO: {displayCondoName(groupName).toUpperCase() || "SIN ASIGNAR"}
                   </span>
                   <Badge className="bg-primary/10 text-primary border-none text-[9px] font-black italic rounded-full px-2 py-0.5">
                     {totalUnidades} {totalUnidades === 1 ? "UNIDAD" : "UNIDADES"}
@@ -519,7 +526,7 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
 
           <tr className="hidden print:table-row bg-muted font-bold border-b border-border">
             <td colSpan={columnOrder.length} className="py-2 px-3 text-xs font-bold text-black" style={{ backgroundColor: '#f1f5f9' }}>
-              GRUPO: {groupName.toUpperCase() || "SIN ASIGNAR"} ({totalUnidades} Unidades, Alquiler Objetivo: {formatCurrency(totalObjetivo)}, Deuda Total: {formatCurrency(totalDeuda)})
+              GRUPO: {displayCondoName(groupName).toUpperCase() || "SIN ASIGNAR"} ({totalUnidades} Unidades, Alquiler Objetivo: {formatCurrency(totalObjetivo)}, Deuda Total: {formatCurrency(totalDeuda)})
             </td>
           </tr>
           
@@ -598,7 +605,7 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
         method: "POST"
       });
       if (resp.ok) {
-        toast.success("Estructura de Condominios Aguz sincronizada!");
+        toast.success("Estructura de Condominios Agus sincronizada!");
         cargarUnidades();
       } else {
         toast.error("No se pudo sincronizar la estructura");
@@ -630,7 +637,7 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
             </div>
             <div>
               <h1 className="text-xl md:text-4xl font-heading font-bold uppercase tracking-tighter text-primary leading-none">Condominios</h1>
-              <p className="text-muted-foreground text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] mt-1">Aguz 1, 2 y 3</p>
+              <p className="text-muted-foreground text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] mt-1">Agus 1, 2 y 3</p>
             </div>
           </div>
           {/* Botones: Se apilan en móvil */}
@@ -720,18 +727,18 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
              </Button>
            </div>
 
-           {/* AGRUPAR SELECTOR */}
+           {/* AGRUPAR: visible en tabla; por defecto Condominio */}
            {viewMode === "table" && (
-              <div className="flex items-center gap-3 bg-neutral-100 p-1.5 px-4 h-12 rounded-2xl border border-neutral-200 w-full md:w-auto">
-               <span className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">Agrupar:</span>
+              <div className="flex items-center gap-3 bg-neutral-100 dark:bg-muted p-1.5 px-4 h-12 rounded-2xl border border-neutral-200 dark:border-border w-full md:w-auto">
+               <span className="text-[10px] font-black uppercase text-neutral-500 tracking-wider shrink-0">Agrupar:</span>
                <select
                  value={groupBy}
                  onChange={(e) => setGroupBy(e.target.value as any)}
-                 className="bg-transparent border-none font-black text-xs uppercase outline-none cursor-pointer text-orange-600"
+                 className="bg-transparent border-none font-black text-xs uppercase outline-none cursor-pointer text-orange-600 min-w-0"
                >
-                 <option value="none">Ninguno</option>
                  <option value="condominio">Condominio</option>
                  <option value="estado">Estado</option>
+                 <option value="none">Ninguno</option>
                </select>
              </div>
            )}
@@ -747,23 +754,23 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
              <p className="text-muted-foreground font-black animate-pulse uppercase tracking-[0.3em] text-[10px]">Sincronizando...</p>
           </div>
         ) : viewMode === "grid" ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+          <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-6 xl:gap-8 2xl:gap-10">
             {condosGrouped.map((condo, idx) => (
-              <div key={idx} className="space-y-6">
-                <div className="flex items-center justify-between mb-4 border-b border-border/50 pb-4">
-                  <h2 className="text-2xl font-heading font-bold uppercase text-foreground tracking-tighter">{condo.name}</h2>
+              <div key={idx} className="space-y-4 2xl:space-y-6">
+                <div className="flex items-center justify-between mb-2 2xl:mb-4 border-b border-border/50 pb-3 2xl:pb-4">
+                  <h2 className="text-xl 2xl:text-2xl font-heading font-bold uppercase text-foreground tracking-tighter">{displayCondoName(condo.name)}</h2>
                   <Badge className="bg-slate-900 text-white text-[9px] rounded-full px-3 py-1 font-black italic border-none">
                     {condo.units.filter(u => u.unidadId > 0).length} REALES
                   </Badge>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-3 2xl:space-y-4">
                   {condo.units.filter(u => u.unidadId > 0).length === 0 && (
                     <Button 
                       onClick={handleSeedAguz}
                       className="w-full h-16 bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 border-2 border-dashed border-blue-200 rounded-3xl font-black italic text-xs tracking-widest uppercase mb-4"
                     >
-                      <Sparkles className="w-4 h-4 mr-2" /> Sincronizar Estructura {condo.name}
+                      <Sparkles className="w-4 h-4 mr-2" /> Sincronizar Estructura {displayCondoName(condo.name)}
                     </Button>
                   )}
                   {condo.units.length === 0 ? (
@@ -790,15 +797,25 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
                             className={`group cursor-pointer transition-all duration-300 border border-border/50 rounded-2xl overflow-hidden hover:shadow-xl hover:border-primary/30 bg-card`}
                           >
                             <CardContent className="p-3">
-                              <div className="flex items-center gap-4">
-                                <div className={`w-auto px-3 min-w-14 h-14 shrink-0 rounded-xl flex items-center justify-center font-black italic text-sm tracking-tight
+                              {/* Apilado hasta 2xl (incluye iPad Pro landscape); fila compacta solo en desktop grande */}
+                              <div className="flex flex-col gap-2 2xl:flex-row 2xl:items-center 2xl:gap-4">
+                                <div className={`w-full 2xl:w-auto px-3 min-w-0 2xl:min-w-14 h-11 2xl:h-14 shrink-0 rounded-xl flex items-center justify-between 2xl:justify-center font-black italic text-sm tracking-tight
                                   ${unit.estado === 'Ocupado' ? 'bg-primary/5 text-primary' : 'bg-emerald-50 text-emerald-600'}`}>
-                                  {formatDuplex(unit.codigoUnidad)}
+                                  <span>{formatDuplex(unit.codigoUnidad)}</span>
+                                  <span className={`2xl:hidden text-[9px] font-bold uppercase font-sans ${unit.estado === 'Ocupado' ? 'text-primary' : 'text-emerald-500'}`}>
+                                    {unit.estado}
+                                  </span>
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <h4 className={`text-[12px] font-heading font-bold uppercase truncate ${inquilino ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                  <h4
+                                    className={`text-[13px] 2xl:text-[12px] font-heading font-bold uppercase break-words 2xl:truncate ${inquilino ? 'text-foreground' : 'text-muted-foreground'}`}
+                                    title={inquilino || "DISPONIBLE"}
+                                  >
                                     {inquilino || "DISPONIBLE"}
                                   </h4>
+                                  <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5 2xl:hidden">
+                                    {displayCondoName(unit.nombreCondominio)}
+                                  </p>
                                   <div className="flex items-center justify-between mt-1">
                                     <div className="flex items-center gap-2">
                                       <Button 
@@ -809,7 +826,7 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
                                       >
                                         <Trash2 className="w-3 h-3" />
                                       </Button>
-                                      <span className={`text-[8px] font-bold uppercase font-sans ${unit.estado === 'Ocupado' ? 'text-primary' : 'text-emerald-500'}`}>
+                                      <span className={`hidden 2xl:inline text-[8px] font-bold uppercase font-sans ${unit.estado === 'Ocupado' ? 'text-primary' : 'text-emerald-500'}`}>
                                         {unit.estado}
                                       </span>
                                     </div>

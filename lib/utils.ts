@@ -13,6 +13,12 @@ export function formatDuplex(text?: string | null): string {
   });
 }
 
+/** Muestra Agus en UI; en BD puede seguir como Aguz. */
+export function displayCondoName(text?: string | null): string {
+  if (!text) return "";
+  return String(text).replace(/Aguz/gi, "Agus");
+}
+
 /** Parsea fechas ISO (YYYY-MM-DD), DD/MM/YYYY o Date sin desfase UTC. */
 export function parseFechaLocal(value?: string | Date | null): Date | null {
   if (!value) return null;

@@ -1834,7 +1834,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
 
   const dataUnidad = {
     codigo: localCodigoUnidad || unidad?.code || "N/A",
-    condominio: unidad?.condo || "Aguz",
+    condominio: unidad?.condo || "Agus",
     estado: unidad?.status || "Ocupado",
     nisAnde: (localNisAnde || unidad?.nisAnde || "").trim() || "—",
     medidorAgua: unidad?.medidorAgua?.trim() || "—",

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, memo } from "react";
-import { formatDuplex } from "@/lib/utils";
+import { formatDuplex, displayCondoName } from "@/lib/utils";
 import { Building2, Download, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -199,11 +199,11 @@ const UnitRow = memo(function UnitRow({
         onDoubleClick={() => !row.isAvailable && onTenantClick(row.unit, row.inquilino)}
       >
         <div className={`flex flex-col gap-0.5 justify-center ${row.isAvailable ? "opacity-30" : "cursor-pointer"}`}>
-          <span className="text-[12px] font-black uppercase text-white leading-snug italic truncate max-w-[180px]">
+          <span className="text-[12px] font-black uppercase text-white leading-snug italic break-words max-w-[140px] sm:max-w-[200px] lg:max-w-[260px]">
             {row.inquilino}
           </span>
           <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-snug">
-            {row.unit.nombreCondominio} - {row.duplexLabel}
+            {displayCondoName(row.unit.nombreCondominio)} - {row.duplexLabel}
           </span>
         </div>
       </td>
@@ -360,7 +360,7 @@ export function AdministracionVista({ unidades, onTenantClick }: AdministracionV
                           <div className="flex items-center gap-3 min-h-[28px]">
                             <Building2 className="w-5 h-5 text-emerald-400 shrink-0" />
                             <span className="text-sm font-black italic uppercase text-emerald-400 tracking-tighter">
-                              {condo.name}
+                              {displayCondoName(condo.name)}
                             </span>
                             <div className="h-px flex-1 bg-emerald-500/20 ml-4" />
                           </div>
