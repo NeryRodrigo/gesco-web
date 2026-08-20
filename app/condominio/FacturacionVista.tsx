@@ -3,7 +3,7 @@
 import { API_BASE } from "@/lib/api";
 
 import React, { useMemo, useState } from "react";
-import { formatDuplex, formatFechaLarga } from "@/lib/utils";
+import { formatDuplex, formatFechaLarga, formatConceptoPeriodo } from "@/lib/utils";
 import {
   Wallet,
   Printer,
@@ -267,6 +267,11 @@ export function FacturacionVista() {
 
   const handleOpenFactura = (c: PagoCompleto) => {
     const total = c.montoPagado || 0;
+    const descMes = formatConceptoPeriodo(
+      c.tipoPago || "Alquiler",
+      c.mesPagado ?? 1,
+      c.anioPagado ?? new Date().getFullYear()
+    );
     setSelectedFacturaData({
       numero: c.numeroFactura ?? `001-001 ${String(c.pagoId).padStart(7, "0")}`,
       rucEmpresa: "3389403-5",
@@ -284,7 +289,7 @@ export function FacturacionVista() {
       items: [
         {
           cantidad: 1,
-          descripcion: `Alquiler ${c.mesPagado ?? ""}/${c.anioPagado ?? ""}`,
+          descripcion: descMes,
           precioUnitario: total,
           iva10: total,
         },

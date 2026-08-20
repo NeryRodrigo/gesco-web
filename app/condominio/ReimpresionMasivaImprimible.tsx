@@ -3,7 +3,7 @@
 
 import React from "react";
 import { PrintPortal } from "@/components/ui/print-portal";
-import { formatDuplex } from "@/lib/utils";
+import { formatDuplex, formatConceptoPeriodo } from "@/lib/utils";
 
 export type ReimpresionCobroItem = {
   pagoId: number;
@@ -222,7 +222,7 @@ function ComprobantePagina({
         <tbody>
           <tr>
             <td className="p-2.5 border-b border-[#e2e8f0]">
-              {item.tipoPago || "Alquiler"} — periodo {item.mesPagado}/{item.anioPagado}
+              {formatConceptoPeriodo(item.tipoPago, item.mesPagado, item.anioPagado)}
             </td>
             <td className="p-2.5 border-b border-[#e2e8f0] text-right font-black">
               {fmtGs(item.montoPagado)}

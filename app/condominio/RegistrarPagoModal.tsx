@@ -34,6 +34,7 @@ import {
 import { toast } from "sonner";
 import { numberToWords } from "@/lib/numberToWords";
 import { API_BASE } from "@/lib/api";
+import { formatConceptoCobro, formatUnidadComprobante } from "@/lib/utils";
 
 export interface PagoConsolidadoData {
   contratoId: number;
@@ -115,7 +116,7 @@ export function RegistrarPagoModal({
   const [responsableCobro, setResponsableCobro] = useState("");
 
   // Periodos e importes individuales
-  const [mesAlquiler, setMesAlquiler] = useState(new Date().getMonth() + 1);
+  const [mesesAlquilerSel, setMesesAlquilerSel] = useState<number[]>([new Date().getMonth() + 1]);
   const [anioAlquiler, setAnioAlquiler] = useState(new Date().getFullYear());
   const [montoAlquiler, setMontoAlquiler] = useState(0);
   const [moraAlquiler, setMoraAlquiler] = useState(0);
@@ -169,35 +170,26 @@ export function RegistrarPagoModal({
     }
   }, [isOpen, unidadId]);
 
-  // Recalculate fine automatically when fechaPago, mesAlquiler, anioAlquiler or fineConfig changes
+  // Recalculate fine automatically when fechaPago / meses seleccionados / config cambia
   useEffect(() => {
     if (!contrato || !fineConfig || !chkAlquiler) return;
 
     const calculateFine = () => {
       const payDate = new Date(fechaPago);
       const year = anioAlquiler;
-      const month = mesAlquiler;
-      
+      // Si algún mes seleccionado está vencido → aplica mora
       let isLate = false;
-
-      if (fineConfig.tipoAplicacion === "FinMesAtrasado") {
-        // Rent month: month. Last day of month
-        const lastDayOfRentMonth = new Date(year, month, 0); // month is 1-indexed, so passing month here gets last day of month-1. Wait: Date constructor takes 0-indexed month, so month parameter as month index gets the 0-th day of month+1, which is the last day of month!
-        // E.g. month=6 (June), new Date(2026, 6, 0) is June 30, 2026.
-        if (payDate > lastDayOfRentMonth) {
-          isLate = true;
-        }
-      } else if (fineConfig.tipoAplicacion === "CincoDias") {
-        // Due day is usually 5 (or diaVencimiento from contract, defaulting to 5)
-        const dueDay = contrato.diaVencimiento || 5;
-        const dueDate = new Date(year, month - 1, dueDay);
-        // Add grace days
-        const graceDays = fineConfig.diasGracia || 5;
-        const limitDate = new Date(dueDate);
-        limitDate.setDate(limitDate.getDate() + graceDays);
-
-        if (payDate >= limitDate) {
-          isLate = true;
+      for (const month of mesesAlquilerSel) {
+        if (fineConfig.tipoAplicacion === "FinMesAtrasado") {
+          const lastDayOfRentMonth = new Date(year, month, 0);
+          if (payDate > lastDayOfRentMonth) isLate = true;
+        } else if (fineConfig.tipoAplicacion === "CincoDias") {
+          const dueDay = contrato.diaVencimiento || 5;
+          const dueDate = new Date(year, month - 1, dueDay);
+          const graceDays = fineConfig.diasGracia || 5;
+          const limitDate = new Date(dueDate);
+          limitDate.setDate(limitDate.getDate() + graceDays);
+          if (payDate >= limitDate) isLate = true;
         }
       }
 
@@ -209,13 +201,40 @@ export function RegistrarPagoModal({
     };
 
     calculateFine();
-  }, [fechaPago, mesAlquiler, anioAlquiler, fineConfig, contrato, chkAlquiler]);
+  }, [fechaPago, mesesAlquilerSel, anioAlquiler, fineConfig, contrato, chkAlquiler]);
 
-  // Calculate totals
-  const totalCobro = (chkAlquiler ? (montoAlquiler + moraAlquiler + saldoAlquiler) : 0) +
-                     (chkLuz ? montoLuz : 0) +
-                     (chkBasura ? montoBasura : 0) +
-                     (chkAgua ? montoAgua : 0);
+  const cantMesesAlquiler = Math.max(1, mesesAlquilerSel.length);
+  // Calculate totals (importe × meses seleccionados + mora/saldo una sola vez)
+  const totalCobro =
+    (chkAlquiler ? montoAlquiler * cantMesesAlquiler + moraAlquiler + saldoAlquiler : 0) +
+    (chkLuz ? montoLuz : 0) +
+    (chkBasura ? montoBasura : 0) +
+    (chkAgua ? montoAgua : 0);
+
+  const toggleMesAlquiler = (mes: number) => {
+    setMesesAlquilerSel((prev) => {
+      if (prev.includes(mes)) {
+        if (prev.length === 1) return prev; // al menos uno
+        return prev.filter((m) => m !== mes).sort((a, b) => a - b);
+      }
+      return [...prev, mes].sort((a, b) => a - b);
+    });
+  };
+
+  const descripcionConcepto = (() => {
+    const periodos: { tipoPago?: string; mes: number; anio: number }[] = [];
+    if (chkAlquiler) {
+      for (const m of mesesAlquilerSel) {
+        periodos.push({ tipoPago: "Alquiler", mes: m, anio: anioAlquiler });
+      }
+    }
+    if (chkLuz) periodos.push({ tipoPago: "Luz", mes: mesLuz, anio: anioLuz });
+    if (chkBasura) periodos.push({ tipoPago: "Basura", mes: mesBasura, anio: anioBasura });
+    if (chkAgua) periodos.push({ tipoPago: "Agua", mes: mesAgua, anio: anioAgua });
+    const base = formatConceptoCobro(periodos);
+    const unidad = formatUnidadComprobante(codigoUnidad);
+    return unidad ? `${base} - ${unidad}` : base;
+  })();
 
   const handleSave = () => {
     if (!chkAlquiler && !chkLuz && !chkBasura && !chkAgua) {
@@ -248,20 +267,27 @@ export function RegistrarPagoModal({
     const pagos: PagoConsolidadoData[] = [];
 
     if (chkAlquiler) {
-      pagos.push({
-        contratoId: contrato.contratoId,
-        tipoPago: "Alquiler",
-        mesPagado: mesAlquiler,
-        anioPagado: anioAlquiler,
-        fechaPago,
-        montoPagado: montoAlquiler,
-        metodoPago,
-        saldoPendiente: saldoAlquiler,
-        mora: moraAlquiler,
-        banco,
-        notas,
-        responsableCobro,
-        facturaEmitida: tipoComprobante === "Factura"
+      const sorted = [...mesesAlquilerSel].sort((a, b) => a - b);
+      sorted.forEach((mes, idx) => {
+        pagos.push({
+          contratoId: contrato.contratoId,
+          tipoPago: "Alquiler",
+          mesPagado: mes,
+          anioPagado: anioAlquiler,
+          fechaPago,
+          montoPagado: montoAlquiler,
+          metodoPago,
+          // Mora y saldo solo en el primer mes del lote
+          saldoPendiente: idx === 0 ? saldoAlquiler : 0,
+          mora: idx === 0 ? moraAlquiler : 0,
+          banco,
+          notas:
+            idx === 0
+              ? [notas, descripcionConcepto].filter(Boolean).join(" | ")
+              : notas || `Parte de cobro consolidado: ${descripcionConcepto}`,
+          responsableCobro,
+          facturaEmitida: tipoComprobante === "Factura",
+        });
       });
     }
 
@@ -451,34 +477,51 @@ export function RegistrarPagoModal({
             <div className="p-8 space-y-6">
               {/* SECCIÓN ALQUILER */}
               {chkAlquiler && (
-                <div className="p-5 rounded-2xl border border-primary/20 bg-primary/5 space-y-4">
-                  <div className="flex justify-between items-center border-b border-primary/10 pb-2">
+                <div className="p-4 sm:p-5 rounded-2xl border border-primary/20 bg-primary/5 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 border-b border-primary/10 pb-2">
                     <span className="text-xs font-black uppercase italic tracking-tighter text-primary">Concepto: Alquiler Mensual</span>
                     <span className="text-[10px] font-bold text-muted-foreground">Vence: {contrato?.diaVencimiento || 5} de cada mes</span>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-1">
-                      <Label className="text-[9px] font-black uppercase text-muted-foreground">Periodo Alquiler</Label>
-                      <div className="flex gap-1.5">
-                        <select 
-                          className="flex-1 h-10 rounded-xl border border-border bg-card px-2 font-bold text-xs"
-                          value={mesAlquiler}
-                          onChange={(e) => setMesAlquiler(Number(e.target.value))}
-                        >
-                          {meses.map((m, i) => (
-                            <option key={i+1} value={i+1}>{m.toUpperCase()}</option>
-                          ))}
-                        </select>
-                        <Input 
-                          type="number" 
-                          className="w-16 h-10 rounded-xl border-border bg-card font-bold text-xs"
-                          value={anioAlquiler}
-                          onChange={(e) => setAnioAlquiler(Number(e.target.value))}
-                        />
-                      </div>
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <Label className="text-[9px] font-black uppercase text-muted-foreground">
+                        Meses a cobrar ({mesesAlquilerSel.length})
+                      </Label>
+                      <Input
+                        type="number"
+                        className="w-24 h-9 rounded-xl border-border bg-card font-bold text-xs"
+                        value={anioAlquiler}
+                        onChange={(e) => setAnioAlquiler(Number(e.target.value))}
+                        aria-label="Año alquiler"
+                      />
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-[9px] font-black uppercase text-muted-foreground">Importe Alquiler (Gs.)</Label>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-1.5">
+                      {meses.map((m, i) => {
+                        const mesNum = i + 1;
+                        const active = mesesAlquilerSel.includes(mesNum);
+                        return (
+                          <button
+                            key={mesNum}
+                            type="button"
+                            onClick={() => toggleMesAlquiler(mesNum)}
+                            className={`h-9 rounded-xl text-[10px] font-black uppercase tracking-tight border transition-all ${
+                              active
+                                ? "bg-primary text-white border-primary shadow-sm"
+                                : "bg-card text-muted-foreground border-border hover:border-primary/40"
+                            }`}
+                          >
+                            {m.slice(0, 3)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground font-medium leading-snug">
+                      {descripcionConcepto}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1 md:col-span-1">
+                      <Label className="text-[9px] font-black uppercase text-muted-foreground">Importe por mes (Gs.)</Label>
                       <Input 
                         type="number" 
                         className="h-10 rounded-xl border-border bg-card font-black text-foreground"
@@ -495,6 +538,12 @@ export function RegistrarPagoModal({
                         onChange={(e) => setSaldoAlquiler(Number(e.target.value))}
                       />
                     </div>
+                    <div className="space-y-1">
+                      <Label className="text-[9px] font-black uppercase text-muted-foreground">Subtotal alquileres</Label>
+                      <div className="h-10 flex items-center px-3 rounded-xl bg-primary/10 border border-primary/20 font-black text-primary italic text-sm">
+                        {formatCurrency(montoAlquiler * cantMesesAlquiler + moraAlquiler + saldoAlquiler)}
+                      </div>
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
                     <div className="space-y-1">
@@ -508,14 +557,6 @@ export function RegistrarPagoModal({
                         value={moraAlquiler}
                         onChange={(e) => setMoraAlquiler(Number(e.target.value))}
                       />
-                    </div>
-                    <div className="flex items-end justify-end">
-                      <div className="text-right">
-                        <p className="text-[8px] font-black uppercase text-muted-foreground">Subtotal Alquiler</p>
-                        <p className="text-lg font-black text-primary italic leading-none">
-                          {formatCurrency(montoAlquiler + moraAlquiler + saldoAlquiler)}
-                        </p>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -844,12 +885,8 @@ export function RegistrarPagoModal({
 
                     <div className="border-b border-border pb-2">
                       <span className="font-bold text-muted-foreground uppercase text-[10px] block mb-1">En concepto de:</span>
-                      <span className="font-bold text-foreground text-xs uppercase">
-                        {chkAlquiler ? `Alquiler ${meses[mesAlquiler - 1]} ${anioAlquiler} ` : ""}
-                        {chkLuz ? `+ Luz ` : ""}
-                        {chkBasura ? `+ Basura ` : ""}
-                        {chkAgua ? `+ Agua ` : ""}
-                        - Unidad {codigoUnidad}
+                      <span className="font-bold text-foreground text-xs uppercase leading-snug break-words">
+                        {descripcionConcepto}
                       </span>
                     </div>
 

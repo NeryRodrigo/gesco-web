@@ -10,7 +10,7 @@ import { numberToWords } from "@/lib/numberToWords";
 import { toast } from "sonner";
 import { ConfirmActionModal } from "@/components/ui/confirm-action-modal";
 import { PrintPortal } from "@/components/ui/print-portal";
-import { formatFechaLarga } from "@/lib/utils";
+import { formatFechaLarga, formatConceptoPeriodo } from "@/lib/utils";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { API_BASE } from "@/lib/api";
@@ -36,6 +36,8 @@ interface ComprobantePreviewModalProps {
     unidadCodigo: string;
     condominioNombre?: string;
     items?: Array<{ cantidad?: number; descripcion: string; precioUnitario: number; exenta?: number; iva5?: number; iva10?: number; }>;
+    /** Otros pagos del mismo cobro consolidado (multi-mes) a actualizar al guardar la factura */
+    relatedPagoIds?: number[];
     contrato?: {
     inquilino?: {
       telefono?: string | null;
@@ -43,7 +45,7 @@ interface ComprobantePreviewModalProps {
     }
   };
   } | null;
-  onSaved?: () => void;
+  onSaved?: () => void | Promise<void>;
 }
 
 export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: ComprobantePreviewModalProps) {
@@ -78,9 +80,15 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
 
     // Default calculations
     const defaultWords = numberToWords(pagoData.montoPagado || 0);
-    const mesNombre = new Date(2000, (pagoData.mesPagado || 1) - 1, 1).toLocaleString('es-ES', { month: 'long' });
-    const mesCapitalized = mesNombre.charAt(0).toUpperCase() + mesNombre.slice(1);
-    const defaultDesc = `${pagoData.tipoPago || "Alquiler"} del mes de ${mesCapitalized} ${pagoData.anioPagado || new Date().getFullYear()}`;
+    const defaultDesc = formatConceptoPeriodo(
+      pagoData.tipoPago,
+      pagoData.mesPagado || 1,
+      pagoData.anioPagado || new Date().getFullYear()
+    );
+    const multiFromItems =
+      pagoData.items && pagoData.items.length > 1
+        ? pagoData.items.map((i) => i.descripcion).join(" + ")
+        : "";
     
     let parsedMeta: any = {};
     if (pagoData.comprobanteUrl && pagoData.comprobanteUrl.startsWith("{")) {
@@ -95,7 +103,14 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
     setRucInquilino(parsedMeta.rucInquilino || (pagoData.inquilinoDocumento && pagoData.inquilinoDocumento !== "Sin Documento" ? pagoData.inquilinoDocumento : "N/D"));
     setNombreInquilino(parsedMeta.nombreInquilino || pagoData.inquilinoNombre || "Cliente");
     setDireccionCliente(parsedMeta.direccion || "Merlo de Portugal y Capitán Pedro Mayor Echauri");
-    setDescripcionFactura(parsedMeta.descripcion || defaultDesc);
+    // Cobro consolidado (varios ítems): descripción plural.
+    // Al reabrir UNA factura cobrada: siempre el mes de ese pago.
+    const esConsolidado = Boolean(pagoData.items && pagoData.items.length > 1);
+    setDescripcionFactura(
+      esConsolidado
+        ? (parsedMeta.descripcion || parsedMeta.concepto || multiFromItems || defaultDesc)
+        : defaultDesc
+    );
     setMontoLetras(parsedMeta.montoLetras || defaultWords);
     const checkMobile = () => {
       const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
@@ -124,21 +139,36 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
       concepto: descripcionFactura
     };
 
-    try {
-      const resp = await fetch(`${API_BASE}/api/Contratos/pago/${pagoData.pagoId}/comprobante`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          facturaEmitida: tipoEmision === "factura",
-          numeroFactura: numeroFactura || null,
-          comprobanteUrl: JSON.stringify(metadata)
-        })
-      });
+    const body = {
+      facturaEmitida: tipoEmision === "factura",
+      numeroFactura: numeroFactura || null,
+      comprobanteUrl: JSON.stringify(metadata)
+    };
 
-      if (resp.ok) {
+    // Cobro multi-mes: propagar número de factura / metadata a todos los pagos del lote
+    const pagoIds = Array.from(
+      new Set(
+        [pagoData.pagoId, ...(pagoData.relatedPagoIds || [])].filter(
+          (id): id is number => typeof id === "number" && id > 0
+        )
+      )
+    );
+
+    try {
+      const results = await Promise.all(
+        pagoIds.map((id) =>
+          fetch(`${API_BASE}/api/Contratos/pago/${id}/comprobante`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          })
+        )
+      );
+
+      if (results.every((r) => r.ok)) {
         toast.success("Comprobante guardado correctamente");
-        if (onSaved) onSaved();
-        
+        if (onSaved) await onSaved();
+
         setTimeout(() => {
           window.print();
           setIsSaving(false);
@@ -165,7 +195,7 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
 
       if (resp.ok) {
         toast.success("Factura/cobro anulada correctamente. El alquiler volvió a estar pendiente.");
-        if (onSaved) onSaved();
+        if (onSaved) await onSaved();
         onClose();
       } else {
         toast.error("Error al anular en el servidor");
