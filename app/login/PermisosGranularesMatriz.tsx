@@ -29,7 +29,7 @@ export interface UsuarioAdmin {
 
 export interface PermisoGranular {
   id: string;
-  modulo: "Panel" | "Condominio Agus" | "Actividades" | "Facturación" | "Administración" | "Configuración";
+  modulo: "Panel" | "Condominio Agus" | "Fontana" | "Actividades" | "Facturación" | "Administración" | "Configuración";
   nombre: string;
   descripcion: string;
 }
@@ -48,6 +48,9 @@ export const LISTA_PERMISOS: PermisoGranular[] = [
   { id: "condo_morosidad", modulo: "Condominio Agus", nombre: "Gestión de Morosidad y Avisos", descripcion: "Ver listado de inquilinos en mora y generar notificaciones de reclamo" },
   { id: "condo_recibos", modulo: "Condominio Agus", nombre: "Imprimir Recibos de Dinero", descripcion: "Generación e impresión oficial de recibos membretados en PDF" },
 
+  // Fontana (hostel / habitaciones)
+  { id: "fontana_ver", modulo: "Fontana", nombre: "Ver módulo Fontana (hostel / habitaciones)", descripcion: "Acceso a alojamientos diarios, semanales y mensuales, calendario y fichas de huéspedes" },
+  { id: "fontana_gestionar", modulo: "Fontana", nombre: "Crear / editar / eliminar habitaciones Fontana", descripcion: "Alta y mantenimiento de hasta 3 alojamientos y reservas asociadas" },
   // Actividades
   { id: "act_ver", modulo: "Actividades", nombre: "Ver Tablero de Tareas", descripcion: "Visualización general de tareas operativas y mantenimiento del condominio" },
   { id: "act_crear", modulo: "Actividades", nombre: "Crear y Asignar Actividades", descripcion: "Capacidad para registrar nuevas tareas y asignarlas a colaboradores" },
@@ -103,6 +106,14 @@ export function verificarPermisoGranular(permisoId: string, email?: string): { p
     // Si cualquiera de los dos (panel_consultar_ande o condo_consultar_ande) fue denegado, se bloquea
     if (permisoId === "panel_consultar_ande" || permisoId === "condo_consultar_ande") {
       isAllowed = permisos.includes("panel_consultar_ande") && permisos.includes("condo_consultar_ande");
+    }
+
+    // Migración: Fontana hereda de Condominio Agus si aún no está en la matriz guardada
+    if (permisoId === "fontana_ver" && !permisos.includes("fontana_ver")) {
+      isAllowed = permisos.includes("condo_ver_panel") || permisos.includes("fontana_gestionar");
+    }
+    if (permisoId === "fontana_gestionar" && !permisos.includes("fontana_gestionar")) {
+      isAllowed = permisos.includes("condo_ver_panel") || permisos.includes("fontana_ver");
     }
 
     if (isAllowed) {
@@ -280,7 +291,7 @@ export function PermisosGranularesMatriz({
     setPermisoAProbar(permiso);
   };
 
-  const modulosDisponibles = ["TODOS", "Panel", "Condominio Agus", "Actividades", "Facturación", "Administración", "Configuración"];
+  const modulosDisponibles = ["TODOS", "Panel", "Condominio Agus", "Fontana", "Actividades", "Facturación", "Administración", "Configuración"];
   
   const permisosFiltrados = moduloFiltro === "TODOS" 
     ? LISTA_PERMISOS 

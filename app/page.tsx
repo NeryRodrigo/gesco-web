@@ -6,7 +6,7 @@ import {
   AlertTriangle, LayoutDashboard, ChevronRight, MapPin, Edit, Trash2, ArrowLeft, 
   ExternalLink, Save, X, DollarSign, Ruler, ShieldCheck, XCircle, 
   Search, Filter, Sparkles, User, Building2, Wallet, LogOut, 
-  Activity, Users, FileText, Cpu, Lock, History, Settings, List, CheckSquare, Menu
+  Activity, Users, FileText, Cpu, Lock, History, Settings, List, CheckSquare, Menu, Bed
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,7 @@ import { BIPage } from "./bi/BIPage";
 import { ProduccionPage } from "./produccion/ProduccionPage";
 import { ContabilidadPage } from "./contabilidad/ContabilidadPage";
 import { MigradorPage } from "./configuracion/MigradorPage";
+import { FontanaPage } from "./fontana/FontanaPage";
 import AuthScreen from "./login/Registro";
 import { RegistroUsuarioModal } from "./login/RegistroUsuarioModal";
 import { EditarUsuarioModal } from "./login/EditarUsuarioModal";
@@ -46,7 +47,7 @@ import {
   isAdminFontana,
 } from "@/lib/utils";
 
-type Vista = "inicio" | "inmobiliaria" | "administracion" | "usuarios" | "condominio" | "facturacion" | "configuracion" | "gastos" | "historico_contratos" | "aprobacion" | "consolidado" | "inventario" | "caja" | "compras" | "finanzas" | "crm" | "rrhh" | "analytics" | "produccion" | "contabilidad" | "migrador" | "actividades";
+type Vista = "inicio" | "inmobiliaria" | "administracion" | "usuarios" | "condominio" | "fontana" | "facturacion" | "configuracion" | "gastos" | "historico_contratos" | "aprobacion" | "consolidado" | "inventario" | "caja" | "compras" | "finanzas" | "crm" | "rrhh" | "analytics" | "produccion" | "contabilidad" | "migrador" | "actividades";
 
 export default function OimaDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -113,6 +114,7 @@ export default function OimaDashboard() {
   const navegarConPermiso = (nuevaVista: Vista) => {
     const mapaPermisos: Record<string, string> = {
       condominio: "condo_ver_panel",
+      fontana: "fontana_ver",
       actividades: "act_ver",
       facturacion: "fact_ver",
       administracion: "admin_ver_reportes",
@@ -270,6 +272,13 @@ export default function OimaDashboard() {
               />
 
               <SidebarItem 
+                icon={<Bed size={18}/>} 
+                label="Fontana" 
+                active={vistaActual === "fontana"} 
+                onClick={() => navegarConPermiso("fontana")} 
+              />
+
+              <SidebarItem 
                 icon={<Activity size={18}/>} 
                 label="Actividades" 
                 active={vistaActual === "actividades"} 
@@ -364,7 +373,9 @@ export default function OimaDashboard() {
                 ? "Resumen operativo"
                 : vistaActual === "condominio"
                   ? "Gestión de unidades"
-                  : vistaActual.replace(/_/g, " ")}
+                  : vistaActual === "fontana"
+                    ? "Fontana · Hospedaje"
+                    : vistaActual.replace(/_/g, " ")}
             </h2>
           </div>
 
@@ -414,6 +425,12 @@ export default function OimaDashboard() {
              <div className="animate-in fade-in duration-500">
                 <CondominioDashboard empresaId={empresaId} usuario={usuarioActivo} />
              </div>
+          )}
+
+          {vistaActual === "fontana" && (
+            <div className="animate-in fade-in duration-500">
+              <FontanaPage empresaId={empresaId} usuario={usuarioActivo} />
+            </div>
           )}
 
           {vistaActual === "actividades" && <ActividadesVista empresaId={empresaId} />}
