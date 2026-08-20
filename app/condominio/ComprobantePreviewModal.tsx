@@ -38,6 +38,10 @@ interface ComprobantePreviewModalProps {
     items?: Array<{ cantidad?: number; descripcion: string; precioUnitario: number; exenta?: number; iva5?: number; iva10?: number; }>;
     /** Otros pagos del mismo cobro consolidado (multi-mes) a actualizar al guardar la factura */
     relatedPagoIds?: number[];
+    /** Si true, no intenta guardar en /api/Contratos/pago (Fontana / garantía local) */
+    localOnly?: boolean;
+    /** Forzar recibo o factura al abrir (Fontana) */
+    forceTipoEmision?: "recibo" | "factura";
     contrato?: {
     inquilino?: {
       telefono?: string | null;
@@ -45,7 +49,12 @@ interface ComprobantePreviewModalProps {
     }
   };
   } | null;
-  onSaved?: () => void | Promise<void>;
+  onSaved?: (payload?: {
+    facturaEmitida: boolean;
+    numeroFactura: string;
+    descripcion: string;
+    metadata: Record<string, unknown>;
+  }) => void | Promise<void>;
 }
 
 export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: ComprobantePreviewModalProps) {
@@ -72,7 +81,9 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
   useEffect(() => {
     if (!pagoData) return;
 
-    setTipoEmision(pagoData.facturaEmitida ? "factura" : "recibo");
+    setTipoEmision(
+      pagoData.forceTipoEmision || (pagoData.facturaEmitida ? "factura" : "recibo")
+    );
     setNumeroFactura(pagoData.numeroFactura || "001-001 0001229");
     setMontoRecibo(pagoData.montoPagado || 0);
 
@@ -89,6 +100,10 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
       pagoData.items && pagoData.items.length > 1
         ? pagoData.items.map((i) => i.descripcion).join(" + ")
         : "";
+    const singleItemDesc =
+      pagoData.items && pagoData.items.length === 1
+        ? pagoData.items[0].descripcion
+        : "";
     
     let parsedMeta: any = {};
     if (pagoData.comprobanteUrl && pagoData.comprobanteUrl.startsWith("{")) {
@@ -103,13 +118,14 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
     setRucInquilino(parsedMeta.rucInquilino || (pagoData.inquilinoDocumento && pagoData.inquilinoDocumento !== "Sin Documento" ? pagoData.inquilinoDocumento : "N/D"));
     setNombreInquilino(parsedMeta.nombreInquilino || pagoData.inquilinoNombre || "Cliente");
     setDireccionCliente(parsedMeta.direccion || "Merlo de Portugal y Capitán Pedro Mayor Echauri");
-    // Cobro consolidado (varios ítems): descripción plural.
-    // Al reabrir UNA factura cobrada: siempre el mes de ese pago.
+    // Cobro consolidado / Fontana (garantía o alojamiento): respetar descripción del ítem
     const esConsolidado = Boolean(pagoData.items && pagoData.items.length > 1);
     setDescripcionFactura(
-      esConsolidado
-        ? (parsedMeta.descripcion || parsedMeta.concepto || multiFromItems || defaultDesc)
-        : defaultDesc
+      parsedMeta.descripcion ||
+        parsedMeta.concepto ||
+        (esConsolidado ? multiFromItems : "") ||
+        singleItemDesc ||
+        defaultDesc
     );
     setMontoLetras(parsedMeta.montoLetras || defaultWords);
     const checkMobile = () => {
@@ -145,6 +161,30 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
       comprobanteUrl: JSON.stringify(metadata)
     };
 
+    // Fontana / garantía: solo imprimir y notificar (sin PUT de contrato)
+    if (pagoData.localOnly || !pagoData.pagoId || pagoData.pagoId <= 0) {
+      try {
+        toast.success("Comprobante listo para imprimir");
+        if (onSaved) {
+          await onSaved({
+            facturaEmitida: tipoEmision === "factura",
+            numeroFactura: numeroFactura || "",
+            descripcion: descripcionFactura,
+            metadata,
+          });
+        }
+        setTimeout(() => {
+          window.print();
+          setIsSaving(false);
+        }, 300);
+      } catch (err) {
+        console.error(err);
+        toast.error("Error al preparar comprobante");
+        setIsSaving(false);
+      }
+      return;
+    }
+
     // Cobro multi-mes: propagar número de factura / metadata a todos los pagos del lote
     const pagoIds = Array.from(
       new Set(
@@ -167,7 +207,14 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
 
       if (results.every((r) => r.ok)) {
         toast.success("Comprobante guardado correctamente");
-        if (onSaved) await onSaved();
+        if (onSaved) {
+          await onSaved({
+            facturaEmitida: tipoEmision === "factura",
+            numeroFactura: numeroFactura || "",
+            descripcion: descripcionFactura,
+            metadata,
+          });
+        }
 
         setTimeout(() => {
           window.print();
@@ -377,8 +424,36 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
   };
 
   // Cálculos de IVA
-  const total = montoRecibo || pagoData.montoPagado || 0;
-  const liqIva10 = Math.round(total / 11);
+  const total = (() => {
+    if (pagoData.items && pagoData.items.length > 0) {
+      return pagoData.items.reduce((a, i) => a + (Number(i.precioUnitario) || 0), 0);
+    }
+    return montoRecibo || pagoData.montoPagado || 0;
+  })();
+  const montoExenta =
+    pagoData.items && pagoData.items.length > 0
+      ? pagoData.items.reduce((a, i) => a + (Number(i.exenta) || 0), 0)
+      : 0;
+  const montoIva10Col =
+    pagoData.items && pagoData.items.length > 0
+      ? pagoData.items.reduce((a, i) => a + (Number(i.iva10) || 0), 0)
+      : montoExenta > 0
+        ? 0
+        : total;
+  const liqIva10 = montoIva10Col > 0 ? Math.round(montoIva10Col / 11) : 0;
+  const filasItems =
+    pagoData.items && pagoData.items.length > 0
+      ? pagoData.items
+      : [
+          {
+            cantidad: 1,
+            descripcion: descripcionFactura,
+            precioUnitario: total,
+            exenta: montoExenta || undefined,
+            iva10: montoIva10Col || undefined,
+          },
+        ];
+  const filasRelleno = Math.max(0, 10 - filasItems.length);
 
   // --- FUNCIÓN PARA GENERAR PDF ---
   const generatePDFBlob = async () => {
@@ -530,17 +605,34 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
             </tr>
           </thead>
           <tbody className="text-[10px] font-bold">
-            <tr className="h-10">
-              <td className="text-center border-r-[2px] border-b border-black/10 border-black">1</td>
-              <td className="px-2 border-r-[2px] border-b border-black/10 border-black uppercase text-[9.5px] leading-tight">{descripcionFactura}</td>
-              <td className="text-right px-2 border-r-[2px] border-b border-black/10 border-black">{formatCurrency(total)}</td>
-              <td className="border-r-[2px] border-b border-black/10 border-black"></td>
-              <td className="border-r-[2px] border-b border-black/10 border-black"></td>
-              <td className="text-right px-2 border-b border-black/10">{formatCurrency(total)}</td>
-            </tr>
+            {filasItems.map((it, idx) => {
+              const pu = Number(it.precioUnitario) || 0;
+              const ex = Number(it.exenta) || 0;
+              const i10 = Number(it.iva10) || 0;
+              return (
+                <tr key={idx} className="h-10">
+                  <td className="text-center border-r-[2px] border-b border-black/10 border-black">
+                    {it.cantidad || 1}
+                  </td>
+                  <td className="px-2 border-r-[2px] border-b border-black/10 border-black uppercase text-[9.5px] leading-tight">
+                    {it.descripcion || descripcionFactura}
+                  </td>
+                  <td className="text-right px-2 border-r-[2px] border-b border-black/10 border-black">
+                    {formatCurrency(pu)}
+                  </td>
+                  <td className="text-right px-1 border-r-[2px] border-b border-black/10 border-black text-[9px]">
+                    {ex > 0 ? formatCurrency(ex) : ""}
+                  </td>
+                  <td className="border-r-[2px] border-b border-black/10 border-black"></td>
+                  <td className="text-right px-2 border-b border-black/10">
+                    {i10 > 0 ? formatCurrency(i10) : ""}
+                  </td>
+                </tr>
+              );
+            })}
             {/* Filas de relleno con bordes reforzados */}
-            {[...Array(10)].map((_, i) => (
-              <tr key={i} className="h-8">
+            {[...Array(filasRelleno)].map((_, i) => (
+              <tr key={`pad-${i}`} className="h-8">
                 <td className="border-r-[2px] border-black"></td>
                 <td className="border-r-[2px] border-black"></td>
                 <td className="border-r-[2px] border-black"></td>
@@ -559,9 +651,13 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
           {/* Fila Subtotales */}
           <tr className="h-9 border-t-[2px] border-black font-bold">
             <td colSpan={3} className="px-4 text-[9px] font-black uppercase border-r-[2px] border-black">Subtotales:</td>
+            <td className="w-[65px] text-right px-1 text-[10px] border-r-[2px] border-black">
+              {montoExenta > 0 ? formatCurrency(montoExenta) : ""}
+            </td>
             <td className="w-[65px] border-r-[2px] border-black"></td>
-            <td className="w-[65px] border-r-[2px] border-black"></td>
-            <td className="w-[85px] text-right px-2 text-[11px] border-black">{formatCurrency(total)}</td>
+            <td className="w-[85px] text-right px-2 text-[11px] border-black">
+              {montoIva10Col > 0 ? formatCurrency(montoIva10Col) : ""}
+            </td>
           </tr>
           {/* Fila Total a Pagar */}
           <tr className="h-10 border-t-[2px] border-black font-bold">
@@ -763,6 +859,7 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
                 {isSendingEmail ? "ENVIANDO CORREO..." : "ENVIAR POR CORREO ELECTRÓNICO (SMTP)"}
               </Button>
 
+              {!pagoData.localOnly && (
               <Button
                 type="button"
                 onClick={() => setShowConfirmAnular(true)}
@@ -773,6 +870,7 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
                 <Trash2 className="w-4 h-4" />
                 {isDeleting ? "ANULANDO..." : "ANULAR ESTA FACTURA / COBRO"}
               </Button>
+              )}
             </div>
           </div>
 
