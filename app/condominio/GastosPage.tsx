@@ -4,10 +4,10 @@ import { API_BASE } from "@/lib/api";
 
 import React, { useState, useEffect, useMemo } from "react";
 import { 
-  DollarSign, TrendingUp, TrendingDown, Plus, 
-  Building2, Wrench, Hammer, RefreshCw, ArrowUpRight 
+  TrendingUp, Plus, 
+  Wrench, Hammer, Percent, Wallet
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -192,79 +192,118 @@ export default function GastosInversionPage({ empresaId: propEmpresaId }: { empr
         </div>
       </div>
 
-      {/* MÉTRICAS Y TABLA */}
+      {/* MÉTRICAS (formato Resumen Operativo) + HISTORIAL */}
       {!loading && inversionData && (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
-            <Card className="bg-white border-none shadow-xl rounded-2xl sm:rounded-[1.5rem] p-4 sm:p-6 md:p-8 overflow-hidden">
-                <p className="text-[9px] sm:text-[10px] font-black uppercase text-slate-400 tracking-wider sm:tracking-[0.2em]">Ingresos Totales</p>
-                <h3
-                  title={formatGS(inversionData.ingresos)}
-                  className="md:hidden text-[clamp(0.75rem,3.2vw,1.1rem)] font-black italic text-slate-800 mt-2 leading-tight tabular-nums break-words"
+          <div className="dashboard-metric-grid grid grid-cols-2 gap-2 sm:gap-2.5 lg:grid-cols-4 mb-2 sm:mb-4">
+            {[
+              {
+                id: "ingresos",
+                label: "Ingresos Totales",
+                labelShort: "Ingresos totales",
+                value: inversionData.ingresos,
+                icon: Wallet,
+                color: "text-primary",
+                bg: "bg-primary/10",
+                currency: true,
+              },
+              {
+                id: "inversion",
+                label: "Inversión en Obras",
+                labelShort: "Inversión en obras",
+                value: inversionData.totalInversion,
+                icon: Hammer,
+                color: "text-red-400",
+                bg: "bg-red-400/10",
+                currency: true,
+              },
+              {
+                id: "utilidad",
+                label: "Utilidad Neta",
+                labelShort: "Utilidad neta",
+                value: inversionData.ganancia,
+                icon: TrendingUp,
+                color: "text-emerald-400",
+                bg: "bg-emerald-400/10",
+                currency: true,
+              },
+              {
+                id: "roi",
+                label: "ROI",
+                labelShort: "ROI",
+                value: inversionData.roi,
+                icon: Percent,
+                color: "text-indigo-400",
+                bg: "bg-indigo-400/10",
+                currency: false,
+                suffix: "%",
+              },
+            ].map((metric) => {
+              const fullTitle = metric.currency
+                ? formatGS(metric.value as number)
+                : `${Number(metric.value).toFixed(2)}${metric.suffix || ""}`;
+              const displayText = metric.currency
+                ? formatGSCompact(metric.value as number)
+                : `${Number(metric.value).toFixed(2)}${metric.suffix || ""}`;
+
+              return (
+                <Card
+                  key={metric.id}
+                  className="border border-border shadow-sm rounded-xl sm:rounded-2xl bg-card overflow-hidden min-w-0"
                 >
-                  {formatGSCompact(inversionData.ingresos)}
-                </h3>
-                <h3 className="hidden md:block text-xl lg:text-2xl font-black italic text-slate-800 mt-2 tabular-nums">
-                  {formatGS(inversionData.ingresos)}
-                </h3>
-            </Card>
-            <Card className="bg-white border-none shadow-xl rounded-2xl sm:rounded-[1.5rem] p-4 sm:p-6 md:p-8 overflow-hidden">
-                <p className="text-[9px] sm:text-[10px] font-black uppercase text-slate-400 tracking-wider sm:tracking-[0.2em]">Inversión en Obras</p>
-                <h3
-                  title={formatGS(inversionData.totalInversion)}
-                  className="md:hidden text-[clamp(0.75rem,3.2vw,1.1rem)] font-black italic text-red-600 mt-2 leading-tight tabular-nums break-words"
-                >
-                  {formatGSCompact(inversionData.totalInversion)}
-                </h3>
-                <h3 className="hidden md:block text-xl lg:text-2xl font-black italic text-red-600 mt-2 tabular-nums">
-                  {formatGS(inversionData.totalInversion)}
-                </h3>
-            </Card>
-            <Card className="bg-[#e9fbf4] border-none shadow-xl rounded-2xl sm:rounded-[1.5rem] p-4 sm:p-6 md:p-8 text-emerald-600 overflow-hidden">
-                <p className="text-[9px] sm:text-[10px] font-black uppercase opacity-60 tracking-wider sm:tracking-[0.2em]">Utilidad Neta</p>
-                <h3
-                  title={formatGS(inversionData.ganancia)}
-                  className="md:hidden text-[clamp(0.75rem,3.2vw,1.1rem)] font-black italic mt-2 leading-tight tabular-nums break-words"
-                >
-                  {formatGSCompact(inversionData.ganancia)}
-                </h3>
-                <h3 className="hidden md:block text-xl lg:text-2xl font-black italic mt-2 tabular-nums">
-                  {formatGS(inversionData.ganancia)}
-                </h3>
-            </Card>
-            <Card className="bg-white border-none shadow-xl rounded-2xl sm:rounded-[1.5rem] p-4 sm:p-6 md:p-8 text-purple-600 overflow-hidden">
-                <p className="text-[9px] sm:text-[10px] font-black uppercase opacity-40 tracking-wider sm:tracking-[0.2em]">ROI</p>
-                <h3 className="text-lg sm:text-xl md:text-2xl font-black italic mt-2 tabular-nums">
-                  {inversionData.roi.toFixed(2)}%
-                </h3>
-            </Card>
+                  <CardContent className="p-2.5 lg:p-3 relative flex flex-row items-center gap-2 lg:gap-3 min-h-[64px] lg:min-h-[72px] min-w-0">
+                    <div
+                      className={`w-9 h-9 lg:w-10 lg:h-10 rounded-lg ${metric.bg} ${metric.color} flex items-center justify-center shrink-0`}
+                    >
+                      <metric.icon className="w-4 h-4 lg:w-[18px] lg:h-[18px] stroke-[2px]" />
+                    </div>
+                    <div className="min-w-0 flex-1 text-left">
+                      <p className="text-[9px] lg:text-[10px] font-bold uppercase tracking-wide text-muted-foreground leading-tight truncate">
+                        {metric.labelShort}
+                      </p>
+                      <h3
+                        title={fullTitle}
+                        className="mt-0.5 text-[0.95rem] lg:text-lg font-heading font-extrabold text-foreground leading-snug tabular-nums tracking-tight break-words"
+                      >
+                        <span className="md:hidden">{displayText}</span>
+                        <span className="hidden md:inline">
+                          {metric.currency ? formatGS(metric.value as number) : displayText}
+                        </span>
+                      </h3>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
 
-          <Card className="bg-[#0c1421] border border-slate-800 rounded-2xl sm:rounded-[2rem] shadow-2xl overflow-hidden mt-4 sm:mt-8">
-            <div className="p-4 sm:p-6 md:p-8 border-b border-slate-800">
-                <h4 className="text-[10px] sm:text-xs font-black italic uppercase text-white tracking-widest sm:tracking-[0.3em] flex items-center gap-2 sm:gap-3">
-                  <Wrench className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 shrink-0" />
+          <Card className="bg-card border border-border rounded-2xl sm:rounded-[2rem] shadow-sm overflow-hidden mt-2 sm:mt-4">
+            <div className="p-4 sm:p-6 md:p-8 border-b border-border">
+                <h4 className="text-[10px] sm:text-xs font-black italic uppercase text-foreground tracking-widest sm:tracking-[0.3em] flex items-center gap-2 sm:gap-3">
+                  <span className="w-8 h-8 rounded-lg bg-blue-400/10 text-blue-400 flex items-center justify-center shrink-0">
+                    <Wrench className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+                  </span>
                   <span className="leading-snug">Historial de Gastos Internos</span>
                 </h4>
             </div>
 
             {/* Móvil / iPad: lista en tarjetas */}
-            <div className="md:hidden divide-y divide-slate-800">
+            <div className="md:hidden divide-y divide-border">
               {inversionData.filtrados.length === 0 ? (
-                <p className="p-6 text-center text-xs font-bold text-slate-500 uppercase">Sin registros</p>
+                <p className="p-6 text-center text-xs font-bold text-muted-foreground uppercase">Sin registros</p>
               ) : (
                 inversionData.filtrados.map((g) => (
                   <div key={g.gastoId} className="p-4 space-y-2">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <p className="text-white font-black italic uppercase text-xs leading-snug break-words">{g.descripcion}</p>
-                        <p className="text-slate-400 font-bold text-[10px] mt-1">{g.fecha}</p>
+                        <p className="text-foreground font-black italic uppercase text-xs leading-snug break-words">{g.descripcion}</p>
+                        <p className="text-muted-foreground font-bold text-[10px] mt-1">{g.fecha}</p>
                       </div>
-                      <p className="text-red-500 font-black text-xs italic tabular-nums shrink-0 text-right">
+                      <p className="text-red-400 font-black text-xs italic tabular-nums shrink-0 text-right">
                         {formatGSCompact(g.monto)}
                       </p>
                     </div>
-                    <Badge className="bg-slate-800 text-slate-300 border-none text-[9px]">{g.unidadNombre}</Badge>
+                    <Badge className="bg-muted text-muted-foreground border-none text-[9px]">{g.unidadNombre}</Badge>
                   </div>
                 ))
               )}
@@ -273,21 +312,21 @@ export default function GastosInversionPage({ empresaId: propEmpresaId }: { empr
             {/* Desktop: tabla */}
             <div className="hidden md:block overflow-x-auto">
               <Table>
-                <TableHeader className="bg-[#050a14]">
-                  <TableRow className="border-slate-800">
-                    <TableHead className="text-[10px] font-black uppercase text-slate-500 py-6 px-8">Fecha</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-slate-500">Descripción</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-slate-500">Unidad</TableHead>
-                    <TableHead className="text-right text-[10px] font-black uppercase text-slate-500 px-8">Inversión (Gs)</TableHead>
+                <TableHeader className="bg-muted/40">
+                  <TableRow className="border-border">
+                    <TableHead className="text-[10px] font-black uppercase text-muted-foreground py-6 px-8">Fecha</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-muted-foreground">Descripción</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-muted-foreground">Unidad</TableHead>
+                    <TableHead className="text-right text-[10px] font-black uppercase text-muted-foreground px-8">Inversión (Gs)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {inversionData.filtrados.map((g) => (
-                    <TableRow key={g.gastoId} className="border-slate-800 hover:bg-white/[0.02]">
-                      <TableCell className="px-8 py-5 text-slate-400 font-bold text-xs whitespace-nowrap">{g.fecha}</TableCell>
-                      <TableCell className="text-white font-black italic uppercase text-xs">{g.descripcion}</TableCell>
-                      <TableCell><Badge className="bg-slate-800 text-slate-300 border-none">{g.unidadNombre}</Badge></TableCell>
-                      <TableCell className="text-right px-8 font-black text-red-500 text-sm italic tabular-nums whitespace-nowrap">{formatGS(g.monto)}</TableCell>
+                    <TableRow key={g.gastoId} className="border-border hover:bg-muted/30">
+                      <TableCell className="px-8 py-5 text-muted-foreground font-bold text-xs whitespace-nowrap">{g.fecha}</TableCell>
+                      <TableCell className="text-foreground font-black italic uppercase text-xs">{g.descripcion}</TableCell>
+                      <TableCell><Badge className="bg-muted text-muted-foreground border-none">{g.unidadNombre}</Badge></TableCell>
+                      <TableCell className="text-right px-8 font-black text-red-400 text-sm italic tabular-nums whitespace-nowrap">{formatGS(g.monto)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
