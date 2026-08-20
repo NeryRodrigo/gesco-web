@@ -436,8 +436,7 @@ export default function OimaDashboard() {
           {vistaActual === "actividades" && <ActividadesVista empresaId={empresaId} />}
           {vistaActual === "facturacion" && <FacturacionVista />}
           {vistaActual === "administracion" && (
-            <div className="relative w-full rounded-[1.5rem] sm:rounded-[2rem] border border-white/5 bg-[#0C1327]/50 p-3 sm:p-4">
-              {/* Sin scroll horizontal acá: lo maneja solo AdministracionVista (evita scroll anidado que cuelga) */}
+            <div className="relative w-full min-w-0 rounded-[1.5rem] sm:rounded-[2rem] border border-white/5 bg-[#0C1327]/50 p-3 sm:p-4">
               <AdministracionPage empresaId={empresaId} usuario={usuarioActivo} />
             </div>
           )}

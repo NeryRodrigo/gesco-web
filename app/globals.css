@@ -250,7 +250,8 @@ html {
   }
 
   .mobile-scroll-x > table,
-  [data-mobile-scroll="x"] > table {
+  [data-mobile-scroll="x"] > table,
+  [data-mobile-scroll="xy"] > table {
     min-width: 720px;
   }
 
@@ -277,22 +278,30 @@ html {
 /* iPad landscape / phablets: un poco más de aire */
 @media (min-width: 768px) and (max-width: 1023px) {
   .mobile-scroll-x > table,
-  [data-mobile-scroll="x"] > table {
+  [data-mobile-scroll="x"] > table,
+  [data-mobile-scroll="xy"] > table {
     min-width: 880px;
   }
 }
 
-/* Planilla Administración: scroll fluido (un solo contenedor) */
+/* Planilla Administración: scroll X+Y en móvil (sin touch-pan-x que bloqueaba el vertical) */
 .admin-planilla-scroll {
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
   touch-action: pan-x pan-y;
-  /* Evita que el navegador “pelee” el gesto entre ejes */
   scroll-behavior: auto;
 }
 
 .admin-planilla-scroll table {
   transform: translateZ(0);
+}
+
+@media (max-width: 639px) {
+  .admin-planilla-scroll {
+    /* Un solo scrollport: vertical hasta la última fila + horizontal a Deuda/Observaciones */
+    overscroll-behavior: contain;
+  }
 }
 
 .content-visibility-auto {

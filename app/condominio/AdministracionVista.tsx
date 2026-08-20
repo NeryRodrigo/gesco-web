@@ -316,38 +316,42 @@ export function AdministracionVista({ unidades, onTenantClick }: AdministracionV
 
       <Card className="border-none shadow-2xl rounded-[1.5rem] sm:rounded-[2rem] bg-[#0C1327] overflow-hidden">
         <CardContent className="p-0">
-          {/* Único scroll horizontal: evita pelear con el contenedor padre */}
+          {/*
+            Móvil: un solo contenedor con overflow-auto (X e Y) — iOS/Android no pelean el gesto.
+            Desktop: scroll horizontal; la página hace el vertical.
+            NO usar touch-pan-x: bloquea el deslizamiento vertical en celulares.
+          */}
           <div
-            className="w-full max-w-full overflow-x-auto overscroll-x-contain touch-pan-x custom-scrollbar admin-planilla-scroll"
-            data-mobile-scroll="x"
+            className="admin-planilla-scroll w-full max-w-full custom-scrollbar overflow-auto max-h-[min(78dvh,calc(100dvh-10.5rem))] sm:max-h-none sm:overflow-x-auto sm:overflow-y-visible"
+            data-mobile-scroll="xy"
             style={{ WebkitOverflowScrolling: "touch" }}
           >
             <TooltipProvider delayDuration={400} skipDelayDuration={0}>
               <table className="min-w-[1500px] w-full border-collapse table-fixed">
                 <thead>
                   <tr className="bg-slate-900 text-white">
-                    <th className="sticky left-0 z-30 bg-slate-900 p-4 sm:p-6 text-left min-w-[220px] w-[220px] border-r border-slate-800 shadow-[2px_0_8px_rgba(0,0,0,0.4)] align-middle">
+                    <th className="sticky top-0 left-0 z-40 bg-slate-900 p-4 sm:p-6 text-left min-w-[220px] w-[220px] border-r border-slate-800 shadow-[2px_0_8px_rgba(0,0,0,0.4)] align-middle">
                       <span className="text-[11px] font-black uppercase tracking-widest italic">
                         Inquilino / Unidad
                       </span>
                     </th>
-                    <th className="p-4 sm:p-6 text-center border-r border-slate-800 min-w-[80px] w-[80px] align-middle">
+                    <th className="sticky top-0 z-30 bg-slate-900 p-4 sm:p-6 text-center border-r border-slate-800 min-w-[80px] w-[80px] align-middle">
                       <span className="text-[11px] font-black uppercase tracking-widest italic">Duplex</span>
                     </th>
                     {visibleMonths.map((month) => (
                       <th
                         key={month}
-                        className="p-4 sm:p-6 text-center min-w-[130px] w-[130px] border-r border-slate-800 bg-slate-900 align-middle"
+                        className="sticky top-0 z-30 p-4 sm:p-6 text-center min-w-[130px] w-[130px] border-r border-slate-800 bg-slate-900 align-middle"
                       >
                         <span className="text-[11px] font-black uppercase tracking-widest italic">{month}</span>
                       </th>
                     ))}
-                    <th className="p-4 sm:p-6 text-center min-w-[150px] w-[150px] bg-red-900/40 border-l border-slate-800 align-middle">
+                    <th className="sticky top-0 z-30 p-4 sm:p-6 text-center min-w-[150px] w-[150px] bg-red-900/40 border-l border-slate-800 align-middle">
                       <span className="text-[11px] font-black uppercase tracking-widest italic text-red-200">
                         Deuda Total
                       </span>
                     </th>
-                    <th className="p-4 sm:p-6 text-center min-w-[150px] w-[150px] bg-slate-800 align-middle">
+                    <th className="sticky top-0 z-30 p-4 sm:p-6 text-center min-w-[150px] w-[150px] bg-slate-800 align-middle">
                       <span className="text-[11px] font-black uppercase tracking-widest italic">Observaciones</span>
                     </th>
                   </tr>
