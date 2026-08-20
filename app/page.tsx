@@ -1,6 +1,6 @@
 "use client";
 
-import { API_BASE } from "@/lib/api";
+import { API_BASE, installAuthFetch, getAuthToken, clearAuthToken } from "@/lib/api";
 import { useEffect, useState, useMemo, ReactNode } from "react";
 import { 
   AlertTriangle, LayoutDashboard, ChevronRight, MapPin, Edit, Trash2, ArrowLeft, 
@@ -79,11 +79,17 @@ export default function OimaDashboard() {
 
   // Restaurar sesión al montar (Chrome device mode / resize no debe cerrar sesión)
   useEffect(() => {
+    installAuthFetch();
     const saved = loadVordiaSession();
-    if (saved?.user) {
+    const token = getAuthToken();
+    if (saved?.user && token) {
       setUsuarioActivo(saved.user);
       setIsAuthenticated(true);
       if (saved.vista) setVistaActual(saved.vista as Vista);
+    } else if (saved?.user && !token) {
+      // Sesión UI sin JWT (tras deploy de seguridad): pedir login de nuevo
+      clearVordiaSession();
+      clearAuthToken();
     }
     setSessionReady(true);
   }, []);
@@ -173,6 +179,7 @@ export default function OimaDashboard() {
             sessionStorage.removeItem("vordia.andeSyncAt");
           } catch { /* ignore */ }
           clearVordiaSession();
+          clearAuthToken();
           setIsAuthenticated(false);
           setUsuarioActivo(null);
           setVistaActual("inicio");

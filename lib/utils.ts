@@ -135,6 +135,7 @@ export function loadVordiaSession(): { user: any; vista?: string } | null {
 export function clearVordiaSession() {
   try {
     localStorage.removeItem(VORDIA_SESSION_KEY);
+    localStorage.removeItem("VORDIA_jwt");
   } catch { /* ignore */ }
 }
 
