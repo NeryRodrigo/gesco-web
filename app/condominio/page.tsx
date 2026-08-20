@@ -32,7 +32,7 @@ import { ComprobantePreviewModal } from "./ComprobantePreviewModal";
 import AlertasVencimientoModal from "./AlertasVencimientoModal";
 import { Download, Printer, FileSpreadsheet, LayoutGrid, Table as TableIcon, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatDuplex, displayCondoName } from "@/lib/utils";
+import { formatDuplex, displayCondoName, formatConceptoCobro, formatConceptoPeriodo, formatUnidadComprobante } from "@/lib/utils";
 
 // --- Interfaces ---
 interface Contrato {
@@ -1104,21 +1104,40 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
                   toast.success("Pago consolidado registrado y guardado con éxito");
                   cargarUnidades();
 
+                  const descConsolidada = formatConceptoCobro(
+                    pagos.map((p) => ({
+                      tipoPago: p.tipoPago,
+                      mes: p.mesPagado,
+                      anio: p.anioPagado,
+                    }))
+                  );
+                  const itemsComprobante = pagos.map((p) => ({
+                    cantidad: 1,
+                    descripcion: formatConceptoPeriodo(p.tipoPago, p.mesPagado, p.anioPagado),
+                    precioUnitario: p.montoPagado + (p.mora || 0) + (p.saldoPendiente || 0),
+                    iva10: p.montoPagado + (p.mora || 0) + (p.saldoPendiente || 0),
+                  }));
+
                   setComprobantePagoData({
                     pagoId: firstPago?.pagoId || Date.now(),
                     tipoPago: firstPago?.tipoPago || pagos[0]?.tipoPago || "Alquiler",
                     mesPagado: firstPago?.mesPagado || pagos[0]?.mesPagado || new Date().getMonth() + 1,
                     anioPagado: firstPago?.anioPagado || pagos[0]?.anioPagado || new Date().getFullYear(),
-                    montoPagado: pagos.reduce((acc, p) => acc + p.montoPagado, 0),
+                    montoPagado: pagos.reduce((acc, p) => acc + p.montoPagado + (p.mora || 0) + (p.saldoPendiente || 0), 0),
                     metodoPago: firstPago?.metodoPago || pagos[0]?.metodoPago || "Efectivo",
                     fechaPago: firstPago?.fechaPago || pagos[0]?.fechaPago || new Date().toISOString(),
                     facturaEmitida: Boolean(pagos[0]?.facturaEmitida || pagos[0]?.numeroFactura),
                     numeroFactura: firstPago?.numeroFactura || pagos[0]?.numeroFactura,
-                    comprobanteUrl: firstPago?.comprobanteUrl,
+                    comprobanteUrl: JSON.stringify({
+                      descripcion: `${descConsolidada} - ${formatUnidadComprobante(selectedUnit?.code)}`,
+                      concepto: descConsolidada,
+                      items: itemsComprobante,
+                    }),
                     inquilinoNombre: selectedUnit?.tenant || "Cliente",
                     inquilinoDocumento: "Sin Documento",
                     unidadCodigo: selectedUnit?.code || "",
-                    condominioNombre: selectedUnit?.condo || "Condominio"
+                    condominioNombre: selectedUnit?.condo || "Condominio",
+                    items: itemsComprobante,
                   });
                   setIsPreviewComprobanteOpen(true);
 

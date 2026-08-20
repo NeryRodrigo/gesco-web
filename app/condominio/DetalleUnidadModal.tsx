@@ -14,7 +14,7 @@ import {
 } from "./HistorialPagosImprimible";
 import { ConfirmActionModal, ConfirmActionModalProps } from "@/components/ui/confirm-action-modal";
 import { verificarPermisoGranular, ModalAccesoRestringido } from "@/app/login/PermisosGranularesMatriz";
-import { formatFechaCorta } from "@/lib/utils";
+import { formatFechaCorta, formatConceptoCobro, formatConceptoPeriodo, formatUnidadComprobante } from "@/lib/utils";
 import { sharePdfViaWhatsApp, prepareWhatsAppShareWindow } from "@/lib/whatsappShare";
 import { 
   Dialog, 
@@ -744,6 +744,8 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
     notas: "",
     mes: new Date().getMonth() + 1,
     anio: new Date().getFullYear(),
+    /** Periodos multi-mes: [{ mes, anio }, ...] */
+    mesesSeleccionados: [] as { mes: number; anio: number }[],
     nroComprobante: "",
     banco: "",
     tipoComprobante: "recibo" as "recibo" | "factura"
@@ -940,6 +942,11 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
       setIsLoading(false);
     }
   };
+
+  const refreshContratoYHistorial = React.useCallback(async () => {
+    await fetchContract();
+    if (onUpdate) onUpdate();
+  }, [unidad?.id, onUpdate]);
 
   React.useEffect(() => {
     if (!isOpen || !unidad?.id || unidad.id <= 0) return;
@@ -1227,67 +1234,143 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
       return;
     }
 
+    const periodos =
+      paymentForm.mesesSeleccionados.length > 0
+        ? [...paymentForm.mesesSeleccionados].sort(
+            (a, b) => a.anio - b.anio || a.mes - b.mes
+          )
+        : [{ mes: paymentForm.mes, anio: paymentForm.anio }];
+
+    if (periodos.length === 0) {
+      toast.error("Seleccioná al menos un mes a cobrar");
+      return;
+    }
+    if (paymentForm.monto <= 0) {
+      toast.error("El monto a cobrar debe ser mayor a 0");
+      return;
+    }
+
     try {
       setIsLoading(true);
-      const resp = await fetch(`${API_BASE}/api/Contratos/pago`, {
+      const n = periodos.length;
+      const base = Math.floor(paymentForm.monto / n);
+      const resto = paymentForm.monto - base * n;
+      const descPlural = formatConceptoCobro(
+        periodos.map((p) => ({ tipoPago: "Alquiler", mes: p.mes, anio: p.anio }))
+      );
+
+      const pagosPayload = periodos.map((p, idx) => ({
+        contratoId: contractData.contratoId,
+        tipoPago: "Alquiler",
+        mesPagado: p.mes,
+        anioPagado: p.anio,
+        montoPagado: base + (idx === 0 ? resto : 0),
+        metodoPago: paymentForm.metodo,
+        fechaPago: paymentForm.fecha,
+        notas:
+          idx === 0
+            ? [paymentForm.notas, descPlural].filter(Boolean).join(" | ")
+            : paymentForm.notas || `Parte de: ${descPlural}`,
+        nroComprobante: paymentForm.nroComprobante,
+        banco: paymentForm.banco,
+        saldoPendiente: 0,
+        mora: 0,
+        facturaEmitida: paymentForm.tipoComprobante === "factura",
+      }));
+
+      const resp = await fetch(`${API_BASE}/api/Contratos/pagos-consolidados`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contratoId: contractData.contratoId,
-          tipoPago: "Alquiler",
-          mesPagado: paymentForm.mes,
-          anioPagado: paymentForm.anio,
-          montoPagado: paymentForm.monto,
-          metodoPago: paymentForm.metodo,
-          fechaPago: paymentForm.fecha,
-          notas: paymentForm.notas,
-          nroComprobante: paymentForm.nroComprobante,
-          banco: paymentForm.banco,
-          saldoPendiente: 0,
-          mora: 0,
-          facturaEmitida: (paymentForm as any).tipoComprobante === "factura"
-        })
+        body: JSON.stringify(pagosPayload),
       });
 
       if (resp.ok) {
-        let createdPago: any = {};
-        try { createdPago = await resp.json(); } catch(e) {}
-        toast.success(`Cobro de ${paymentForm.metodo} registrado con éxito`);
+        let createdPagos: any[] = [];
+        try {
+          createdPagos = await resp.json();
+        } catch {
+          /* ignore */
+        }
+        const firstPago = Array.isArray(createdPagos) && createdPagos[0] ? createdPagos[0] : null;
+        toast.success(
+          periodos.length > 1
+            ? `Cobro de ${periodos.length} meses registrado`
+            : `Cobro de ${paymentForm.metodo} registrado con éxito`
+        );
         setIsRegisteringPayment(false);
 
-        // Abrir modal de vista previa y edición de comprobante
+        const itemsComprobante = periodos.map((p, idx) => ({
+          cantidad: 1,
+          descripcion: formatConceptoPeriodo("Alquiler", p.mes, p.anio),
+          precioUnitario: base + (idx === 0 ? resto : 0),
+          iva10: base + (idx === 0 ? resto : 0),
+        }));
+
+        const relatedPagoIds = Array.isArray(createdPagos)
+          ? createdPagos
+              .map((p: any) => Number(p?.pagoId))
+              .filter((id: number) => Number.isFinite(id) && id > 0)
+          : [];
+
         setComprobantePagoData({
-          pagoId: createdPago.pagoId || Date.now(),
-          tipoPago: createdPago.tipoPago || "Alquiler",
-          mesPagado: createdPago.mesPagado || paymentForm.mes,
-          anioPagado: createdPago.anioPagado || paymentForm.anio,
-          montoPagado: createdPago.montoPagado || paymentForm.monto,
-          metodoPago: createdPago.metodoPago || paymentForm.metodo,
-          fechaPago: createdPago.fechaPago || paymentForm.fecha,
-          facturaEmitida: (paymentForm as any).tipoComprobante === "factura",
-          numeroFactura: createdPago.numeroFactura,
-          comprobanteUrl: createdPago.comprobanteUrl,
-          inquilinoNombre: contractData?.inquilino?.razonSocial || contractData?.inquilino?.nombre || dataInquilino.nombre || "Cliente",
+          pagoId: firstPago?.pagoId || relatedPagoIds[0] || Date.now(),
+          tipoPago: "Alquiler",
+          mesPagado: firstPago?.mesPagado || periodos[0].mes,
+          anioPagado: firstPago?.anioPagado || periodos[0].anio,
+          montoPagado: paymentForm.monto,
+          metodoPago: paymentForm.metodo,
+          fechaPago: paymentForm.fecha,
+          facturaEmitida: paymentForm.tipoComprobante === "factura",
+          numeroFactura: firstPago?.numeroFactura,
+          relatedPagoIds,
+          comprobanteUrl: JSON.stringify({
+            descripcion: `${descPlural} - ${formatUnidadComprobante(dataUnidad.codigo)}`,
+            concepto: descPlural,
+            items: itemsComprobante,
+          }),
+          inquilinoNombre:
+            contractData?.inquilino?.razonSocial ||
+            contractData?.inquilino?.nombre ||
+            dataInquilino.nombre ||
+            "Cliente",
           inquilinoEmail: contractData?.inquilino?.email || dataInquilino?.correo || "",
-          inquilinoDocumento: contractData?.inquilino?.ruc || contractData?.inquilino?.cedula || dataInquilino.cedula || "Sin Documento",
+          inquilinoDocumento:
+            contractData?.inquilino?.ruc ||
+            contractData?.inquilino?.cedula ||
+            dataInquilino.cedula ||
+            "Sin Documento",
           unidadCodigo: dataUnidad.codigo || "",
-          condominioNombre: dataUnidad.condominio || "Condominio"
+          condominioNombre: dataUnidad.condominio || "Condominio",
+          items: itemsComprobante,
         });
         setIsPreviewComprobanteOpen(true);
-        
-        // Limpiar formulario
-        setPaymentForm(prev => ({
+
+        setPaymentForm((prev) => ({
           ...prev,
           notas: "",
           nroComprobante: "",
-          banco: ""
+          banco: "",
+          mesesSeleccionados: [],
         }));
 
-        await fetchContract();
-        if (onUpdate) onUpdate();
+        await refreshContratoYHistorial();
+        setActiveTab("pagos");
       } else {
-        const errorText = await resp.text();
-        toast.error("Error al registrar: " + errorText);
+        // Fallback: un solo pago si el endpoint consolidado no existe
+        const respOne = await fetch(`${API_BASE}/api/Contratos/pago`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(pagosPayload[0]),
+        });
+        if (!respOne.ok) {
+          const errorText = await resp.text();
+          toast.error("Error al registrar: " + errorText);
+          return;
+        }
+        toast.success("Cobro registrado (modo simple)");
+        setIsRegisteringPayment(false);
+        await refreshContratoYHistorial();
+        setActiveTab("pagos");
       }
     } catch (error) {
       console.error("Payment error:", error);
@@ -1704,6 +1787,23 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
           pago: pagoEncontrado
         });
       });
+
+      // Pagos de alquiler que no calzaron con el cronograma (p.ej. mes adelantado): igual aparecen en historial
+      pagosDisponibles.forEach((p) => {
+        if (!p.mesPagado || !p.anioPagado) return;
+        const dateForMonth = new Date(2000, p.mesPagado - 1, 1);
+        const venc = p.fechaPago ? new Date(p.fechaPago) : new Date(p.anioPagado, p.mesPagado, 1);
+        installments.push({
+          mes: p.mesPagado,
+          anio: p.anioPagado,
+          mesNombre: dateForMonth.toLocaleString("es-ES", { month: "long" }),
+          monto: contractData.montoMensualAlquiler,
+          pagado: p.montoPagado || 0,
+          estado: "Pagado",
+          fechaVencimiento: venc,
+          pago: p,
+        });
+      });
       
       return installments.sort((a, b) => a.fechaVencimiento.getTime() - b.fechaVencimiento.getTime());
     };
@@ -1722,8 +1822,16 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
   };
 
   const filteredInstallments = installments.filter(row => {
-      // Solo hasta el mes actual inclusive
-      if (row.anio > anioActual || (row.anio === anioActual && row.mes > mesActual)) return false;
+      // Mostrar hasta el mes actual; si ya hay cobro (pagado), mostrar aunque el periodo sea futuro
+      const tieneCobro = row.pagado > 0 || row.estado === "Pagado";
+      if (
+        !tieneCobro &&
+        (row.anio > anioActual || (row.anio === anioActual && row.mes > mesActual))
+      ) {
+        return false;
+      }
+      // Filtros de fecha: no ocultar cuotas ya cobradas (p.ej. mes adelantado recién facturado)
+      if (tieneCobro) return true;
       let pass = true;
       // Filtro por fechas de pago (vencimiento de cuota)
       if (filterDesde) {
@@ -2607,11 +2715,14 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
                                         return;
                                     }
                                     const nextDue = installments.find(i => i.estado !== "Pagado") || installments[0];
+                                    const mes0 = nextDue?.mes || new Date().getMonth() + 1;
+                                    const anio0 = nextDue?.anio || new Date().getFullYear();
                                     setPaymentForm(prev => ({
                                         ...prev,
                                         monto: nextDue ? (nextDue.monto - nextDue.pagado) : contractData?.montoMensualAlquiler || 0,
-                                        mes: nextDue?.mes || new Date().getMonth() + 1,
-                                        anio: nextDue?.anio || new Date().getFullYear()
+                                        mes: mes0,
+                                        anio: anio0,
+                                        mesesSeleccionados: [{ mes: mes0, anio: anio0 }],
                                     }));
                                     setIsRegisteringPayment(true);
                                 }}
@@ -3416,7 +3527,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
 
       {/* MODAL DE REGISTRO DE COBRO */}
       <Dialog open={isRegisteringPayment} onOpenChange={setIsRegisteringPayment}>
-        <DialogContent className="sm:max-w-[450px] p-8 rounded-[2rem] bg-card border-none shadow-2xl">
+        <DialogContent className="sm:max-w-[480px] w-[calc(100vw-1.5rem)] p-5 sm:p-8 rounded-[2rem] bg-card border-none shadow-2xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader className="sr-only">
             <DialogTitle>Registrar Cobro - Unidad {formatCodigoFicha(dataUnidad.codigo)}</DialogTitle>
           </DialogHeader>
@@ -3432,32 +3543,109 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
             </div>
 
             <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Mes a Cobrar</label>
-                        <select 
-                            value={paymentForm.mes}
-                            onChange={(e) => setPaymentForm(prev => ({ ...prev, mes: Number(e.target.value) }))}
-                            className="w-full bg-muted border-none rounded-xl p-3 text-sm font-bold text-foreground focus:ring-2 ring-primary"
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
+                          Meses a cobrar ({paymentForm.mesesSeleccionados.length || 0})
+                        </label>
+                        <button
+                          type="button"
+                          className="text-[9px] font-black uppercase text-primary hover:underline"
+                          onClick={() => {
+                            const pendientes = installments.filter((i) => i.estado !== "Pagado");
+                            const list = (pendientes.length ? pendientes : installments).map((i) => ({
+                              mes: i.mes,
+                              anio: i.anio,
+                            }));
+                            const total = list.reduce((acc, p) => {
+                              const inst = installments.find((x) => x.mes === p.mes && x.anio === p.anio);
+                              return acc + (inst ? Math.max(0, inst.monto - inst.pagado) : 0);
+                            }, 0);
+                            setPaymentForm((prev) => ({
+                              ...prev,
+                              mesesSeleccionados: list,
+                              mes: list[0]?.mes || prev.mes,
+                              anio: list[0]?.anio || prev.anio,
+                              monto: total || prev.monto,
+                            }));
+                          }}
                         >
-                            {installments.map(i => (
-                                <option key={`${i.anio}-${i.mes}-${i.fechaVencimiento.getDate()}`} value={i.mes}>{i.mesNombre} {i.anio} ({i.fechaVencimiento.getDate()})</option>
-                            ))}
-                        </select>
+                          Seleccionar pendientes
+                        </button>
                     </div>
-                    <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Año</label>
-                        <Input 
-                            type="number"
-                            value={paymentForm.anio}
-                            onChange={(e) => setPaymentForm(prev => ({ ...prev, anio: Number(e.target.value) }))}
-                            className="bg-muted border-none rounded-xl h-11 font-bold"
-                        />
+                    <div className="max-h-44 overflow-y-auto rounded-xl border border-border bg-muted/40 p-2 space-y-1 custom-scrollbar">
+                      {installments.map((i) => {
+                        const selected = paymentForm.mesesSeleccionados.some(
+                          (p) => p.mes === i.mes && p.anio === i.anio
+                        );
+                        const pendiente = Math.max(0, i.monto - i.pagado);
+                        return (
+                          <button
+                            key={`${i.anio}-${i.mes}-${i.fechaVencimiento.getDate()}`}
+                            type="button"
+                            onClick={() => {
+                              setPaymentForm((prev) => {
+                                const exists = prev.mesesSeleccionados.some(
+                                  (p) => p.mes === i.mes && p.anio === i.anio
+                                );
+                                let next = exists
+                                  ? prev.mesesSeleccionados.filter(
+                                      (p) => !(p.mes === i.mes && p.anio === i.anio)
+                                    )
+                                  : [...prev.mesesSeleccionados, { mes: i.mes, anio: i.anio }];
+                                if (next.length === 0) {
+                                  next = [{ mes: i.mes, anio: i.anio }];
+                                }
+                                next = [...next].sort((a, b) => a.anio - b.anio || a.mes - b.mes);
+                                const total = next.reduce((acc, p) => {
+                                  const inst = installments.find(
+                                    (x) => x.mes === p.mes && x.anio === p.anio
+                                  );
+                                  return acc + (inst ? Math.max(0, inst.monto - inst.pagado) : 0);
+                                }, 0);
+                                return {
+                                  ...prev,
+                                  mesesSeleccionados: next,
+                                  mes: next[0].mes,
+                                  anio: next[0].anio,
+                                  monto: total > 0 ? total : prev.monto,
+                                };
+                              });
+                            }}
+                            className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-left transition-all ${
+                              selected
+                                ? "bg-primary text-white shadow-sm"
+                                : "bg-card text-foreground hover:bg-muted"
+                            }`}
+                          >
+                            <span className="text-xs font-bold uppercase">
+                              {i.mesNombre} {i.anio}
+                              <span className={`ml-2 text-[9px] font-black ${selected ? "text-white/70" : "text-muted-foreground"}`}>
+                                ({i.estado})
+                              </span>
+                            </span>
+                            <span className={`text-[10px] font-black ${selected ? "text-white" : "text-primary"}`}>
+                              Gs. {pendiente.toLocaleString("es-PY")}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
+                    {paymentForm.mesesSeleccionados.length > 1 && (
+                      <p className="text-[10px] font-medium text-muted-foreground leading-snug">
+                        {formatConceptoCobro(
+                          paymentForm.mesesSeleccionados.map((p) => ({
+                            tipoPago: "Alquiler",
+                            mes: p.mes,
+                            anio: p.anio,
+                          }))
+                        )}
+                      </p>
+                    )}
                 </div>
 
                 <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Monto a Cobrar</label>
+                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Monto a Cobrar (total)</label>
                     <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-muted-foreground">Gs.</span>
                         <Input 
@@ -4171,9 +4359,9 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
         isOpen={isPreviewComprobanteOpen}
         onClose={() => setIsPreviewComprobanteOpen(false)}
         pagoData={comprobantePagoData}
-        onSaved={() => {
-          fetchContract();
-          if (onUpdate) onUpdate();
+        onSaved={async () => {
+          await refreshContratoYHistorial();
+          setActiveTab("pagos");
         }}
       />
 

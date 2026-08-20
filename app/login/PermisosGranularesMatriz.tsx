@@ -5,7 +5,7 @@ import React, { useState, useEffect } from "react";
 import { 
   ShieldCheck, Lock, Unlock, CheckCircle2, XCircle, AlertTriangle, 
   User, Mail, Sparkles, Layers, Settings, Check, X, Info, HelpCircle, 
-  Filter, Play, RefreshCw, Send, ShieldAlert 
+  Filter, Play, RefreshCw, Send, ShieldAlert, KeyRound 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -189,9 +189,17 @@ interface Props {
   usuarios: UsuarioAdmin[];
   usuarioSeleccionadoId?: number | null;
   onSelectUsuario?: (id: number) => void;
+  canManagePasswords?: boolean;
+  onEditUsuario?: (usuario: UsuarioAdmin) => void;
 }
 
-export function PermisosGranularesMatriz({ usuarios, usuarioSeleccionadoId, onSelectUsuario }: Props) {
+export function PermisosGranularesMatriz({
+  usuarios,
+  usuarioSeleccionadoId,
+  onSelectUsuario,
+  canManagePasswords = false,
+  onEditUsuario,
+}: Props) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [permisosActivos, setPermisosActivos] = useState<string[]>([]);
   const [moduloFiltro, setModuloFiltro] = useState<string>("TODOS");
@@ -360,7 +368,16 @@ export function PermisosGranularesMatriz({ usuarios, usuarioSeleccionadoId, onSe
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 self-end md:self-auto">
+        <div className="flex flex-wrap items-center gap-2.5 self-end md:self-auto">
+          {canManagePasswords && onEditUsuario && (
+            <Button
+              onClick={() => onEditUsuario(usuarioActual)}
+              size="sm"
+              className="bg-amber-600/20 hover:bg-amber-600 text-amber-200 hover:text-white border border-amber-500/30 font-bold text-xs rounded-xl px-3.5 transition-all"
+            >
+              <KeyRound className="w-3.5 h-3.5 mr-1.5" /> Editar / Contraseña
+            </Button>
+          )}
           <Button 
             onClick={habilitarTodos}
             size="sm"

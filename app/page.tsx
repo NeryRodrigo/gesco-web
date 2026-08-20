@@ -39,6 +39,12 @@ import AuthScreen from "./login/Registro";
 import { RegistroUsuarioModal } from "./login/RegistroUsuarioModal";
 import { EditarUsuarioModal } from "./login/EditarUsuarioModal";
 import { verificarPermisoGranular, ModalAccesoRestringido, PermisosGranularesMatriz } from "./login/PermisosGranularesMatriz";
+import {
+  saveVordiaSession,
+  loadVordiaSession,
+  clearVordiaSession,
+  isAdminFontana,
+} from "@/lib/utils";
 
 type Vista = "inicio" | "inmobiliaria" | "administracion" | "usuarios" | "condominio" | "facturacion" | "configuracion" | "gastos" | "historico_contratos" | "aprobacion" | "consolidado" | "inventario" | "caja" | "compras" | "finanzas" | "crm" | "rrhh" | "analytics" | "produccion" | "contabilidad" | "migrador" | "actividades";
 
@@ -46,6 +52,7 @@ export default function OimaDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [usuarioActivo, setUsuarioActivo] = useState<any>(null);
   const [vistaActual, setVistaActual] = useState<Vista>("inicio"); // Por defecto al Dashboard de 8 tarjetas
+  const [sessionReady, setSessionReady] = useState(false);
   const [modulosUsuario, setModulosUsuario] = useState<any[]>([]);
   const [usuariosAdmin, setUsuariosAdmin] = useState<any[]>([]);
   const [isModalRegistroOpen, setIsModalRegistroOpen] = useState(false);
@@ -68,6 +75,26 @@ export default function OimaDashboard() {
 
   const empresaId = usuarioActivo?.empresaId || 7;
   const isUsuarioCondominio = true; // Forzado según tu lógica
+  const canManagePasswords = isAdminFontana(usuarioActivo);
+
+  // Restaurar sesión al montar (Chrome device mode / resize no debe cerrar sesión)
+  useEffect(() => {
+    const saved = loadVordiaSession();
+    if (saved?.user) {
+      setUsuarioActivo(saved.user);
+      setIsAuthenticated(true);
+      if (saved.vista) setVistaActual(saved.vista as Vista);
+    }
+    setSessionReady(true);
+  }, []);
+
+  // Persistir sesión y vista al cambiar
+  useEffect(() => {
+    if (!sessionReady) return;
+    if (isAuthenticated && usuarioActivo) {
+      saveVordiaSession({ user: usuarioActivo, vista: vistaActual });
+    }
+  }, [sessionReady, isAuthenticated, usuarioActivo, vistaActual]);
 
   const isUsuarioInmobiliaria = useMemo(() => {
     return usuarioActivo?.rubro === "INMOBILIARIA";
@@ -145,6 +172,7 @@ export default function OimaDashboard() {
             sessionStorage.removeItem("vordia.andeLiveByNis");
             sessionStorage.removeItem("vordia.andeSyncAt");
           } catch { /* ignore */ }
+          clearVordiaSession();
           setIsAuthenticated(false);
           setUsuarioActivo(null);
           setVistaActual("inicio");
@@ -158,8 +186,24 @@ export default function OimaDashboard() {
     });
   };
 
+  if (!sessionReady) {
+    return (
+      <div className="min-h-dvh bg-[#050B18] flex items-center justify-center text-slate-400 text-xs font-bold uppercase tracking-widest">
+        Cargando sesión…
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
-    return <AuthScreen onLoginSuccess={(user) => { setUsuarioActivo(user); setIsAuthenticated(true); }} />;
+    return (
+      <AuthScreen
+        onLoginSuccess={(user) => {
+          setUsuarioActivo(user);
+          setIsAuthenticated(true);
+          saveVordiaSession({ user, vista: "inicio" });
+        }}
+      />
+    );
   }
 
   return (
@@ -385,7 +429,16 @@ export default function OimaDashboard() {
                <div className="bg-[#0C1327] rounded-[1.75rem] sm:rounded-[2rem] border border-white/5 overflow-hidden">
                </div>
                <div className="mt-4 sm:mt-8">
-                  <PermisosGranularesMatriz usuarios={usuariosAdmin} usuarioSeleccionadoId={usuarioPermisosId} onSelectUsuario={(id) => setUsuarioPermisosId(id)} />
+                  <PermisosGranularesMatriz
+                    usuarios={usuariosAdmin}
+                    usuarioSeleccionadoId={usuarioPermisosId}
+                    onSelectUsuario={(id) => setUsuarioPermisosId(id)}
+                    canManagePasswords={canManagePasswords}
+                    onEditUsuario={(u) => {
+                      setUsuarioAEditar(u);
+                      setIsModalEdicionOpen(true);
+                    }}
+                  />
                </div>
             </div>
           )}
@@ -404,7 +457,14 @@ export default function OimaDashboard() {
       </main>
 
       <RegistroUsuarioModal isOpen={isModalRegistroOpen} onClose={() => setIsModalRegistroOpen(false)} empresaId={empresaId} rubro={usuarioActivo?.rubro || ""} />
-      <EditarUsuarioModal isOpen={isModalEdicionOpen} onClose={() => setIsModalEdicionOpen(false)} usuario={usuarioAEditar} onRefresh={cargarListaUsuariosAdmin} empresaId={empresaId} />
+      <EditarUsuarioModal
+        isOpen={isModalEdicionOpen}
+        onClose={() => setIsModalEdicionOpen(false)}
+        usuario={usuarioAEditar}
+        onRefresh={cargarListaUsuariosAdmin}
+        empresaId={empresaId}
+        canChangePassword={canManagePasswords}
+      />
       <ModalAccesoRestringido isOpen={alertaRestriccion.visible} onClose={() => setAlertaRestriccion({ ...alertaRestriccion, visible: false })} mensaje={alertaRestriccion.mensaje} permisoNombre={alertaRestriccion.permisoNombre} />
       <DetalleUnidadModal
         isOpen={isFichaOpen}
