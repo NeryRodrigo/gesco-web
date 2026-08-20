@@ -12,7 +12,7 @@ import { Card } from "@/components/ui/card";
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, setAuthToken, installAuthFetch } from "@/lib/api";
 
 interface Usuario {
   id: number;
@@ -55,6 +55,10 @@ export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: 
 
   const API_URL = `${API_BASE}`;
 
+  useEffect(() => {
+    installAuthFetch();
+  }, []);
+
   // --- CARGA DE EMPRESAS ---
   useEffect(() => {
     fetch(`${API_URL}/api/Auth/empresas`)
@@ -65,6 +69,10 @@ export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: 
         })
         .catch(() => toast.error("Error al conectar con el servidor"));
   }, []);
+
+  const persistToken = (data: any) => {
+    if (data?.token) setAuthToken(data.token);
+  };
 
   // --- LÓGICA DE LOGIN / REGISTRO ---
   const handleSubmit = async (e: React.FormEvent) => {
@@ -92,6 +100,7 @@ export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: 
         if (response.ok) {
             const data = await response.json();
             if (isLogin) {
+                persistToken(data);
                 if (data.requiereCambioPass) {
                     toast.info("Configurá tu nueva contraseña");
                     setTempUserData(data);
@@ -148,6 +157,7 @@ export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: 
       });
       if (response.ok) {
         const data = await response.json();
+        persistToken(data);
         toast.success(`Bienvenido ${data.nombre}`);
         setShowGoogleModal(false);
         onLoginSuccess(data);
