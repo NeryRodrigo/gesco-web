@@ -521,6 +521,28 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
   const receiptContent = (
     <div ref={receiptRef} className="bg-white w-[650px] min-h-[850px] font-sans text-black leading-tight shadow-none rounded-none border-[2px] border-black p-0 printable-receipt shrink-0 flex flex-col">
       
+      {pagoData.localOnly && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b-2 border-black bg-white">
+          <div className="flex items-center gap-2.5">
+            <div
+              className="w-12 h-12 rounded-lg flex items-center justify-center shrink-0 overflow-hidden"
+              style={{ backgroundColor: "#080E1E" }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/fontanas.png" alt="Fontana" width={40} height={40} className="w-10 h-10 object-contain" />
+            </div>
+            <div>
+              <p className="m-0 text-[10px] font-bold uppercase tracking-widest text-[#1E7BFF]">Fontana Di Luque</p>
+              <p className="m-0 text-[9px] text-slate-500 uppercase">Hospedaje · comprobante</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="m-0 text-[10px] font-black tracking-widest uppercase">Fontana</p>
+            <p className="m-0 text-[8px] text-slate-500">Di Luque · Est. 2020</p>
+          </div>
+        </div>
+      )}
+
       {/* SECCIÓN 1: CABECERA (Usamos tabla para mayor estabilidad de líneas) */}
       <table className="w-full border-collapse">
         <tbody>
@@ -682,7 +704,18 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
             <p>Numerados del 0001.200 al 0001.500 - Cel: (0981) 749 696</p>
           </div>
           <div className="text-right flex flex-col items-end uppercase gap-0.5 text-black">
-            <span>Original: Cliente / Duplicado: Archivo Tributario</span>
+            {pagoData.localOnly ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src="/images/VORDIA H NEGRO.png"
+                alt="Vordia"
+                width={48}
+                height={48}
+                className="h-10 w-10 object-contain"
+              />
+            ) : (
+              <span>Original: Cliente / Duplicado: Archivo Tributario</span>
+            )}
           </div>
         </div>
       </div>
@@ -691,32 +724,35 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
 
   return (
     <Dialog open={isOpen} onOpenChange={(val) => !val && onClose()}>
-      <DialogContent className="sm:max-w-[1150px] border-none p-0 shadow-2xl bg-muted rounded-[2.5rem] overflow-hidden max-h-[95vh] flex flex-col">
+      <DialogContent
+        className="sm:max-w-[1150px] border-none p-0 shadow-2xl bg-muted rounded-2xl sm:rounded-[2.5rem] overflow-hidden max-h-[min(95dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] flex flex-col w-[calc(100%-0.5rem)] sm:w-full"
+        data-scroll="internal"
+      >
         <DialogHeader className="sr-only">
           <DialogTitle>Vista Previa y Edición de Comprobante</DialogTitle>
         </DialogHeader>
 
         {/* HEADER BAR */}
-        <div className="bg-slate-900 text-white p-6 flex justify-between items-center shrink-0 no-print">
-          <div className="flex items-center gap-3">
-            <div className="bg-primary/20 p-2.5 rounded-2xl text-primary">
+        <div className="bg-slate-900 text-white p-4 sm:p-6 flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center shrink-0 no-print pt-[max(1rem,env(safe-area-inset-top))]">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="bg-primary/20 p-2.5 rounded-2xl text-primary shrink-0">
               <Printer className="w-6 h-6" />
             </div>
-            <div>
-              <h3 className="text-lg font-black italic uppercase tracking-tighter">Emisión de Comprobante Legal</h3>
-              <p className="text-muted-foreground text-[11px] font-bold uppercase tracking-widest">
+            <div className="min-w-0">
+              <h3 className="text-base sm:text-lg font-black italic uppercase tracking-tighter truncate">Emisión de Comprobante Legal</h3>
+              <p className="text-muted-foreground text-[11px] font-bold uppercase tracking-widest truncate">
                 Pago #{pagoData.pagoId} · Unidad {pagoData.unidadCodigo}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
             {/* TABS DE EMISIÓN */}
-            <div className="bg-slate-800 p-1 rounded-2xl flex gap-1 border border-slate-700/60">
+            <div className="bg-slate-800 p-1 rounded-2xl flex gap-1 border border-slate-700/60 flex-1 sm:flex-none">
               <button
                 type="button"
                 onClick={() => setTipoEmision("recibo")}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-xs uppercase tracking-wider transition-all ${
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-wider transition-all touch-manipulation min-h-10 ${
                   tipoEmision === "recibo"
                     ? "bg-primary text-white shadow-lg shadow-primary/30"
                     : "text-muted-foreground hover:text-white"
@@ -727,7 +763,7 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
               <button
                 type="button"
                 onClick={() => setTipoEmision("factura")}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-xs uppercase tracking-wider transition-all ${
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-wider transition-all touch-manipulation min-h-10 ${
                   tipoEmision === "factura"
                     ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/30"
                     : "text-muted-foreground hover:text-white"
@@ -737,14 +773,14 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
               </button>
             </div>
 
-            <Button variant="ghost" size="icon" onClick={onClose} className="text-muted-foreground hover:text-white hover:bg-slate-800 rounded-full">
+            <Button variant="ghost" size="icon" onClick={onClose} className="text-muted-foreground hover:text-white hover:bg-slate-800 rounded-full shrink-0 min-h-11 min-w-11 touch-manipulation">
               <X className="w-6 h-6" />
             </Button>
           </div>
         </div>
 
         {/* BODY CONTAINER: SPLIT SCREEN */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 p-6 overflow-y-auto flex-1">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 p-3 sm:p-6 overflow-y-auto flex-1 overscroll-contain pb-[max(1rem,env(safe-area-inset-bottom))]">
           
           {/* PANEL DE EDICIÓN RÁPIDA (4 COLUMNAS) */}
           <div className="md:col-span-4 bg-card p-6 rounded-[2rem] shadow-sm border border-border/80 space-y-4 h-fit no-print">
@@ -875,8 +911,10 @@ export function ComprobantePreviewModal({ isOpen, onClose, pagoData, onSaved }: 
           </div>
 
           {/* VISTA PREVIA OFICIAL DEL COMPROBANTE (8 COLUMNAS) */}
-          <div className="md:col-span-8 bg-muted/80 p-6 rounded-[2rem] flex justify-center items-start overflow-auto border border-border/50">
-            {receiptContent}
+          <div className="md:col-span-8 bg-muted/80 p-2 sm:p-6 rounded-2xl sm:rounded-[2rem] flex justify-center items-start overflow-auto border border-border/50 max-h-[min(55dvh,480px)] md:max-h-none overscroll-contain">
+            <div className="origin-top scale-[0.52] sm:scale-[0.72] md:scale-100 w-[650px] shrink-0">
+              {receiptContent}
+            </div>
           </div>
         </div>
       </DialogContent>

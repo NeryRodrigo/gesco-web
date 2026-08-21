@@ -75,6 +75,11 @@ export interface FontanaDetalles {
   huespedId?: number | null;
   /** Reserva activa vinculada (calendario / cobros) */
   reservaId?: number | null;
+  /**
+   * Habitación interna de un dúplex Agus (solo si el dúplex está libre):
+   * "1" suite · "2" frente suite · "3" frente baño
+   */
+  habitacionDuplexInterna?: "1" | "2" | "3" | null;
   /** Servicios extras (lavandería, minibar, etc.) a facturar al desocupar */
   serviciosExtras?: FontanaServicioExtra[];
   /** Comprobante de garantía (recibo sin IVA habitual) */
@@ -121,7 +126,7 @@ export interface Reserva {
   notasAdicionales?: string;
 }
 
-export const MAX_HABITACIONES_FONTANA = 3;
+export const MAX_HABITACIONES_FONTANA = 999;
 
 export function parseFontanaDetalles(raw?: string | null): FontanaDetalles {
   if (!raw) return {};

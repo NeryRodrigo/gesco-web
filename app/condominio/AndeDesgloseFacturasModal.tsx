@@ -64,6 +64,18 @@ async function abrirFacturaPdf(
   duplex = "",
   pdfParams?: AndePdfParams
 ) {
+  const nisClean = String(nis || "").trim();
+  if (!nisClean) {
+    toast.error("NIS inválido. Revisá el medidor de la unidad.");
+    return;
+  }
+
+  // Sin secNis/secRec el backend no puede bajar el PDF oficial
+  if (!pdfParams?.secNis || !pdfParams?.secRec) {
+    toast.warning("Primero ejecutá «Consultar Saldos ANDE» para este NIS y después tocá FACTURA PDF.");
+    return;
+  }
+
   const toastId = toast.loading("Obteniendo factura oficial ANDE…");
   try {
     const controller = new AbortController();
@@ -71,25 +83,48 @@ async function abrirFacturaPdf(
     const qs = new URLSearchParams();
     if (inquilino) qs.set("inquilino", inquilino);
     if (duplex) qs.set("duplex", duplex);
-    if (pdfParams?.secNis) qs.set("secNis", String(pdfParams.secNis));
-    if (pdfParams?.secRec) qs.set("secRec", String(pdfParams.secRec));
+    qs.set("secNis", String(pdfParams.secNis));
+    qs.set("secRec", String(pdfParams.secRec));
     if (pdfParams?.fFact) qs.set("fFact", String(pdfParams.fFact));
     if (pdfParams?.electronica != null) qs.set("electronica", pdfParams.electronica ? "true" : "false");
 
     const res = await fetch(
-      `${ANDE_API}/factura-pdf/${encodeURIComponent(nis)}?${qs.toString()}`,
+      `${ANDE_API}/factura-pdf/${encodeURIComponent(nisClean)}?${qs.toString()}`,
       { signal: controller.signal }
     );
     clearTimeout(t);
     if (!res.ok) {
       const txt = await res.text();
-      throw new Error(txt || `Error HTTP ${res.status}`);
+      let msg = txt || `Error HTTP ${res.status}`;
+      try {
+        const j = JSON.parse(txt);
+        msg = j?.mensaje || j?.message || j?.title || msg;
+      } catch {
+        /* texto plano del API */
+      }
+      throw new Error(msg);
     }
     const blob = await res.blob();
     if (!blob || blob.size < 100) throw new Error("ANDE no devolvió un PDF válido.");
+
     const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
-    toast.success("Factura ANDE abierta", { id: toastId });
+    const fileName = `ANDE_${nisClean}_${pdfParams.secRec || "factura"}.pdf`;
+
+    // iOS / Android: window.open(blob) suele fallar → <a> + download / same gesture
+    const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const a = document.createElement("a");
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    if (isMobile) a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+
+    toast.success(isMobile ? "PDF listo — se abrió o descargó en el dispositivo" : "Factura ANDE abierta", {
+      id: toastId,
+    });
   } catch (err: any) {
     if (err?.name === "AbortError") {
       toast.error("La descarga del PDF tardó demasiado. Reintentá.", { id: toastId });

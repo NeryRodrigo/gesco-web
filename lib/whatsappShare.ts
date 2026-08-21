@@ -101,19 +101,29 @@ export async function sharePdfViaWhatsApp(opts: {
   preOpenedWindow?: Window | null;
 }): Promise<SharePdfWhatsAppResult> {
   const phone = normalizarTelefonoPy(opts.phoneRaw);
+  if (!phone || phone.length < 10) {
+    try {
+      opts.preOpenedWindow?.close();
+    } catch {
+      /* ignore */
+    }
+    throw new Error(
+      "Falta el número de celular/WhatsApp del inquilino. Cargalo en la ficha (Editar) o en Generar Contrato y reintentá."
+    );
+  }
+
   const file =
     opts.file instanceof File
       ? opts.file
       : new File([opts.file], opts.fileName, { type: "application/pdf" });
 
-  const waUrl = buildWhatsAppUrl(opts.phoneRaw, opts.text, !isMobileDevice());
+  const waUrl = buildWhatsAppUrl(phone, opts.text, !isMobileDevice());
 
   // 1) Móvil / Web Share con archivos (mejor experiencia: PDF listo para enviar)
-  if (canShareFiles()) {
+  if (isMobileDevice() && canShareFiles()) {
     try {
       const payload = { files: [file], title: opts.fileName, text: opts.text };
-      if (navigator.canShare(payload)) {
-        // Si abrimos ventana en PC por error, cerrarla
+      if (navigator.canShare?.(payload)) {
         try {
           opts.preOpenedWindow?.close();
         } catch {
@@ -138,11 +148,11 @@ export async function sharePdfViaWhatsApp(opts: {
           message: "Compartir cancelado.",
         };
       }
-      // sigue al fallback PC
+      // sigue al fallback (descarga + wa.me)
     }
   }
 
-  // 2) PC / fallback: descargar PDF + abrir chat en WhatsApp Web
+  // 2) PC / fallback móvil: descargar PDF + abrir chat WhatsApp
   downloadBlob(file, opts.fileName);
 
   const popup = opts.preOpenedWindow;
@@ -156,12 +166,11 @@ export async function sharePdfViaWhatsApp(opts: {
     window.open(waUrl, "_blank", "noopener,noreferrer");
   }
 
-  const contacto = phone ? `+${phone}` : "el contacto";
   return {
     mode: "download-and-open",
     message: isMobileDevice()
-      ? `PDF descargado y chat abierto (${contacto}). Adjuntá el archivo desde Descargas.`
-      : `PDF descargado abajo y chat abierto en WhatsApp Web (${contacto}). Si ya tenías WhatsApp Web iniciado, el chat del inquilino queda listo: tocá el clip 📎 y elegí el PDF de Descargas.`,
+      ? `PDF descargado y chat abierto (+${phone}). En WhatsApp tocá el clip 📎 y elegí el PDF desde Descargas.`
+      : `PDF descargado y chat abierto en WhatsApp Web (+${phone}). Tocá el clip 📎 y elegí el PDF de Descargas.`,
   };
 }
 

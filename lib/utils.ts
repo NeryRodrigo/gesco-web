@@ -162,6 +162,30 @@ export function parseFechaLocal(value?: string | Date | null): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+/**
+ * Normaliza una fecha para APIs .NET (DateTime no-nullable).
+ * Nunca devuelve "" — evita 400 "could not be converted to System.DateTime".
+ */
+export function toApiDateTime(
+  ...candidates: Array<string | Date | null | undefined>
+): string {
+  for (const c of candidates) {
+    if (c == null || c === "") continue;
+    if (c instanceof Date) {
+      if (!Number.isNaN(c.getTime())) return c.toISOString();
+      continue;
+    }
+    const raw = String(c).trim();
+    if (!raw) continue;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      return `${raw}T00:00:00`;
+    }
+    const d = parseFechaLocal(raw);
+    if (d) return d.toISOString();
+  }
+  return new Date().toISOString();
+}
+
 /** Ej: "10 de agosto de 2025" (sin duplicar el día). */
 export function formatFechaLarga(value?: string | Date | null): string {
   const d = parseFechaLocal(value);

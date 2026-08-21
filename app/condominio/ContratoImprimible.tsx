@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { MembreteFontanaDiLuque, PieVordiaFontana } from "@/components/fontana/MembreteFontana";
 
 const CODEUDOR_MARKER_RE = /<!--CODEUDOR:([\s\S]*?)-->\n?/;
 
@@ -223,7 +224,14 @@ export const ContratoImprimible = ({ contractData, dataUnidad, localNisAnde, isP
                     printColorAdjust: 'exact',
                 } as React.CSSProperties}
             >
-            
+            <MembreteFontanaDiLuque
+              titulo="Contrato de locación"
+              subtitulo="Fontana Di Luque — documento legal"
+              meta={[
+                { label: "Unidad", value: String(dataUnidad?.codigo || dataUnidad?.code || "—") },
+                { label: "Locatario", value: nombreLocatario },
+              ]}
+            />
             <h1 className="text-center font-bold text-lg mb-6 uppercase">CONTRATO DE LOCACIÓN</h1>
 
             <p className="mb-4">
@@ -353,6 +361,7 @@ export const ContratoImprimible = ({ contractData, dataUnidad, localNisAnde, isP
                 </div>
                 )}
             </div>
+            <PieVordiaFontana />
         </div>
     );
 

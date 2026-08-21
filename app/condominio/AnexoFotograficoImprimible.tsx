@@ -3,6 +3,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { MembreteFontanaDiLuque, PieVordiaFontana } from "@/components/fontana/MembreteFontana";
 
 export const AnexoFotograficoImprimible = ({ contractData, dataUnidad, isPreview }: any) => {
     const [mounted, setMounted] = useState(false);
@@ -32,6 +33,13 @@ export const AnexoFotograficoImprimible = ({ contractData, dataUnidad, isPreview
             } 
             style={{ backgroundColor: 'white', color: 'black', WebkitPrintColorAdjust: 'exact' }}
         >
+            <MembreteFontanaDiLuque
+              titulo="Anexo fotográfico de entrega"
+              meta={[
+                { label: "Dúplex", value: String(dataUnidad?.codigo || dataUnidad?.code || "—") },
+                { label: "Fecha", value: fechaHoy },
+              ]}
+            />
             <h1 className="text-center font-bold text-xl mb-4 uppercase">ANEXO FOTOGRÁFICO DE ENTREGA DE INMUEBLE</h1>
             
             <div className="bg-gray-100 p-4 rounded-lg mb-8 border border-gray-300">
@@ -84,6 +92,7 @@ export const AnexoFotograficoImprimible = ({ contractData, dataUnidad, isPreview
                     </div>
                 </div>
             </div>
+            <PieVordiaFontana />
         </div>
     );
 

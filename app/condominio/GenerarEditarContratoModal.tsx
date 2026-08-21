@@ -29,7 +29,7 @@ import { toast } from "sonner";
 import { ContratoImprimible, descargarContratoDoc, descargarContratoPDF, resolveCodeudor, serializeCodeudorEnObservaciones } from "./ContratoImprimible";
 import { digitoVerificadorRucPy, formatMilesPy, parseMilesPy } from "@/lib/rucParaguay";
 import { sharePdfViaWhatsApp, prepareWhatsAppShareWindow } from "@/lib/whatsappShare";
-import { formatFechaCorta } from "@/lib/utils";
+import { formatFechaCorta, toApiDateTime } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -213,9 +213,9 @@ export function GenerarEditarContratoModal({
           cedula: documentoCompleto.trim(),
           telefono: telefono.trim(),
           email: email.trim(),
-          fechaIngreso: fechaIngreso || contractData.fechaIngreso,
-          fechaInicio: fechaInicio || contractData.fechaInicioContrato,
-          fechaFin: fechaFin || contractData.fechaFinContrato,
+          fechaIngreso: toApiDateTime(fechaIngreso, contractData.fechaIngreso, fechaInicio, contractData.fechaInicioContrato),
+          fechaInicio: toApiDateTime(fechaInicio, contractData.fechaInicioContrato, fechaIngreso, contractData.fechaIngreso),
+          fechaFin: toApiDateTime(fechaFin, contractData.fechaFinContrato),
           montoMensual: Number(montoMensual || 0),
           garantia: Number(garantia || 0),
           cantidadOcupantes: Number(cantidadOcupantes || 1),
@@ -321,8 +321,11 @@ export function GenerarEditarContratoModal({
 
   const handleCompartirWhatsApp = async () => {
     const phoneRaw = telefono || contractData?.inquilino?.telefono || "";
-    if (!phoneRaw || phoneRaw === "N/A" || phoneRaw.trim().length < 6) {
-      toast.warning("⚠️ No hay un número de celular/WhatsApp registrado para este inquilino. Cárgalo primero en el campo Teléfono.");
+    const digits = phoneRaw.replace(/\D/g, "");
+    if (!phoneRaw || phoneRaw === "N/A" || digits.length < 6) {
+      toast.warning("Falta el número de WhatsApp", {
+        description: "Completá el campo Teléfono del inquilino y guardá antes de compartir el PDF.",
+      });
       return;
     }
 
@@ -333,8 +336,11 @@ export function GenerarEditarContratoModal({
 
   const handleEnviarPdfWhatsApp = async () => {
     const phoneRaw = telefono || contractData?.inquilino?.telefono || "";
-    if (!phoneRaw || phoneRaw.trim().length < 6) {
-      toast.warning("No hay teléfono WhatsApp registrado.");
+    const digits = phoneRaw.replace(/\D/g, "");
+    if (!phoneRaw || digits.length < 6) {
+      toast.warning("Falta el número de WhatsApp", {
+        description: "Cargá el teléfono del inquilino y reintentá.",
+      });
       return;
     }
 
@@ -342,7 +348,11 @@ export function GenerarEditarContratoModal({
     const waWindow = prepareWhatsAppShareWindow();
 
     setIsSharingWhatsApp(true);
-    const loading = toast.loading("Generando PDF y abriendo WhatsApp Web…");
+    const loading = toast.loading(
+      /iPhone|iPad|Android/i.test(navigator.userAgent)
+        ? "Generando PDF para WhatsApp…"
+        : "Generando PDF y abriendo WhatsApp Web…"
+    );
     try {
       const file = await descargarContratoPDF(liveContractData, unidad, true);
       if (!file) {
@@ -374,7 +384,7 @@ export function GenerarEditarContratoModal({
       setWhatsAppResultMsg(result.message);
       setShowWhatsAppPreviewModal(false);
       setShowWhatsAppModal(true);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
       try {
         waWindow?.close();
@@ -382,7 +392,7 @@ export function GenerarEditarContratoModal({
         /* ignore */
       }
       toast.dismiss(loading);
-      toast.error("Error al generar o compartir el PDF.");
+      toast.error(e?.message || "Error al generar o compartir el PDF.");
     } finally {
       setIsSharingWhatsApp(false);
     }

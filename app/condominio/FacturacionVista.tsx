@@ -2,7 +2,7 @@
 
 import { API_BASE } from "@/lib/api";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { formatDuplex, formatFechaLarga, formatConceptoPeriodo } from "@/lib/utils";
 import {
   Wallet,
@@ -93,6 +93,17 @@ export function FacturacionVista() {
   const [printAlcance, setPrintAlcance] = useState<AlcancePrint>("filtrados");
   const [isPrintingMasiva, setIsPrintingMasiva] = useState(false);
   const [printData, setPrintData] = useState<ReimpresionMasivaPrintData | null>(null);
+  const [filtroErrors, setFiltroErrors] = useState<{
+    desde?: string;
+    hasta?: string;
+    condominio?: string;
+    duplex?: string;
+    general?: string;
+  }>({});
+  const refFilterDesde = useRef<HTMLInputElement>(null);
+  const refFilterHasta = useRef<HTMLInputElement>(null);
+  const refFiltrosReimpresion = useRef<HTMLDivElement>(null);
+  const refCondoTrigger = useRef<HTMLButtonElement>(null);
 
   React.useEffect(() => {
     fetchCobros();
@@ -329,14 +340,98 @@ export function FacturacionVista() {
     return filteredCobros;
   };
 
+  /** Valida filtros antes de abrir el modal o imprimir. Enfoca el primer campo inválido. */
+  const validarFiltrosReimpresion = (alcance: AlcancePrint): boolean => {
+    const errors: {
+      desde?: string;
+      hasta?: string;
+      condominio?: string;
+      duplex?: string;
+      general?: string;
+    } = {};
+
+    if (filterDesde && !filterHasta) {
+      errors.hasta = "Completá «Cobro hasta» para cerrar el rango de fechas.";
+    }
+    if (!filterDesde && filterHasta) {
+      errors.desde = "Completá «Cobro desde» para cerrar el rango de fechas.";
+    }
+    if (filterDesde && filterHasta && filterDesde > filterHasta) {
+      errors.hasta = "«Cobro hasta» debe ser igual o posterior a «Cobro desde».";
+    }
+
+    const tieneRangoFechas = !!(filterDesde && filterHasta);
+    const tieneUbicacion = !!(filterCondominio || filterDuplex);
+    const tieneTipo = tipoDocFilter !== "todos";
+    const tieneBusqueda = !!searchFilter.trim();
+    const tieneFiltroUtil = tieneRangoFechas || tieneUbicacion || tieneTipo || tieneBusqueda;
+
+    if (alcance === "seleccionados") {
+      if (selectedIds.size === 0) {
+        errors.general =
+          "Seleccioná al menos un cobro en la tabla (checkbox) o cambiá el alcance a «Filtrados».";
+      }
+    } else {
+      // Filtrados: exigir al menos un criterio para no imprimir todo el histórico sin filtro
+      if (!tieneFiltroUtil) {
+        errors.general =
+          "Aplicá al menos un filtro: fechas de cobro, condominio, dúplex, tipo de documento o búsqueda.";
+        if (!filterDesde) errors.desde = "Indicá «Cobro desde» (o elegí condominio / dúplex).";
+        if (!filterHasta) errors.hasta = "Indicá «Cobro hasta» (o elegí condominio / dúplex).";
+        if (!filterCondominio && !filterDuplex) {
+          errors.condominio = "Opcional: filtrá por condominio o dúplex.";
+        }
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFiltroErrors(errors);
+      const msg =
+        errors.general ||
+        errors.desde ||
+        errors.hasta ||
+        errors.condominio ||
+        "Revisá los filtros antes de reimprimir.";
+      toast.error("Completá los filtros para la reimpresión masiva", {
+        description: msg,
+        duration: 5000,
+      });
+      refFiltrosReimpresion.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      window.setTimeout(() => {
+        if (errors.desde) refFilterDesde.current?.focus();
+        else if (errors.hasta) refFilterHasta.current?.focus();
+        else if (errors.condominio || errors.duplex) refCondoTrigger.current?.focus();
+      }, 280);
+      return false;
+    }
+
+    setFiltroErrors({});
+    return true;
+  };
+
+  const abrirReimpresion = (alcancePreferido?: AlcancePrint) => {
+    const alcance =
+      alcancePreferido ?? (selectedIds.size > 0 ? "seleccionados" : "filtrados");
+    setPrintAlcance(alcance);
+    if (!validarFiltrosReimpresion(alcance)) return;
+    setIsReimpresionOpen(true);
+  };
+
   const ejecutarReimpresion = () => {
+    if (!validarFiltrosReimpresion(printAlcance)) {
+      setIsReimpresionOpen(false);
+      return;
+    }
     const items = itemsParaImprimir();
     if (items.length === 0) {
       toast.error(
         printAlcance === "seleccionados"
           ? "Seleccioná al menos un cobro en la tabla."
-          : "No hay cobros con los filtros actuales."
+          : "No hay cobros con los filtros actuales. Ajustá fechas, condominio o dúplex."
       );
+      setIsReimpresionOpen(false);
+      refFiltrosReimpresion.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      refFilterDesde.current?.focus();
       return;
     }
     const payload: ReimpresionMasivaPrintData = {
@@ -378,6 +473,7 @@ export function FacturacionVista() {
     setFilterDuplex("");
     setTipoDocFilter("todos");
     setSearchFilter("");
+    setFiltroErrors({});
   };
 
   const hasActiveFilters =
@@ -492,27 +588,23 @@ export function FacturacionVista() {
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-3 justify-end">
+          <div className="flex flex-wrap gap-3 justify-end w-full md:w-auto">
             {selectedIds.size > 0 && (
               <Button
                 variant="outline"
                 onClick={() => {
-                  setPrintAlcance("seleccionados");
                   setPrintModo("cola");
-                  setIsReimpresionOpen(true);
+                  abrirReimpresion("seleccionados");
                 }}
-                className="h-12 rounded-xl font-black italic px-5"
+                className="h-12 rounded-xl font-black italic px-5 w-full sm:w-auto min-h-11 touch-manipulation"
               >
                 <Printer className="w-4 h-4 mr-2" />
                 Imprimir {selectedIds.size} seleccionados
               </Button>
             )}
             <Button
-              onClick={() => {
-                setPrintAlcance(selectedIds.size > 0 ? "seleccionados" : "filtrados");
-                setIsReimpresionOpen(true);
-              }}
-              className="h-12 rounded-xl bg-primary text-primary-foreground font-black italic px-8 shadow-xl"
+              onClick={() => abrirReimpresion()}
+              className="h-12 rounded-xl bg-primary text-primary-foreground font-black italic px-6 sm:px-8 shadow-xl w-full sm:w-auto min-h-11 touch-manipulation"
             >
               REIMPRESIÓN MASIVA
             </Button>
@@ -541,31 +633,71 @@ export function FacturacionVista() {
         </div>
 
         {/* Filtros de reimpresión */}
-        <Card className="border border-border rounded-[2rem] bg-card p-5 sm:p-6 shadow-sm">
+        <Card
+          ref={refFiltrosReimpresion}
+          className={`rounded-[2rem] bg-card p-4 sm:p-6 shadow-sm transition-colors ${
+            Object.keys(filtroErrors).length > 0
+              ? "border-2 border-red-400 ring-2 ring-red-400/30"
+              : "border border-border"
+          }`}
+        >
+          {filtroErrors.general && (
+            <div className="mb-4 flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 px-3 py-2.5 text-red-700">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+              <p className="text-[11px] font-bold leading-snug">{filtroErrors.general}</p>
+            </div>
+          )}
+          <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-3">
+            Filtros para reimpresión · fechas, condominio o dúplex
+          </p>
           <div className="flex flex-wrap items-end gap-3">
-            <div className="space-y-1">
+            <div className="space-y-1 min-w-[140px] flex-1 sm:flex-none">
               <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
                 Cobro desde
               </label>
               <Input
+                ref={refFilterDesde}
                 type="date"
                 value={filterDesde}
-                onChange={(e) => setFilterDesde(e.target.value)}
-                className="h-10 rounded-xl bg-secondary border-none font-bold w-[150px]"
+                onChange={(e) => {
+                  setFilterDesde(e.target.value);
+                  setFiltroErrors((prev) => ({ ...prev, desde: undefined, general: undefined }));
+                }}
+                aria-invalid={!!filtroErrors.desde}
+                className={`h-11 rounded-xl bg-secondary border-none font-bold w-full sm:w-[150px] touch-manipulation ${
+                  filtroErrors.desde ? "ring-2 ring-red-500 bg-red-50" : ""
+                }`}
               />
+              {filtroErrors.desde && (
+                <p className="text-[10px] font-bold text-red-600 max-w-[180px] leading-snug">
+                  {filtroErrors.desde}
+                </p>
+              )}
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 min-w-[140px] flex-1 sm:flex-none">
               <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
                 Cobro hasta
               </label>
               <Input
+                ref={refFilterHasta}
                 type="date"
                 value={filterHasta}
-                onChange={(e) => setFilterHasta(e.target.value)}
-                className="h-10 rounded-xl bg-secondary border-none font-bold w-[150px]"
+                onChange={(e) => {
+                  setFilterHasta(e.target.value);
+                  setFiltroErrors((prev) => ({ ...prev, hasta: undefined, general: undefined }));
+                }}
+                aria-invalid={!!filtroErrors.hasta}
+                className={`h-11 rounded-xl bg-secondary border-none font-bold w-full sm:w-[150px] touch-manipulation ${
+                  filtroErrors.hasta ? "ring-2 ring-red-500 bg-red-50" : ""
+                }`}
               />
+              {filtroErrors.hasta && (
+                <p className="text-[10px] font-bold text-red-600 max-w-[180px] leading-snug">
+                  {filtroErrors.hasta}
+                </p>
+              )}
             </div>
-            <div className="space-y-1 min-w-[180px]">
+            <div className="space-y-1 min-w-[160px] flex-1 sm:min-w-[180px]">
               <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
                 Condominio
               </label>
@@ -574,9 +706,20 @@ export function FacturacionVista() {
                 onValueChange={(v) => {
                   setFilterCondominio(v === "__all__" ? "" : v);
                   setFilterDuplex("");
+                  setFiltroErrors((prev) => ({
+                    ...prev,
+                    condominio: undefined,
+                    duplex: undefined,
+                    general: undefined,
+                  }));
                 }}
               >
-                <SelectTrigger className="h-10 w-full min-w-[180px] rounded-xl border-border bg-secondary font-bold text-sm">
+                <SelectTrigger
+                  ref={refCondoTrigger}
+                  className={`h-11 w-full min-w-0 sm:min-w-[180px] rounded-xl border-border bg-secondary font-bold text-sm touch-manipulation ${
+                    filtroErrors.condominio ? "ring-2 ring-red-500" : ""
+                  }`}
+                >
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl border-border z-[220]">
@@ -588,16 +731,32 @@ export function FacturacionVista() {
                   ))}
                 </SelectContent>
               </Select>
+              {filtroErrors.condominio && (
+                <p className="text-[10px] font-bold text-red-600 leading-snug">
+                  {filtroErrors.condominio}
+                </p>
+              )}
             </div>
-            <div className="space-y-1 min-w-[140px]">
+            <div className="space-y-1 min-w-[140px] flex-1 sm:min-w-[140px]">
               <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
                 Dúplex
               </label>
               <Select
                 value={filterDuplex || "__all__"}
-                onValueChange={(v) => setFilterDuplex(v === "__all__" ? "" : v)}
+                onValueChange={(v) => {
+                  setFilterDuplex(v === "__all__" ? "" : v);
+                  setFiltroErrors((prev) => ({
+                    ...prev,
+                    duplex: undefined,
+                    general: undefined,
+                  }));
+                }}
               >
-                <SelectTrigger className="h-10 w-full min-w-[140px] rounded-xl border-border bg-secondary font-bold text-sm">
+                <SelectTrigger
+                  className={`h-11 w-full min-w-0 sm:min-w-[140px] rounded-xl border-border bg-secondary font-bold text-sm touch-manipulation ${
+                    filtroErrors.duplex ? "ring-2 ring-red-500" : ""
+                  }`}
+                >
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl border-border z-[220]">

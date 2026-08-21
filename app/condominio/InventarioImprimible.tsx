@@ -3,6 +3,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { MembreteFontanaDiLuque, PieVordiaFontana } from "@/components/fontana/MembreteFontana";
 
 export const InventarioImprimible = ({ contractData, dataUnidad, isPreview }: any) => {
     const [mounted, setMounted] = useState(false);
@@ -56,6 +57,13 @@ export const InventarioImprimible = ({ contractData, dataUnidad, isPreview }: an
             } 
             style={{ backgroundColor: 'white', color: 'black', WebkitPrintColorAdjust: 'exact' }}
         >
+            <MembreteFontanaDiLuque
+              titulo="Inventario de entrega del inmueble"
+              meta={[
+                { label: "Dúplex", value: String(dataUnidad?.codigo || dataUnidad?.code || "—") },
+                { label: "Fecha", value: fechaHoy },
+              ]}
+            />
             <div className="text-center mb-4">
                 <h1 className="font-bold text-lg uppercase">INVENTARIO DE ENTREGA DEL INMUEBLE</h1>
                 <p className="text-[10px] italic">Condominio Fontana di Luque – Dúplex N.º {dataUnidad?.codigo || dataUnidad?.code || "_______"}</p>
@@ -112,6 +120,7 @@ export const InventarioImprimible = ({ contractData, dataUnidad, isPreview }: an
                     </div>
                 </div>
             </div>
+            <PieVordiaFontana />
         </div>
     );
 

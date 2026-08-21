@@ -507,13 +507,18 @@ export function DashboardCards({
 
   const openTenantFicha = (item: any, tab: "ficha" | "pagos" = "ficha") => {
     if (!onOpenFicha || !item?.unidadId) return;
+    const esDisponible =
+      detailView === "disponibles" ||
+      String(item?.estado || item?.inquilino || "")
+        .toLowerCase()
+        .includes("disponible");
     onOpenFicha(
       {
         id: Number(item.unidadId),
         code: String(item.duplex || ""),
         condo: String(item.condominio || ""),
-        tenant: item.inquilino ?? null,
-        status: "Ocupado",
+        tenant: esDisponible ? null : item.inquilino ?? null,
+        status: esDisponible ? "Disponible" : "Ocupado",
         nisAnde: String(item.nisAnde ?? "")
           .trim()
           .replace(/^["']+|["']+$/g, "") || null,
@@ -847,9 +852,26 @@ export function DashboardCards({
       return (
       <React.Fragment key={idx}>
         <tr
-          className={`hover:bg-white/5 transition-colors h-[56px] text-white ${detailView === "morosos" ? "cursor-pointer" : ""}`}
-          onClick={detailView === "morosos" ? (e) => handleMorosoClick(item, e) : undefined}
-          title={detailView === "morosos" ? "Clic: ver cuotas · Doble clic: cerrar" : undefined}
+          className={`hover:bg-white/5 transition-colors h-[56px] text-white ${
+            detailView === "morosos" ||
+            (detailView === "disponibles" && onOpenFicha && item.unidadId)
+              ? "cursor-pointer"
+              : ""
+          }`}
+          onClick={
+            detailView === "morosos"
+              ? (e) => handleMorosoClick(item, e)
+              : detailView === "disponibles" && onOpenFicha && item.unidadId
+                ? () => openTenantFicha(item, "ficha")
+                : undefined
+          }
+          title={
+            detailView === "morosos"
+              ? "Clic: ver cuotas · Doble clic: cerrar"
+              : detailView === "disponibles"
+                ? "Abrir ficha del dúplex"
+                : undefined
+          }
         >
             <td className="px-8 py-4">
               <p className="font-black italic uppercase text-white text-sm tracking-tighter">{formatDuplex(item.duplex)}</p>
@@ -861,15 +883,31 @@ export function DashboardCards({
                   isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-red-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
                 )}
                 <div>
-                  {(detailView === "ocupados" || detailView === "objetivos" || detailView === "cobrados") && onOpenFicha && item.unidadId ? (
+                  {(detailView === "ocupados" ||
+                    detailView === "objetivos" ||
+                    detailView === "cobrados" ||
+                    detailView === "disponibles") &&
+                  onOpenFicha &&
+                  item.unidadId ? (
                     <button
                       type="button"
-                      className="font-bold text-sm text-left hover:underline hover:text-blue-400 transition-colors text-slate-100"
+                      className={`font-bold text-sm text-left hover:underline hover:text-blue-400 transition-colors ${
+                        detailView === "disponibles" ? "text-emerald-400" : "text-slate-100"
+                      }`}
                       onClick={(e) => {
                         e.stopPropagation();
-                        openTenantFicha(item, detailView === "cobrados" ? "pagos" : "ficha");
+                        openTenantFicha(
+                          item,
+                          detailView === "cobrados" ? "pagos" : "ficha"
+                        );
                       }}
-                      title={detailView === "cobrados" ? "Abrir ficha · Historial de pagos" : "Abrir ficha del inquilino"}
+                      title={
+                        detailView === "cobrados"
+                          ? "Abrir ficha · Historial de pagos"
+                          : detailView === "disponibles"
+                            ? "Abrir ficha del dúplex disponible"
+                            : "Abrir ficha del inquilino"
+                      }
                     >
                       {item.inquilino}
                     </button>
@@ -1036,7 +1074,9 @@ export function DashboardCards({
                         <div className="flex items-center justify-end gap-1.5">
                             {puedePdf && (
                             <button
-                                onClick={() => {
+                                type="button"
+                                onClick={(e) => {
+                                e.stopPropagation();
                                 const verif = verificarPermisoGranular("panel_factura_pdf");
                                 if (!verif.permitido) {
                                     setAlertaRestriccion({
@@ -1046,23 +1086,26 @@ export function DashboardCards({
                                     });
                                     return;
                                 }
-                                void abrirFacturaPdf(item.nisAnde, item.inquilino || "", item.duplex || "", (() => {
-                                  const live = andeLiveByNis[soloDigitosNis(item.nisAnde)];
-                                  const facts = live?.facturas || [];
-                                  const target =
-                                    facts.find((f) => esPendienteFactura(f.estado) && f.secNis && f.secRec) ||
-                                    facts.find((f) => f.secNis && f.secRec) ||
-                                    facts[0];
-                                  if (!target) return undefined;
-                                  return {
-                                    secNis: target.secNis,
-                                    secRec: target.secRec,
-                                    fFact: target.fechaFacturacion || target.emision,
-                                    electronica: target.facturaElectronica !== false,
-                                  };
-                                })());
+                                const live = andeLiveByNis[soloDigitosNis(item.nisAnde)];
+                                const facts = live?.facturas || [];
+                                const target =
+                                  facts.find((f) => esPendienteFactura(f.estado) && f.secNis && f.secRec) ||
+                                  facts.find((f) => f.secNis && f.secRec) ||
+                                  facts[0];
+                                if (!target?.secNis || !target?.secRec) {
+                                  toast.warning(
+                                    "No hay datos de factura en caché para este NIS. Tocá «Consultar Saldos ANDE» y reintentá FACTURA PDF."
+                                  );
+                                  return;
+                                }
+                                void abrirFacturaPdf(item.nisAnde, item.inquilino || "", item.duplex || "", {
+                                  secNis: target.secNis,
+                                  secRec: target.secRec,
+                                  fFact: target.fechaFacturacion || target.emision,
+                                  electronica: target.facturaElectronica !== false,
+                                });
                                 }}
-                                className="bg-yellow-400 text-black border border-yellow-500 shadow-sm text-[9px] font-black italic px-3 py-2 rounded-lg hover:scale-105 hover:bg-yellow-500 transition-all">
+                                className="bg-yellow-400 text-black border border-yellow-500 shadow-sm text-[9px] font-black italic px-3 py-2 rounded-lg hover:scale-105 hover:bg-yellow-500 transition-all max-md:hover:scale-100">
                                 FACTURA PDF
                             </button>
                             )}
