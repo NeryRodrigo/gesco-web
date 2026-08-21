@@ -428,7 +428,7 @@ export default function OimaDashboard() {
           )}
 
           {vistaActual === "fontana" && (
-            <div className="animate-in fade-in duration-500">
+            <div className="animate-in fade-in duration-500 w-full min-w-0 max-w-full overflow-x-hidden">
               <FontanaPage empresaId={empresaId} usuario={usuarioActivo} />
             </div>
           )}

@@ -3,6 +3,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { MembreteFontanaDiLuque, PieVordiaFontana } from "@/components/fontana/MembreteFontana";
 
 /**
  * Función Auxiliar para convertir números a letras (Castellano)
@@ -90,6 +91,13 @@ export const PagareImprimible = ({ contractData, dataUnidad, isPreview }: any) =
             } 
             style={{ backgroundColor: 'white', color: 'black', WebkitPrintColorAdjust: 'exact' }}
         >
+            <MembreteFontanaDiLuque
+              titulo="Pagaré de garantía"
+              meta={[
+                { label: "Unidad", value: String(dataUnidad?.codigo || dataUnidad?.code || "—") },
+                { label: "Emisión", value: `${diaHoy}/${mesHoy}/${anioHoy}` },
+              ]}
+            />
             <div className="flex justify-between items-start mb-10 border-b-2 border-black pb-4">
                 <div className="text-left">
                     <p className="font-bold uppercase">Lugar y Fecha: <span className="font-normal underline">Luque, {diaHoy} de {mesHoy} de {anioHoy}</span></p>
@@ -161,6 +169,7 @@ export const PagareImprimible = ({ contractData, dataUnidad, isPreview }: any) =
                     </div>
                 </div>
             </div>
+            <PieVordiaFontana />
         </div>
     );
 

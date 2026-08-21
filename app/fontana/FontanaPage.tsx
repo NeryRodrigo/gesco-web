@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bed,
   Calendar,
@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   Receipt,
   Clock,
+  Settings,
 } from "lucide-react";
 import { toast } from "sonner";
 import { API_BASE } from "@/lib/api";
@@ -31,6 +32,12 @@ import {
   addFontanaLugar,
   mergeLugares,
   LUGARES_FONTANA_DEFAULT,
+  loadFontanaCupos,
+  saveFontanaCupos,
+  sameLugar,
+  cupoDefaultParaLugar,
+  HABITACIONES_DUPLEX_AGUS,
+  type FontanaCupoLugar,
 } from "@/lib/fontanaLugares";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,7 +52,6 @@ import {
   FontanaServicioExtra,
   TipoAlquilerFontana,
   EstadoInquilinoFontana,
-  MAX_HABITACIONES_FONTANA,
   parseFontanaDetalles,
   stringifyFontanaDetalles,
 } from "@/types/hostel";
@@ -160,17 +166,40 @@ const emptyForm = (): FontanaDetalles & { nombreHabitacion: string } => ({
   unidadCodigo: null,
   nombreCondominio: null,
   reservaId: null,
+  habitacionDuplexInterna: null,
   serviciosExtras: [],
   pagos: [],
   reclamos: [],
   documentos: [],
 });
 
+function habitacionOcupaPlaza(h: Habitacion): boolean {
+  const d = parseFontanaDetalles(h.detallesJson);
+  if (h.estado === "Ocupada") return true;
+  if (d.estadoInquilino === "Activo" || d.estadoInquilino === "Moroso" || d.estadoInquilino === "Pendiente")
+    return true;
+  return false;
+}
+
+/** Evita que el menú contextual quede fuera de pantalla (móvil / iPad). */
+function clampCtxMenu(x: number, y: number, menuW = 228, menuH = 168) {
+  if (typeof window === "undefined") return { x, y };
+  const pad = 10;
+  const maxX = Math.max(pad, window.innerWidth - menuW - pad);
+  const maxY = Math.max(pad, window.innerHeight - menuH - pad);
+  return {
+    x: Math.min(Math.max(pad, x), maxX),
+    y: Math.min(Math.max(pad, y), maxY),
+  };
+}
+
 export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
   const [habitaciones, setHabitaciones] = useState<Habitacion[]>([]);
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [duplexUnidades, setDuplexUnidades] = useState<DuplexUnidad[]>([]);
   const [lugares, setLugares] = useState<string[]>([...LUGARES_FONTANA_DEFAULT]);
+  const [cupos, setCupos] = useState<Record<string, FontanaCupoLugar>>({});
+  const [cuposOpen, setCuposOpen] = useState(false);
   const [nuevoLugarOpen, setNuevoLugarOpen] = useState(false);
   const [nuevoLugarNombre, setNuevoLugarNombre] = useState("");
   const [loading, setLoading] = useState(true);
@@ -202,7 +231,32 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
   const [nuevoReclamo, setNuevoReclamo] = useState("");
   const [servicioOpen, setServicioOpen] = useState(false);
   const [nuevoServicio, setNuevoServicio] = useState({ nombre: "", monto: 0 });
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const openCtxAt = useCallback((clientX: number, clientY: number, habitacionId: number | null) => {
+    const { x, y } = clampCtxMenu(clientX, clientY);
+    setCtxMenu({ x, y, habitacionId });
+  }, []);
+
+  const clearLongPress = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
+  const onCardTouchStart = useCallback(
+    (e: React.TouchEvent, habitacionId: number | null) => {
+      clearLongPress();
+      const t = e.touches[0];
+      if (!t) return;
+      const { clientX, clientY } = t;
+      longPressTimer.current = setTimeout(() => {
+        openCtxAt(clientX, clientY, habitacionId);
+      }, 480);
+    },
+    [clearLongPress, openCtxAt]
+  );
   const selected = habitaciones.find((h) => h.habitacionId === selectedId) || null;
   const selectedDetalles = useMemo(
     () => (selected ? parseFontanaDetalles(selected.detallesJson) : {}),
@@ -251,6 +305,7 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
         .map((h) => parseFontanaDetalles(h.detallesJson).nombreLugar)
         .filter(Boolean) as string[];
       setLugares(mergeLugares(loadFontanaLugares(empresaId), usados));
+      setCupos(loadFontanaCupos(empresaId));
     } catch {
       toast.error("No se pudo cargar Fontana");
     } finally {
@@ -336,14 +391,39 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
     setCalendarStart(monthStart);
   }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const ocupadasPorLugar = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const h of habitaciones) {
+      if (!habitacionOcupaPlaza(h)) continue;
+      const lugar = parseFontanaDetalles(h.detallesJson).nombreLugar || "";
+      if (!lugar) continue;
+      const key = lugares.find((l) => sameLugar(l, lugar)) || lugar;
+      map[key] = (map[key] || 0) + 1;
+    }
+    return map;
+  }, [habitaciones, lugares]);
+
+  /** Lugares disponibles para NUEVA carga (con cupo libre y habilitados) */
+  const lugaresDisponiblesAlta = useMemo(() => {
+    return lugares.filter((l) => {
+      const cfg = cupos[l] || { cupo: cupoDefaultParaLugar(l), habilitado: true };
+      if (!cfg.habilitado) return false;
+      const ocup = ocupadasPorLugar[l] || 0;
+      return ocup < cfg.cupo;
+    });
+  }, [lugares, cupos, ocupadasPorLugar]);
+
   const openCreate = () => {
     setCtxMenu(null);
-    if (habitaciones.length >= MAX_HABITACIONES_FONTANA) {
-      toast.error(`Máximo ${MAX_HABITACIONES_FONTANA} habitaciones en Fontana`);
+    if (lugaresDisponiblesAlta.length === 0) {
+      toast.error("No hay lugares con cupo libre", {
+        description: "Desocupá una plaza o aumentá el cupo en «Gestionar cupos».",
+      });
       return;
     }
     setEditingId(null);
-    setForm(emptyForm());
+    const lugarInicial = lugaresDisponiblesAlta[0] || "";
+    setForm({ ...emptyForm(), nombreLugar: lugarInicial });
     setFormOpen(true);
   };
 
@@ -589,6 +669,41 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
     }
     setSaving(true);
     try {
+      // Validar cupo del lugar al crear
+      if (!editingId && form.nombreLugar) {
+        const cfg = cupos[form.nombreLugar] || {
+          cupo: cupoDefaultParaLugar(form.nombreLugar),
+          habilitado: true,
+        };
+        if (!cfg.habilitado) {
+          toast.error(`El lugar «${form.nombreLugar}» está deshabilitado`);
+          setSaving(false);
+          return;
+        }
+        const ocup = ocupadasPorLugar[form.nombreLugar] || 0;
+        if (ocup >= cfg.cupo) {
+          toast.error(`«${form.nombreLugar}» ya está en su cupo máximo (${cfg.cupo})`);
+          setSaving(false);
+          return;
+        }
+      }
+
+      // Dúplex Agus: habitaciones internas solo si el dúplex está libre
+      if (form.unidadDuplexId) {
+        const duplex = duplexUnidades.find((d) => d.unidadId === form.unidadDuplexId);
+        const ocupadoDuplex = duplex && String(duplex.estado).toLowerCase() === "ocupado";
+        if (ocupadoDuplex) {
+          toast.error("Ese dúplex está ocupado por contrato — no se puede alquilar habitación interna");
+          setSaving(false);
+          return;
+        }
+        if (!form.habitacionDuplexInterna) {
+          toast.error("Seleccioná Habitación 1, 2 o 3 del dúplex Agus");
+          setSaving(false);
+          return;
+        }
+      }
+
       let huespedId = form.huespedId || null;
       if (!huespedId) {
         const pRes = await fetch(`${API_BASE}/api/contactos/clientes`, {
@@ -654,6 +769,7 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
         nombreCondominio: duplex?.nombreCondominio || form.nombreCondominio || lugar,
         huespedId,
         reservaId: form.reservaId ?? null,
+        habitacionDuplexInterna: form.habitacionDuplexInterna ?? null,
         serviciosExtras: form.serviciosExtras || [],
         pagos: pagosIniciales,
         reclamos: form.reclamos || [],
@@ -691,10 +807,6 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
           throw new Error(err.mensaje || `Error al actualizar (${res.status})`);
         }
       } else {
-        if (habitaciones.length >= MAX_HABITACIONES_FONTANA) {
-          toast.error(`Máximo ${MAX_HABITACIONES_FONTANA} habitaciones`);
-          return;
-        }
         const res = await fetch(`${API_BASE}/api/Habitaciones`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1006,33 +1118,45 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
 
   return (
     <div
-      className="space-y-6 animate-in fade-in duration-500"
+      className="fontana-page space-y-4 sm:space-y-6 animate-in fade-in duration-500 w-full min-w-0 max-w-full pb-[max(0.5rem,env(safe-area-inset-bottom))]"
       onContextMenu={(e) => {
         // Click derecho en área vacía → crear
         if ((e.target as HTMLElement).closest("[data-fontana-card]")) return;
         e.preventDefault();
-        setCtxMenu({ x: e.clientX, y: e.clientY, habitacionId: null });
+        openCtxAt(e.clientX, e.clientY, null);
       }}
     >
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-[#0C1327] p-5 sm:p-8 rounded-[1.75rem] border border-white/5">
-        <div>
-          <h2 className="text-xl sm:text-2xl font-black italic uppercase tracking-tighter text-white flex items-center gap-3">
-            <span className="bg-amber-500/20 text-amber-400 p-2 rounded-xl">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 bg-[#0C1327] p-4 sm:p-8 rounded-[1.5rem] sm:rounded-[1.75rem] border border-white/5">
+        <div className="min-w-0">
+          <h2 className="text-xl sm:text-2xl font-black italic uppercase tracking-tighter text-white flex items-center gap-3 mobile-title">
+            <span className="bg-amber-500/20 text-amber-400 p-2 rounded-xl shrink-0">
               <Bed className="w-5 h-5" />
             </span>
             Fontana
           </h2>
-          <p className="text-xs text-slate-400 font-medium mt-1">
-            Hostel · diario / semanal / mensual · hasta {MAX_HABITACIONES_FONTANA} alojamientos · click derecho para gestionar
+          <p className="text-xs text-slate-400 font-medium mt-1 leading-snug">
+            Hostel · cupos por lugar · dúplex Agus ocasional · en móvil: mantener pulsado la tarjeta
           </p>
         </div>
-        <Button
-          onClick={openCreate}
-          disabled={habitaciones.length >= MAX_HABITACIONES_FONTANA}
-          className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black italic rounded-xl"
-        >
-          <Plus className="w-4 h-4 mr-2" /> Crear habitación
-        </Button>
+        <div className="flex flex-col xs:flex-row sm:flex-row flex-wrap gap-2 w-full sm:w-auto">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setCupos(loadFontanaCupos(empresaId));
+              setCuposOpen(true);
+            }}
+            className="rounded-xl border-white/10 text-slate-200 w-full sm:w-auto min-h-11 touch-manipulation"
+          >
+            <Settings className="w-4 h-4 mr-2" /> Cupos
+          </Button>
+          <Button
+            onClick={openCreate}
+            disabled={lugaresDisponiblesAlta.length === 0}
+            className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black italic rounded-xl w-full sm:w-auto min-h-11 touch-manipulation"
+          >
+            <Plus className="w-4 h-4 mr-2" /> Crear habitación
+          </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -1048,14 +1172,15 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
               onContextMenu={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                setCtxMenu({ x: e.clientX, y: e.clientY, habitacionId: null });
+                setCtxMenu(null);
+                openCtxAt(e.clientX, e.clientY, null);
               }}
             >
               <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">
                 Sin habitaciones aún
               </p>
               <p className="text-xs text-slate-500 mt-2">
-                Click derecho → Crear habitación, o usá el botón superior
+                En móvil: mantener pulsado · o usá el botón «Crear habitación»
               </p>
             </div>
           )}
@@ -1071,9 +1196,13 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
                 onContextMenu={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  setCtxMenu({ x: e.clientX, y: e.clientY, habitacionId: h.habitacionId });
+                  openCtxAt(e.clientX, e.clientY, h.habitacionId);
                 }}
-                className={`group cursor-pointer transition-all duration-300 border rounded-2xl overflow-hidden hover:shadow-xl bg-[#0C1327] ${
+                onTouchStart={(e) => onCardTouchStart(e, h.habitacionId)}
+                onTouchEnd={clearLongPress}
+                onTouchMove={clearLongPress}
+                onTouchCancel={clearLongPress}
+                className={`group cursor-pointer transition-all duration-300 border rounded-2xl overflow-hidden hover:shadow-xl bg-[#0C1327] touch-manipulation select-none ${
                   selectedId === h.habitacionId
                     ? "border-amber-500/60 shadow-lg shadow-amber-500/10"
                     : "border-white/5 hover:border-amber-500/30"
@@ -1125,23 +1254,25 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
             );
           })}
 
-          {habitaciones.length > 0 && habitaciones.length < MAX_HABITACIONES_FONTANA && (
+          {lugaresDisponiblesAlta.length > 0 && (
             <button
               type="button"
               onClick={openCreate}
               className="min-h-[88px] rounded-2xl border-2 border-dashed border-white/10 bg-[#0C1327]/40 text-slate-500 hover:text-amber-400 hover:border-amber-500/40 font-black italic text-xs uppercase tracking-widest transition-colors"
             >
-              + Slot libre ({habitaciones.length}/{MAX_HABITACIONES_FONTANA})
+              + Nueva habitación (cupos libres)
             </button>
           )}
         </div>
       )}
 
       {/* Dúplex del condominio: ocupados y libres (habitaciones internas) */}
-      <div className="bg-[#0C1327]/70 border border-white/5 rounded-2xl p-4 sm:p-5">
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-2">
-          <MapPin className="w-3.5 h-3.5 text-amber-400" />
-          Dúplex del condominio — aunque estén ocupados, podés alquilar habitaciones internas vinculadas al lugar
+      <div className="bg-[#0C1327]/70 border border-white/5 rounded-2xl p-3 sm:p-5 min-w-0">
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3 flex items-start gap-2 leading-relaxed">
+          <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+          <span>
+            Dúplex Agus libres — alquiler ocasional de Hab 1 (suite), Hab 2 (frente suite) y Hab 3 (frente baño); solo si el dúplex no tiene inquilino de contrato
+          </span>
         </p>
         {duplexUnidades.length === 0 ? (
           <p className="text-xs text-slate-500">No hay dúplex cargados en condominio.</p>
@@ -1164,12 +1295,12 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
                     return (
                       <Badge
                         key={d.unidadId}
-                        className={`font-bold text-[10px] px-3 py-1 border ${
+                        className={`font-bold text-[10px] px-3 py-2 border touch-manipulation ${
                           ocupado
                             ? "bg-amber-500/15 text-amber-300 border-amber-500/25"
                             : "bg-emerald-500/15 text-emerald-300 border-emerald-500/20"
                         }`}
-                        title={ocupado ? "Unidad ocupada — habitaciones internas disponibles" : "Unidad libre"}
+                        title={ocupado ? "Unidad ocupada por contrato" : "Unidad libre — disponible para habitaciones Fontana"}
                       >
                         {formatDuplex(d.codigoUnidad)}
                         <span className="ml-1.5 opacity-70">{ocupado ? "· ocupado" : "· libre"}</span>
@@ -1185,19 +1316,19 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
 
       {/* Ficha + calendario al seleccionar tarjeta */}
       {selected && (
-        <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-400">
-          <div className="bg-[#0C1327] border border-white/5 rounded-[1.5rem] p-5 sm:p-6">
-            <div className="flex flex-col lg:flex-row lg:items-start gap-6">
+        <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-400 min-w-0">
+          <div className="bg-[#0C1327] border border-white/5 rounded-[1.25rem] sm:rounded-[1.5rem] p-4 sm:p-6">
+            <div className="flex flex-col lg:flex-row lg:items-start gap-4 sm:gap-6">
               <div className="flex-1 space-y-3 min-w-0">
-                <div className="flex items-center gap-3">
-                  <div className="h-11 w-11 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-black">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-11 w-11 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-black shrink-0">
                     {(selectedDetalles.nombreApellido || selected.nombre).charAt(0).toUpperCase()}
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-lg font-black italic uppercase text-white truncate">
+                    <h3 className="text-base sm:text-lg font-black italic uppercase text-white truncate">
                       {selectedDetalles.nombreApellido || "Huésped"}
                     </h3>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider break-words">
                       {selected.nombre} · CI {selectedDetalles.cedula || "—"} ·{" "}
                       {selectedDetalles.telefono || "Sin tel."}
                     </p>
@@ -1290,13 +1421,13 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
                 )}
               </div>
 
-              <div className="flex flex-wrap gap-2 lg:justify-end">
-                <Button variant="outline" size="sm" className="rounded-xl border-white/10" onClick={() => openEdit(selected)}>
+              <div className="flex flex-wrap gap-2 lg:justify-end fontana-actions">
+                <Button variant="outline" size="sm" className="rounded-xl border-white/10 min-h-10 touch-manipulation flex-1 sm:flex-none" onClick={() => openEdit(selected)}>
                   <Pencil className="w-3.5 h-3.5 mr-1" /> Editar
                 </Button>
                 <Button
                   size="sm"
-                  className="rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black"
+                  className="rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black min-h-10 touch-manipulation flex-1 sm:flex-none"
                   onClick={() => {
                     setNuevoServicio({ nombre: "", monto: 0 });
                     setServicioOpen(true);
@@ -1355,7 +1486,7 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
             </div>
 
             {/* Tabs ficha */}
-            <div className="flex flex-wrap gap-1 mt-6 border-b border-white/5 pb-2">
+            <div className="mobile-tabs-scroll mt-5 sm:mt-6 border-b border-white/5 pb-2 gap-1">
               {(
                 [
                   ["reserva", "Reserva / cobros", Calendar],
@@ -1370,11 +1501,11 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
                   key={id}
                   type="button"
                   onClick={() => setFichaTab(id)}
-                  className={`px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors ${
+                  className={`px-3 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors touch-manipulation min-h-10 ${
                     fichaTab === id ? "bg-amber-500/20 text-amber-300" : "text-slate-500 hover:text-slate-300"
                   }`}
                 >
-                  <Icon className="w-3.5 h-3.5" /> {label}
+                  <Icon className="w-3.5 h-3.5 shrink-0" /> {label}
                 </button>
               ))}
             </div>
@@ -1660,8 +1791,12 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
                 </Button>
               </div>
             </div>
-            <div className="overflow-x-auto">
-              <div className="min-w-[720px] p-3 space-y-4">
+            <div
+              className="overflow-x-auto mobile-scroll-x overscroll-x-contain"
+              data-mobile-scroll="x"
+              style={{ WebkitOverflowScrolling: "touch" }}
+            >
+              <div className="min-w-[640px] sm:min-w-[720px] p-3 space-y-4">
                 <div className="grid grid-cols-[100px_repeat(28,minmax(28px,1fr))] gap-0.5 mb-1">
                   <div />
                   {timelineDays.map((day) => (
@@ -1804,13 +1939,13 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
       {/* Menú contextual */}
       {ctxMenu && (
         <div
-          className="fixed z-[200] min-w-[200px] rounded-xl border border-white/10 bg-[#0B1222] shadow-2xl py-1 overflow-hidden"
+          className="fixed z-[200] min-w-[200px] max-w-[min(280px,calc(100vw-1.25rem))] rounded-xl border border-white/10 bg-[#0B1222] shadow-2xl py-1 overflow-hidden touch-manipulation"
           style={{ left: ctxMenu.x, top: ctxMenu.y }}
           onClick={(e) => e.stopPropagation()}
         >
           <button
             type="button"
-            className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-amber-500/20 flex items-center gap-2"
+            className="w-full text-left px-4 py-3.5 text-xs font-bold text-slate-200 hover:bg-amber-500/20 active:bg-amber-500/25 flex items-center gap-2 min-h-11"
             onClick={openCreate}
           >
             <Plus className="w-3.5 h-3.5 text-amber-400" /> Crear habitación
@@ -1819,7 +1954,7 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
             <>
               <button
                 type="button"
-                className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-white/5 flex items-center gap-2"
+                className="w-full text-left px-4 py-3.5 text-xs font-bold text-slate-200 hover:bg-white/5 active:bg-white/10 flex items-center gap-2 min-h-11"
                 onClick={() => {
                   const h = habitaciones.find((x) => x.habitacionId === ctxMenu.habitacionId);
                   if (h) openEdit(h);
@@ -1829,7 +1964,7 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
               </button>
               <button
                 type="button"
-                className="w-full text-left px-4 py-2.5 text-xs font-bold text-red-400 hover:bg-red-500/10 flex items-center gap-2"
+                className="w-full text-left px-4 py-3.5 text-xs font-bold text-red-400 hover:bg-red-500/10 active:bg-red-500/15 flex items-center gap-2 min-h-11"
                 onClick={() => handleDelete(ctxMenu.habitacionId!)}
               >
                 <Trash2 className="w-3.5 h-3.5" /> Eliminar habitación
@@ -1841,9 +1976,9 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
 
       {/* Modal crear / editar */}
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-[#0C1327] border-white/10 text-white rounded-2xl">
+        <DialogContent className="fontana-dialog w-[calc(100%-0.75rem)] max-w-2xl max-h-[min(90dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-0.75rem))] overflow-y-auto overscroll-contain bg-[#0C1327] border-white/10 text-white rounded-2xl p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <DialogHeader>
-            <DialogTitle className="font-black italic uppercase tracking-tighter">
+            <DialogTitle className="font-black italic uppercase tracking-tighter pr-8 text-sm sm:text-base">
               {editingId ? "Actualizar habitación" : "Crear habitación"} — Fontana
             </DialogTitle>
           </DialogHeader>
@@ -1852,7 +1987,8 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
               <div className="flex gap-2 items-center">
                 <select
                   value={
-                    form.nombreLugar && lugares.includes(form.nombreLugar)
+                    form.nombreLugar &&
+                    (editingId || lugaresDisponiblesAlta.includes(form.nombreLugar) || lugares.includes(form.nombreLugar))
                       ? form.nombreLugar
                       : form.nombreLugar
                         ? "__custom__"
@@ -1868,16 +2004,27 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
                   <option value="" className="bg-slate-900">
                     — Seleccionar lugar —
                   </option>
-                  {lugares.map((l) => (
-                    <option key={l} value={l} className="bg-slate-900">
-                      {l}
-                    </option>
-                  ))}
-                  {form.nombreLugar && !lugares.includes(form.nombreLugar) && (
-                    <option value="__custom__" className="bg-slate-900">
-                      {form.nombreLugar} (actual)
-                    </option>
-                  )}
+                  {(editingId
+                    ? lugares
+                    : lugaresDisponiblesAlta.length
+                      ? lugaresDisponiblesAlta
+                      : lugares
+                  ).map((l) => {
+                    const cfg = cupos[l] || { cupo: cupoDefaultParaLugar(l), habilitado: true };
+                    const ocup = ocupadasPorLugar[l] || 0;
+                    return (
+                      <option key={l} value={l} className="bg-slate-900">
+                        {l} ({ocup}/{cfg.cupo})
+                      </option>
+                    );
+                  })}
+                  {form.nombreLugar &&
+                    !lugares.includes(form.nombreLugar) &&
+                    !lugaresDisponiblesAlta.includes(form.nombreLugar) && (
+                      <option value="__custom__" className="bg-slate-900">
+                        {form.nombreLugar} (actual)
+                      </option>
+                    )}
                 </select>
                 <Button
                   type="button"
@@ -1892,6 +2039,11 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
                   <Plus className="w-4 h-4" />
                 </Button>
               </div>
+              {!editingId && lugaresDisponiblesAlta.length === 0 && (
+                <p className="text-[10px] text-amber-400 mt-1">
+                  Todos los lugares están en cupo. Gestioná cupos o desocupá una plaza.
+                </p>
+              )}
             </Field>
             <Field label="Nombre habitación / unidad">
               <Input
@@ -1967,7 +2119,7 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
                 ))}
               </select>
             </Field>
-            <Field label="Dúplex / lugar (ocupado o libre)">
+            <Field label="Dúplex Agus (solo libres — alquiler ocasional)">
               <select
                 value={form.unidadDuplexId ?? ""}
                 onChange={(e) => {
@@ -1978,28 +2130,58 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
                     unidadDuplexId: id,
                     unidadCodigo: d?.codigoUnidad ?? null,
                     nombreCondominio: d?.nombreCondominio ?? null,
-                    // Relaciona el nombre del lugar con el condominio
-                    nombreLugar: f.nombreLugar || d?.nombreCondominio || LUGARES_FONTANA_DEFAULT[0],
-                    tipoAlquiler: id ? (f.tipoAlquiler === "Dúplex" ? "Dúplex" : "Habitación") : f.tipoAlquiler,
+                    habitacionDuplexInterna: id ? f.habitacionDuplexInterna || "1" : null,
+                    tipoAlquiler: id ? "Habitación" : f.tipoAlquiler,
                   }));
                 }}
                 className="w-full h-10 rounded-md bg-white/5 border border-white/10 px-3 text-sm"
               >
                 <option value="" className="bg-slate-900">
-                  — Ninguno / solo habitación —
+                  — Ninguno / solo lugar Fontana —
                 </option>
-                {duplexUnidades.map((d) => {
-                  const ocupado = String(d.estado).toLowerCase() === "ocupado";
-                  const condo = d.nombreCondominio ? `${d.nombreCondominio} · ` : "";
-                  return (
-                    <option key={d.unidadId} value={d.unidadId} className="bg-slate-900">
-                      {condo}
-                      {formatDuplex(d.codigoUnidad)} ({ocupado ? "ocupado — hab. internas" : "libre"})
-                    </option>
-                  );
-                })}
+                {duplexUnidades
+                  .filter((d) => String(d.estado).toLowerCase() !== "ocupado")
+                  .map((d) => {
+                    const condo = d.nombreCondominio ? `${d.nombreCondominio} · ` : "";
+                    return (
+                      <option key={d.unidadId} value={d.unidadId} className="bg-slate-900">
+                        {condo}
+                        {formatDuplex(d.codigoUnidad)} (libre — 3 hab.)
+                      </option>
+                    );
+                  })}
               </select>
+              <p className="text-[9px] text-slate-500 mt-1">
+                Solo dúplex sin inquilino de contrato. Cada dúplex: Hab 1 suite, Hab 2 frente suite, Hab 3 frente baño.
+              </p>
             </Field>
+            {!!form.unidadDuplexId && (
+              <Field label="Habitación interna del dúplex">
+                <select
+                  value={form.habitacionDuplexInterna || ""}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      habitacionDuplexInterna: (e.target.value || null) as "1" | "2" | "3" | null,
+                      nombreHabitacion:
+                        f.nombreHabitacion ||
+                        HABITACIONES_DUPLEX_AGUS.find((h) => h.id === e.target.value)?.label ||
+                        f.nombreHabitacion,
+                    }))
+                  }
+                  className="w-full h-10 rounded-md bg-white/5 border border-white/10 px-3 text-sm"
+                >
+                  <option value="" className="bg-slate-900">
+                    — Elegir —
+                  </option>
+                  {HABITACIONES_DUPLEX_AGUS.map((h) => (
+                    <option key={h.id} value={h.id} className="bg-slate-900">
+                      {h.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
             <Field label="Fecha de ingreso">
               <Input
                 type="date"
@@ -2074,14 +2256,14 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
               </Field>
             </div>
           </div>
-          <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" className="border-white/10" onClick={() => setFormOpen(false)}>
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 mt-4 sticky bottom-0 bg-[#0C1327] pt-3 pb-1 z-10">
+            <Button variant="outline" className="border-white/10 w-full sm:w-auto min-h-11 touch-manipulation" onClick={() => setFormOpen(false)}>
               Cancelar
             </Button>
             <Button
               disabled={saving}
               onClick={guardarHabitacion}
-              className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black"
+              className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black w-full sm:w-auto min-h-11 touch-manipulation"
             >
               {saving ? "Guardando…" : editingId ? "Actualizar" : "Crear"}
             </Button>
@@ -2091,7 +2273,7 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
 
       {/* Crear nombre de lugar */}
       <Dialog open={nuevoLugarOpen} onOpenChange={setNuevoLugarOpen}>
-        <DialogContent className="max-w-sm bg-[#0C1327] border-white/10 text-white rounded-2xl">
+        <DialogContent className="fontana-dialog max-w-sm w-[calc(100%-0.75rem)] bg-[#0C1327] border-white/10 text-white rounded-2xl pb-[max(1rem,env(safe-area-inset-bottom))]">
           <DialogHeader>
             <DialogTitle className="font-black italic uppercase tracking-tighter text-sm">
               Nuevo lugar Fontana
@@ -2146,7 +2328,7 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
 
       {/* Crear servicio extra */}
       <Dialog open={servicioOpen} onOpenChange={setServicioOpen}>
-        <DialogContent className="max-w-sm bg-[#0C1327] border-white/10 text-white rounded-2xl">
+        <DialogContent className="fontana-dialog max-w-sm w-[calc(100%-0.75rem)] bg-[#0C1327] border-white/10 text-white rounded-2xl pb-[max(1rem,env(safe-area-inset-bottom))]">
           <DialogHeader>
             <DialogTitle className="font-black italic uppercase tracking-tighter text-sm">
               + Crear servicio
@@ -2193,6 +2375,104 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
               onClick={() => void agregarServicioExtra()}
             >
               <Plus className="w-4 h-4 mr-1" /> Agregar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Gestionar cupos por lugar */}
+      <Dialog open={cuposOpen} onOpenChange={setCuposOpen}>
+        <DialogContent className="fontana-dialog max-w-lg w-[calc(100%-0.75rem)] max-h-[min(90dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-0.75rem))] overflow-y-auto overscroll-contain bg-[#0C1327] border-white/10 text-white rounded-2xl p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <DialogHeader>
+            <DialogTitle className="font-black italic uppercase tracking-tighter text-sm">
+              Habilitar / deshabilitar cupos Fontana
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wider">
+            Fontana 1–3: hasta 3 · Ña Carmen / Quinta / Quincho 2: hasta 1 (ampliable). No se puede bajar el cupo bajo plazas ocupadas.
+          </p>
+          <div className="space-y-2 mt-3">
+            {lugares.map((l) => {
+              const cfg = cupos[l] || { cupo: cupoDefaultParaLugar(l), habilitado: true };
+              const ocup = ocupadasPorLugar[l] || 0;
+              return (
+                <div
+                  key={l}
+                  className="flex flex-wrap items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2.5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-black uppercase text-white">{l}</p>
+                    <p className="text-[10px] text-slate-500">
+                      Ocupadas: {ocup} · Cupo: {cfg.cupo}
+                    </p>
+                  </div>
+                  <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={cfg.habilitado}
+                      onChange={(e) => {
+                        const next = {
+                          ...cupos,
+                          [l]: { ...cfg, habilitado: e.target.checked },
+                        };
+                        setCupos(next);
+                        saveFontanaCupos(empresaId, next);
+                      }}
+                    />
+                    Hab.
+                  </label>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      className="h-8 w-8 border-white/10"
+                      disabled={cfg.cupo <= ocup}
+                      title={
+                        cfg.cupo <= ocup
+                          ? "No se puede disminuir: hay plazas ocupadas"
+                          : "Disminuir cupo"
+                      }
+                      onClick={() => {
+                        if (cfg.cupo <= ocup) {
+                          toast.error("No se puede disminuir el cupo mientras haya habitaciones ocupadas");
+                          return;
+                        }
+                        const next = {
+                          ...cupos,
+                          [l]: { ...cfg, cupo: Math.max(ocup, cfg.cupo - 1) },
+                        };
+                        setCupos(next);
+                        saveFontanaCupos(empresaId, next);
+                      }}
+                    >
+                      −
+                    </Button>
+                    <span className="w-8 text-center font-black text-amber-300">{cfg.cupo}</span>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      className="h-8 w-8 border-white/10"
+                      onClick={() => {
+                        const next = {
+                          ...cupos,
+                          [l]: { ...cfg, cupo: cfg.cupo + 1, habilitado: true },
+                        };
+                        setCupos(next);
+                        saveFontanaCupos(empresaId, next);
+                      }}
+                    >
+                      +
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-end mt-4">
+            <Button className="bg-amber-500 text-slate-950 font-black" onClick={() => setCuposOpen(false)}>
+              Listo
             </Button>
           </div>
         </DialogContent>

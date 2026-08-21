@@ -1,4 +1,4 @@
-/** Catálogo de lugares Fontana (hospedaje diario/mensual). */
+/** Catálogo de lugares Fontana (hospedaje diario/mensual) + cupos por lugar. */
 
 export const LUGARES_FONTANA_DEFAULT = [
   "Fontana 1",
@@ -9,8 +9,29 @@ export const LUGARES_FONTANA_DEFAULT = [
   "Ña Carmen",
 ] as const;
 
+/** Cupo máximo por defecto (plazas / habitaciones habilitadas por lugar) */
+export const CUPOS_LUGAR_DEFAULT: Record<string, number> = {
+  "Fontana 1": 3,
+  "Fontana 2": 3,
+  "Fontana 3": 3,
+  Quinta: 1,
+  "Quincho 2": 1,
+  "Ña Carmen": 1,
+};
+
+export type FontanaCupoLugar = {
+  /** Plazas habilitadas (puede subir; no puede bajar bajo ocupadas) */
+  cupo: number;
+  /** Si false, el lugar no aparece para nuevas cargas */
+  habilitado: boolean;
+};
+
 function storageKey(empresaId: number) {
   return `VORDIA_fontana_lugares_${empresaId}`;
+}
+
+function cuposStorageKey(empresaId: number) {
+  return `VORDIA_fontana_cupos_${empresaId}`;
 }
 
 export function loadFontanaLugares(empresaId: number): string[] {
@@ -21,9 +42,7 @@ export function loadFontanaLugares(empresaId: number): string[] {
     if (!raw) return base;
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return base;
-    const extra = parsed
-      .map((x) => String(x || "").trim())
-      .filter(Boolean);
+    const extra = parsed.map((x) => String(x || "").trim()).filter(Boolean);
     return mergeLugares(base, extra);
   } catch {
     return base;
@@ -59,5 +78,69 @@ export function mergeLugares(...lists: (readonly string[] | string[])[]): string
 export function addFontanaLugar(empresaId: number, nombre: string): string[] {
   const next = mergeLugares(loadFontanaLugares(empresaId), [nombre]);
   saveFontanaLugares(empresaId, next);
+  // Cupo default 1 para lugares nuevos custom
+  const cupos = loadFontanaCupos(empresaId);
+  if (!cupos[nombre]) {
+    cupos[nombre] = { cupo: 1, habilitado: true };
+    saveFontanaCupos(empresaId, cupos);
+  }
   return next;
 }
+
+export function cupoDefaultParaLugar(nombre: string): number {
+  const key = Object.keys(CUPOS_LUGAR_DEFAULT).find(
+    (k) => k.toLowerCase() === nombre.trim().toLowerCase()
+  );
+  return key ? CUPOS_LUGAR_DEFAULT[key] : 1;
+}
+
+export function loadFontanaCupos(empresaId: number): Record<string, FontanaCupoLugar> {
+  const lugares = loadFontanaLugares(empresaId);
+  const base: Record<string, FontanaCupoLugar> = {};
+  for (const l of lugares) {
+    base[l] = { cupo: cupoDefaultParaLugar(l), habilitado: true };
+  }
+  if (typeof window === "undefined" || !empresaId) return base;
+  try {
+    const raw = localStorage.getItem(cuposStorageKey(empresaId));
+    if (!raw) return base;
+    const parsed = JSON.parse(raw) as Record<string, Partial<FontanaCupoLugar>>;
+    if (!parsed || typeof parsed !== "object") return base;
+    for (const [nombre, cfg] of Object.entries(parsed)) {
+      if (!nombre) continue;
+      base[nombre] = {
+        cupo: Math.max(0, Number(cfg?.cupo) || cupoDefaultParaLugar(nombre)),
+        habilitado: cfg?.habilitado !== false,
+      };
+    }
+    // Asegurar que todos los lugares del catálogo existan
+    for (const l of lugares) {
+      if (!base[l]) base[l] = { cupo: cupoDefaultParaLugar(l), habilitado: true };
+    }
+    return base;
+  } catch {
+    return base;
+  }
+}
+
+export function saveFontanaCupos(empresaId: number, cupos: Record<string, FontanaCupoLugar>) {
+  if (typeof window === "undefined" || !empresaId) return;
+  try {
+    localStorage.setItem(cuposStorageKey(empresaId), JSON.stringify(cupos));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Normaliza nombre de lugar para comparar */
+export function sameLugar(a?: string | null, b?: string | null) {
+  return String(a || "")
+    .trim()
+    .toLowerCase() === String(b || "").trim().toLowerCase();
+}
+
+export const HABITACIONES_DUPLEX_AGUS = [
+  { id: "1", label: "Habitación 1 — Suite" },
+  { id: "2", label: "Habitación 2 — Frente al suite" },
+  { id: "3", label: "Habitación 3 — Frente al baño" },
+] as const;

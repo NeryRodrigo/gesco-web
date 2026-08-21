@@ -3,6 +3,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { MembreteFontanaDiLuque, PieVordiaFontana } from "@/components/fontana/MembreteFontana";
 
 export const ActaEntregaImprimible = ({ contractData, dataUnidad, isPreview }: any) => {
     const [mounted, setMounted] = useState(false);
@@ -33,6 +34,13 @@ export const ActaEntregaImprimible = ({ contractData, dataUnidad, isPreview }: a
             } 
             style={{ backgroundColor: 'white', color: 'black', WebkitPrintColorAdjust: 'exact' }}
         >
+            <MembreteFontanaDiLuque
+              titulo="Acta de entrega y recepción"
+              meta={[
+                { label: "Dúplex", value: String(dataUnidad?.codigo || dataUnidad?.code || "—") },
+                { label: "Fecha", value: `${dia}/${mes}/${anio}` },
+              ]}
+            />
             <h1 className="text-center font-bold text-lg mb-2 uppercase">ACTA DE ENTREGA Y RECEPCIÓN DE INMUEBLE</h1>
             <div className="border-y border-black py-2 mb-6">
                 <p><strong>Inmueble:</strong> Dúplex N.º {dataUnidad?.codigo || dataUnidad?.code || "_______"} – Condominio Fontana di Luque</p>
@@ -89,6 +97,7 @@ export const ActaEntregaImprimible = ({ contractData, dataUnidad, isPreview }: a
                     </div>
                 </div>
             </div>
+            <PieVordiaFontana />
         </div>
     );
 

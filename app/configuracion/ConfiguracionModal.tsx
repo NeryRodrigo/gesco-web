@@ -84,9 +84,9 @@ export function ConfiguracionModal({ isOpen, onClose, onSave, configuracion, emp
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-xl rounded-[2rem] p-8 border-none shadow-2xl">
+      <DialogContent className="max-w-xl w-[calc(100%-1.5rem)] rounded-[1.5rem] sm:rounded-[2rem] p-5 sm:p-8 border-none shadow-2xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader className="mb-6">
-          <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter text-foreground">
+          <DialogTitle className="text-xl sm:text-2xl font-black italic uppercase tracking-tighter text-foreground">
             {configuracion ? "Editar Timbrado" : "Nuevo Timbrado"}
           </DialogTitle>
           <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest mt-1">
@@ -95,7 +95,7 @@ export function ConfiguracionModal({ isOpen, onClose, onSave, configuracion, emp
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="text-xs font-black uppercase text-muted-foreground">RUC</Label>
               <Input 
@@ -120,7 +120,7 @@ export function ConfiguracionModal({ isOpen, onClose, onSave, configuracion, emp
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="text-xs font-black uppercase text-muted-foreground">Validez Desde</Label>
               <Input 

@@ -2,7 +2,7 @@
 
 import React, { useMemo, memo } from "react";
 import { formatDuplex, displayCondoName } from "@/lib/utils";
-import { Building2, Download, Printer } from "lucide-react";
+import { Building2, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -303,18 +303,16 @@ export function AdministracionVista({ unidades, onTenantClick }: AdministracionV
         </div>
         <div className="flex gap-2 w-full md:w-auto">
           <Button
-            variant="outline"
-            className="h-10 flex-1 md:flex-none px-4 rounded-xl border-border font-bold text-[10px] uppercase hover:bg-muted"
+            type="button"
+            onClick={() => window.print()}
+            className="h-10 flex-1 md:flex-none px-4 rounded-xl bg-slate-900 text-white font-bold text-[10px] uppercase hover:bg-slate-800"
           >
-            <Download className="w-4 h-4 mr-2" /> PDF
-          </Button>
-          <Button className="h-10 flex-1 md:flex-none px-4 rounded-xl bg-slate-900 text-white font-bold text-[10px] uppercase hover:bg-slate-800">
             <Printer className="w-4 h-4 mr-2" /> IMPRIMIR
           </Button>
         </div>
       </div>
 
-      <Card className="border-none shadow-2xl rounded-[1.5rem] sm:rounded-[2rem] bg-[#0C1327] overflow-hidden">
+      <Card className="border-none shadow-2xl rounded-[1.5rem] sm:rounded-[2rem] bg-[#0C1327] overflow-hidden admin-planilla-print-root">
         <CardContent className="p-0">
           {/*
             Móvil: un solo contenedor con overflow-auto (X e Y) — iOS/Android no pelean el gesto.
@@ -322,7 +320,7 @@ export function AdministracionVista({ unidades, onTenantClick }: AdministracionV
             NO usar touch-pan-x: bloquea el deslizamiento vertical en celulares.
           */}
           <div
-            className="admin-planilla-scroll w-full max-w-full custom-scrollbar overflow-auto max-h-[min(78dvh,calc(100dvh-10.5rem))] sm:max-h-none sm:overflow-x-auto sm:overflow-y-visible"
+            className="admin-planilla-scroll admin-planilla-print w-full max-w-full custom-scrollbar overflow-auto max-h-[min(78dvh,calc(100dvh-10.5rem))] sm:max-h-none sm:overflow-x-auto sm:overflow-y-visible"
             data-mobile-scroll="xy"
             style={{ WebkitOverflowScrolling: "touch" }}
           >

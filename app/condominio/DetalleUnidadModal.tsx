@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { ContratoImprimible, descargarContratoDoc, descargarContratoPDF, resolveCodeudor } from "./ContratoImprimible";
 import { PagareImprimible } from "./PagareImprimible";
 import {
@@ -14,7 +14,7 @@ import {
 } from "./HistorialPagosImprimible";
 import { ConfirmActionModal, ConfirmActionModalProps } from "@/components/ui/confirm-action-modal";
 import { verificarPermisoGranular, ModalAccesoRestringido } from "@/app/login/PermisosGranularesMatriz";
-import { formatFechaCorta, formatConceptoCobro, formatConceptoPeriodo, formatUnidadComprobante } from "@/lib/utils";
+import { formatFechaCorta, formatConceptoCobro, formatConceptoPeriodo, formatUnidadComprobante, toApiDateTime } from "@/lib/utils";
 import { sharePdfViaWhatsApp, prepareWhatsAppShareWindow } from "@/lib/whatsappShare";
 import { 
   Dialog, 
@@ -296,17 +296,20 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
   };
 
   React.useEffect(() => {
-    if (isOpen) {
-      fetch(`${API_BASE}/api/Plantillas`)
-        .then(r => r.ok ? r.json() : [])
-        .then((data) => {
-          const list = Array.isArray(data) ? data : [];
-          setPlantillasList(list);
-          setSelectedPlantillaIds(list.map((p: any) => Number(p.plantillaId)).filter(Boolean));
-        })
-        .catch(() => {});
-    }
-  }, [isOpen]);
+    // Plantillas solo en Documentos (no en cada apertura de ficha)
+    if (!isOpen || activeTab !== "documentos") return;
+    if (plantillasList.length > 0) return;
+    fetch(`${API_BASE}/api/Plantillas`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => {
+        const list = Array.isArray(data) ? data : [];
+        setPlantillasList(list);
+        setSelectedPlantillaIds(list.map((p: any) => Number(p.plantillaId)).filter(Boolean));
+      })
+      .catch(() => {});
+  }, [isOpen, activeTab, plantillasList.length]);
+
+  const openedUnidadRef = useRef<number | null>(null);
 
   const convertirNumeroALetras = (num: number): string => {
       const unidades = ["", "UN", "DOS", "TRES", "CUATRO", "CINCO", "SEIS", "SIETE", "OCHO", "NUEVE"];
@@ -507,6 +510,17 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
   const [filterHasta, setFilterHasta] = useState<string>("");
   const [filterContratoDesde, setFilterContratoDesde] = useState<string>("");
   const [filterContratoHasta, setFilterContratoHasta] = useState<string>("");
+  const [historialFilterErrors, setHistorialFilterErrors] = useState<{
+    pagoDesde?: string;
+    pagoHasta?: string;
+    contratoDesde?: string;
+    contratoHasta?: string;
+  }>({});
+  const refPagoDesde = React.useRef<HTMLInputElement>(null);
+  const refPagoHasta = React.useRef<HTMLInputElement>(null);
+  const refContratoDesde = React.useRef<HTMLInputElement>(null);
+  const refContratoHasta = React.useRef<HTMLInputElement>(null);
+  const refFiltrosHistorial = React.useRef<HTMLDivElement>(null);
   const [sortColumn, setSortColumn] = useState<"fechaVencimiento" | "concepto" | "periodo" | "monto" | "pagado" | "estado">("fechaVencimiento");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
@@ -527,8 +541,12 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
 
   const handleCompartirWhatsAppFicha = () => {
     const phoneRaw = contractData?.inquilino?.telefono || "";
-    if (!phoneRaw || phoneRaw === "N/A" || phoneRaw.trim().length < 6) {
-      toast.warning("⚠️ No hay un número de celular/WhatsApp cargado en la ficha. Cárgalo en 'Editar Ficha' o en 'Generar Contrato'.");
+    const phone = phoneRaw.replace(/\D/g, "");
+    if (!phoneRaw || phoneRaw === "N/A" || phone.length < 6) {
+      toast.warning("Falta el número de WhatsApp", {
+        description:
+          "Cargá el celular del inquilino en «Editar ficha» o en «Generar contrato» antes de compartir el PDF.",
+      });
       return;
     }
 
@@ -537,14 +555,21 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
 
   const handleEnviarPdfWhatsAppFicha = async () => {
     const phoneRaw = contractData?.inquilino?.telefono || "";
-    if (!phoneRaw || phoneRaw.trim().length < 6) {
-      toast.warning("No hay teléfono WhatsApp registrado.");
+    const phone = phoneRaw.replace(/\D/g, "");
+    if (!phoneRaw || phone.length < 6) {
+      toast.warning("Falta el número de WhatsApp", {
+        description: "Cargá el teléfono del inquilino en la ficha y reintentá.",
+      });
       return;
     }
 
     const waWindow = prepareWhatsAppShareWindow();
     setIsSharingWhatsApp(true);
-    const loading = toast.loading("Generando PDF y abriendo WhatsApp Web…");
+    const loading = toast.loading(
+      /iPhone|iPad|Android/i.test(navigator.userAgent)
+        ? "Generando PDF para WhatsApp…"
+        : "Generando PDF y abriendo WhatsApp Web…"
+    );
     try {
       const file = await descargarContratoPDF(contractData, dataUnidad, true);
       if (!file) {
@@ -578,7 +603,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
       setWhatsAppResultMsg(result.message);
       setShowWhatsAppPreviewModal(false);
       setShowWhatsAppModal(true);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
       try {
         waWindow?.close();
@@ -586,7 +611,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
         /* ignore */
       }
       toast.dismiss(loading);
-      toast.error("Error al generar o compartir el PDF.");
+      toast.error(e?.message || "Error al generar o compartir el PDF.");
     } finally {
       setIsSharingWhatsApp(false);
     }
@@ -828,17 +853,21 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
 
   React.useEffect(() => {
     if (isOpen && unidad?.id) {
-      fetchContract();
-      fetchHistoricoContratos();
+      const changedUnit = openedUnidadRef.current !== unidad.id;
+      openedUnidadRef.current = unidad.id;
+      // Contrato al abrir / cambiar dúplex (histórico se carga lazy por tab)
+      void fetchContract();
+      if (changedUnit) {
+        setHistoricoContratos([]);
+        setActiveTab(initialTab || "ficha");
+        setFilterDesde("");
+        setFilterHasta("");
+        setFilterContratoDesde("");
+        setFilterContratoHasta("");
+        setAndeLuzConsulta(null);
+      }
       setLocalNisAnde(normalizeNisValue(unidad?.nisAnde));
       setLocalCodigoUnidad(unidad?.code || "");
-      setAndeLuzConsulta(null);
-      setFilterDesde("");
-      setFilterHasta("");
-      setFilterContratoDesde("");
-      setFilterContratoHasta("");
-      setActiveTab(initialTab || "ficha");
-      // Recargar NIS real desde API (no depender solo del prop del dashboard)
       void (async () => {
         try {
           const r = await fetch(`${API_BASE}/api/UnidadesCondominio/${unidad.id}?t=${Date.now()}`);
@@ -852,12 +881,22 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
           /* ignore */
         }
       })();
-    } else {
+    } else if (!isOpen) {
+      openedUnidadRef.current = null;
       setIsEditing(false);
       setIsRenewing(false);
       setIsContratando(false);
     }
-  }, [isOpen, unidad?.id, unidad?.nisAnde, unidad?.code, initialTab]);
+    // No depender de nisAnde/code: al guardar disparaba refetch y ralentizaba el móvil
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, unidad?.id, initialTab]);
+
+  React.useEffect(() => {
+    if (!isOpen || !unidad?.id || unidad.id <= 0) return;
+    if (activeTab !== "comprobantes" && activeTab !== "historico") return;
+    void fetchHistoricoContratos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, unidad?.id, activeTab]);
 
   const persistUnidadCampos = async (): Promise<{ ok: boolean; nis: string; codigo: string; error?: string }> => {
     const nis = normalizeNisValue(localNisAnde);
@@ -949,12 +988,6 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
   }, [unidad?.id, onUpdate]);
 
   React.useEffect(() => {
-    if (!isOpen || !unidad?.id || unidad.id <= 0) return;
-    void fetchContract();
-    void fetchHistoricoContratos();
-  }, [isOpen, unidad?.id, activeTab]);
-
-  React.useEffect(() => {
     if (!contractData?.fechaInicioContrato) return;
     const toInputDate = (v: string) => {
       const d = new Date(v);
@@ -1013,9 +1046,9 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
           cedula: contractData.inquilino.documento,
           telefono: contractData.inquilino.telefono,
           email: contractData.inquilino.email,
-          fechaIngreso: contractData.fechaIngreso,
-          fechaInicio: contractData.fechaInicioContrato,
-          fechaFin: contractData.fechaFinContrato,
+          fechaIngreso: toApiDateTime(contractData.fechaIngreso, contractData.fechaInicioContrato),
+          fechaInicio: toApiDateTime(contractData.fechaInicioContrato, contractData.fechaIngreso),
+          fechaFin: toApiDateTime(contractData.fechaFinContrato),
           montoMensual: Number(contractData.montoMensualAlquiler || 0),
           garantia: Number(contractData.depositoGarantia || 0),
           cantidadOcupantes: Number(contractData.cantidadOcupantes || 1),
@@ -1075,9 +1108,9 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
           cedula: contractData.inquilino.documento,
           telefono: contractData.inquilino.telefono,
           email: contractData.inquilino.email,
-          fechaIngreso: contractData.fechaIngreso,
-          fechaInicio: contractData.fechaInicioContrato,
-          fechaFin: contractData.fechaFinContrato,
+          fechaIngreso: toApiDateTime(contractData.fechaIngreso, contractData.fechaInicioContrato),
+          fechaInicio: toApiDateTime(contractData.fechaInicioContrato, contractData.fechaIngreso),
+          fechaFin: toApiDateTime(contractData.fechaFinContrato),
           montoMensual: Number(contractData.montoMensualAlquiler || 0),
           garantia: Number(contractData.depositoGarantia || 0),
           cantidadOcupantes: Number(contractData.cantidadOcupantes || 1),
@@ -1095,7 +1128,9 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
       } else {
         const errText = await resp.text();
         console.error("Error API:", errText);
-        toast.error("El servidor rechazó los datos. Revisa que todos los campos obligatorios estén llenos.");
+        toast.error("El servidor rechazó los datos.", {
+          description: errText?.slice(0, 280) || "Revisá fechas y campos obligatorios.",
+        });
       }
     } catch (error) {
       toast.error("Error de red al actualizar");
@@ -1151,9 +1186,9 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
           cedula: contractData.inquilino?.documento || "",
           telefono: contractData.inquilino?.telefono || "",
           email: contractData.inquilino?.email || "",
-          fechaIngreso: contractData.fechaIngreso,
-          fechaInicio: contractData.fechaInicioContrato,
-          fechaFin: contractData.fechaFinContrato,
+          fechaIngreso: toApiDateTime(contractData.fechaIngreso, contractData.fechaInicioContrato),
+          fechaInicio: toApiDateTime(contractData.fechaInicioContrato, contractData.fechaIngreso),
+          fechaFin: toApiDateTime(contractData.fechaFinContrato),
           montoMensual: Number(contractData.montoMensualAlquiler || 0),
           garantia: Number(contractData.depositoGarantia || 0),
           cantidadOcupantes: Number(contractData.cantidadOcupantes || 1),
@@ -1169,7 +1204,10 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
         fetchContract();
         if (onUpdate) onUpdate();
       } else {
-        toast.error("Error al registrar el contrato.");
+        const errText = await resp.text().catch(() => "");
+        toast.error("Error al registrar el contrato.", {
+          description: errText?.slice(0, 280) || undefined,
+        });
       }
     } catch (error) {
       toast.error("Error de red al contratar");
@@ -1704,7 +1742,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
     });
   };
 
-    // Generar cuotas basadas en el contrato
+    // Generar cuotas basadas en el contrato (memo: no recalcular en cada render móvil)
     const generateInstallments = () => {
       if (!contractData) return [];
       
@@ -1808,8 +1846,14 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
       return installments.sort((a, b) => a.fechaVencimiento.getTime() - b.fechaVencimiento.getTime());
     };
 
-  const installments = generateInstallments();
-  const nowLimit = new Date();
+  const installments = useMemo(() => generateInstallments(), [
+    contractData?.contratoId,
+    contractData?.fechaInicioContrato,
+    contractData?.fechaFinContrato,
+    contractData?.montoMensualAlquiler,
+    contractData?.pagos,
+  ]);
+  const nowLimit = useMemo(() => new Date(), [contractData?.contratoId, (contractData?.pagos || []).length]);
   const mesActual = nowLimit.getMonth() + 1;
   const anioActual = nowLimit.getFullYear();
 
@@ -1821,7 +1865,8 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
     return d;
   };
 
-  const filteredInstallments = installments.filter(row => {
+  const filteredInstallments = useMemo(() => {
+    return installments.filter(row => {
       // Mostrar hasta el mes actual; si ya hay cobro (pagado), mostrar aunque el periodo sea futuro
       const tieneCobro = row.pagado > 0 || row.estado === "Pagado";
       if (
@@ -1881,6 +1926,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
       }
       return sortDirection === "asc" ? comparison : -comparison;
   });
+  }, [installments, anioActual, mesActual, filterDesde, filterHasta, filterContratoDesde, filterContratoHasta, sortColumn, sortDirection]);
 
   const calcularDeudaAtrasada = () => {
     return installments.reduce((acc, curr) => {
@@ -1949,9 +1995,18 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
     observaciones: unidad?.observaciones?.trim() || "Sin observaciones cargadas.",
   };
 
-  const gastosLuz = gastosServicios.filter((g) => g.tipoServicio === "Luz");
-  const gastosAgua = gastosServicios.filter((g) => g.tipoServicio === "Agua");
-  const gastosBasura = gastosServicios.filter((g) => g.tipoServicio === "Basura");
+  const gastosLuz = useMemo(
+    () => gastosServicios.filter((g) => g.tipoServicio === "Luz"),
+    [gastosServicios]
+  );
+  const gastosAgua = useMemo(
+    () => gastosServicios.filter((g) => g.tipoServicio === "Agua"),
+    [gastosServicios]
+  );
+  const gastosBasura = useMemo(
+    () => gastosServicios.filter((g) => g.tipoServicio === "Basura"),
+    [gastosServicios]
+  );
 
   const pagosContrato = contractData?.pagos ?? [];
 
@@ -2182,6 +2237,65 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
   };
 
   const handlePrintHistorialPagos = () => {
+    const errors: {
+      pagoDesde?: string;
+      pagoHasta?: string;
+      contratoDesde?: string;
+      contratoHasta?: string;
+    } = {};
+
+    if (!filterDesde) errors.pagoDesde = "Completá «Pago desde» para filtrar el historial.";
+    if (!filterHasta) errors.pagoHasta = "Completá «Pago hasta» para filtrar el historial.";
+    if (filterDesde && filterHasta && filterDesde > filterHasta) {
+      errors.pagoHasta = "«Pago hasta» debe ser igual o posterior a «Pago desde».";
+    }
+
+    // Si se usa filtro de contrato, exigir el par completo y rango válido
+    if (filterContratoDesde || filterContratoHasta) {
+      if (!filterContratoDesde) {
+        errors.contratoDesde = "Completá «Contrato inicio» o limpiá el filtro de contrato.";
+      }
+      if (!filterContratoHasta) {
+        errors.contratoHasta = "Completá «Contrato fin» o limpiá el filtro de contrato.";
+      }
+      if (filterContratoDesde && filterContratoHasta && filterContratoDesde > filterContratoHasta) {
+        errors.contratoHasta = "«Contrato fin» debe ser igual o posterior a «Contrato inicio».";
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setHistorialFilterErrors(errors);
+      const firstMsg =
+        errors.pagoDesde ||
+        errors.pagoHasta ||
+        errors.contratoDesde ||
+        errors.contratoHasta ||
+        "Revisá los filtros de fechas.";
+      toast.error("Faltan filtros para imprimir el historial", {
+        description: firstMsg,
+        duration: 4500,
+      });
+      refFiltrosHistorial.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      window.setTimeout(() => {
+        if (errors.pagoDesde) refPagoDesde.current?.focus();
+        else if (errors.pagoHasta) refPagoHasta.current?.focus();
+        else if (errors.contratoDesde) refContratoDesde.current?.focus();
+        else if (errors.contratoHasta) refContratoHasta.current?.focus();
+      }, 280);
+      return;
+    }
+
+    setHistorialFilterErrors({});
+
+    if (filteredInstallments.length === 0) {
+      toast.error("No hay cuotas con esos filtros", {
+        description: "Ampliá el rango de fechas o limpiá filtros e intentá de nuevo.",
+      });
+      refFiltrosHistorial.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      refPagoDesde.current?.focus();
+      return;
+    }
+
     const payload: HistorialPagosPrintData = {
       fechaEmision: new Date().toLocaleString("es-PY", {
         day: "2-digit",
@@ -2685,21 +2799,21 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
 
             {activeTab === "pagos" && (
                 <div className="animate-in fade-in duration-500 space-y-6">
-                    <div className="flex justify-between items-center bg-card p-6 rounded-[2rem] shadow-sm border border-border">
-                        <div className="flex items-center gap-6">
-                            <div className="bg-blue-50 p-4 rounded-2xl text-blue-600">
-                                <DollarSign className="w-8 h-8" />
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-card p-4 sm:p-6 rounded-[2rem] shadow-sm border border-border">
+                        <div className="flex items-center gap-4 sm:gap-6 min-w-0">
+                            <div className="bg-blue-50 p-3 sm:p-4 rounded-2xl text-blue-600 shrink-0">
+                                <DollarSign className="w-7 h-7 sm:w-8 sm:h-8" />
                             </div>
-                            <div>
-                                <h3 className="text-xl font-black italic uppercase tracking-tighter text-foreground">Control de Pagos</h3>
-                                <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest">Historial completo del inquilino</p>
+                            <div className="min-w-0">
+                                <h3 className="text-lg sm:text-xl font-black italic uppercase tracking-tighter text-foreground">Control de Pagos</h3>
+                                <p className="text-muted-foreground text-[10px] sm:text-xs font-bold uppercase tracking-widest">Historial completo del inquilino</p>
                             </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-col xs:flex-row flex-wrap gap-2 w-full sm:w-auto">
                             <Button 
                                 onClick={handlePrintHistorialPagos}
                                 variant="outline"
-                                className="bg-card text-foreground border-border font-black italic rounded-xl px-4 h-12 hover:bg-muted transition-all hidden md:flex items-center"
+                                className="bg-card text-foreground border-border font-black italic rounded-xl px-4 h-12 hover:bg-muted transition-all flex items-center justify-center w-full sm:w-auto min-h-11 touch-manipulation"
                             >
                                 <Printer className="w-4 h-4 mr-2" /> IMPRIMIR HISTORIAL
                             </Button>
@@ -2726,54 +2840,103 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
                                     }));
                                     setIsRegisteringPayment(true);
                                 }}
-                                className="bg-slate-900 text-white font-black italic rounded-xl px-8 h-12 shadow-xl hover:scale-105 transition-all"
+                                className="bg-slate-900 text-white font-black italic rounded-xl px-6 sm:px-8 h-12 shadow-xl hover:scale-105 transition-all w-full sm:w-auto min-h-11 touch-manipulation"
                             >
                                REGISTRAR COBRO
                             </Button>
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-4 items-end bg-card p-4 rounded-[2rem] border border-border shadow-sm print:hidden">
-                        <div className="flex flex-wrap gap-3 items-end pr-4 border-r border-border">
-                          <p className="w-full text-[9px] font-black uppercase tracking-widest text-primary mb-0">Filtro pagos</p>
-                          <div className="space-y-1">
-                              <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Pago desde</label>
+                    <div
+                      ref={refFiltrosHistorial}
+                      className={`flex flex-wrap gap-4 items-end bg-card p-4 rounded-[2rem] border shadow-sm print:hidden transition-colors ${
+                        Object.keys(historialFilterErrors).length > 0
+                          ? "border-red-400 ring-2 ring-red-400/40"
+                          : "border-border"
+                      }`}
+                    >
+                        <div className="flex flex-wrap gap-3 items-end pr-0 sm:pr-4 sm:border-r border-border w-full sm:w-auto">
+                          <p className="w-full text-[9px] font-black uppercase tracking-widest text-primary mb-0">
+                            Filtro pagos <span className="text-red-500 normal-case tracking-normal">(obligatorio para imprimir)</span>
+                          </p>
+                          <div className="space-y-1 min-w-[140px] flex-1 sm:flex-none">
+                              <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Pago desde *</label>
                               <Input 
+                                  ref={refPagoDesde}
                                   type="date" 
                                   value={filterDesde} 
-                                  onChange={(e) => setFilterDesde(e.target.value)} 
-                                  className="bg-muted border-none rounded-xl h-10 font-bold"
+                                  onChange={(e) => {
+                                    setFilterDesde(e.target.value);
+                                    setHistorialFilterErrors((prev) => ({ ...prev, pagoDesde: undefined }));
+                                  }} 
+                                  aria-invalid={!!historialFilterErrors.pagoDesde}
+                                  className={`bg-muted border-none rounded-xl h-11 font-bold touch-manipulation ${
+                                    historialFilterErrors.pagoDesde ? "ring-2 ring-red-500 bg-red-50" : ""
+                                  }`}
                               />
+                              {historialFilterErrors.pagoDesde && (
+                                <p className="text-[10px] font-bold text-red-600 leading-snug">{historialFilterErrors.pagoDesde}</p>
+                              )}
                           </div>
-                          <div className="space-y-1">
-                              <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Pago hasta</label>
+                          <div className="space-y-1 min-w-[140px] flex-1 sm:flex-none">
+                              <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Pago hasta *</label>
                               <Input 
+                                  ref={refPagoHasta}
                                   type="date" 
                                   value={filterHasta} 
-                                  onChange={(e) => setFilterHasta(e.target.value)} 
-                                  className="bg-muted border-none rounded-xl h-10 font-bold"
+                                  onChange={(e) => {
+                                    setFilterHasta(e.target.value);
+                                    setHistorialFilterErrors((prev) => ({ ...prev, pagoHasta: undefined }));
+                                  }} 
+                                  aria-invalid={!!historialFilterErrors.pagoHasta}
+                                  className={`bg-muted border-none rounded-xl h-11 font-bold touch-manipulation ${
+                                    historialFilterErrors.pagoHasta ? "ring-2 ring-red-500 bg-red-50" : ""
+                                  }`}
                               />
+                              {historialFilterErrors.pagoHasta && (
+                                <p className="text-[10px] font-bold text-red-600 leading-snug">{historialFilterErrors.pagoHasta}</p>
+                              )}
                           </div>
                         </div>
-                        <div className="flex flex-wrap gap-3 items-end">
-                          <p className="w-full text-[9px] font-black uppercase tracking-widest text-amber-600 mb-0">Filtro contrato</p>
-                          <div className="space-y-1">
+                        <div className="flex flex-wrap gap-3 items-end w-full sm:w-auto">
+                          <p className="w-full text-[9px] font-black uppercase tracking-widest text-amber-600 mb-0">Filtro contrato (opcional)</p>
+                          <div className="space-y-1 min-w-[140px] flex-1 sm:flex-none">
                               <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Contrato inicio</label>
                               <Input 
+                                  ref={refContratoDesde}
                                   type="date" 
                                   value={filterContratoDesde} 
-                                  onChange={(e) => setFilterContratoDesde(e.target.value)} 
-                                  className="bg-muted border-none rounded-xl h-10 font-bold"
+                                  onChange={(e) => {
+                                    setFilterContratoDesde(e.target.value);
+                                    setHistorialFilterErrors((prev) => ({ ...prev, contratoDesde: undefined }));
+                                  }} 
+                                  aria-invalid={!!historialFilterErrors.contratoDesde}
+                                  className={`bg-muted border-none rounded-xl h-11 font-bold touch-manipulation ${
+                                    historialFilterErrors.contratoDesde ? "ring-2 ring-red-500 bg-red-50" : ""
+                                  }`}
                               />
+                              {historialFilterErrors.contratoDesde && (
+                                <p className="text-[10px] font-bold text-red-600 leading-snug">{historialFilterErrors.contratoDesde}</p>
+                              )}
                           </div>
-                          <div className="space-y-1">
+                          <div className="space-y-1 min-w-[140px] flex-1 sm:flex-none">
                               <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Contrato fin</label>
                               <Input 
+                                  ref={refContratoHasta}
                                   type="date" 
                                   value={filterContratoHasta} 
-                                  onChange={(e) => setFilterContratoHasta(e.target.value)} 
-                                  className="bg-muted border-none rounded-xl h-10 font-bold"
+                                  onChange={(e) => {
+                                    setFilterContratoHasta(e.target.value);
+                                    setHistorialFilterErrors((prev) => ({ ...prev, contratoHasta: undefined }));
+                                  }} 
+                                  aria-invalid={!!historialFilterErrors.contratoHasta}
+                                  className={`bg-muted border-none rounded-xl h-11 font-bold touch-manipulation ${
+                                    historialFilterErrors.contratoHasta ? "ring-2 ring-red-500 bg-red-50" : ""
+                                  }`}
                               />
+                              {historialFilterErrors.contratoHasta && (
+                                <p className="text-[10px] font-bold text-red-600 leading-snug">{historialFilterErrors.contratoHasta}</p>
+                              )}
                           </div>
                         </div>
                         {(filterDesde || filterHasta || filterContratoDesde || filterContratoHasta) && (
@@ -2784,8 +2947,9 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
                                   setFilterHasta("");
                                   setFilterContratoDesde("");
                                   setFilterContratoHasta("");
+                                  setHistorialFilterErrors({});
                                 }}
-                                className="h-10 text-xs font-bold text-muted-foreground uppercase tracking-widest"
+                                className="h-11 text-xs font-bold text-muted-foreground uppercase tracking-widest w-full sm:w-auto"
                             >
                                 Limpiar Filtros
                             </Button>

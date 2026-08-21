@@ -309,6 +309,7 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
             ) : configuraciones.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground font-bold">No hay timbrados registrados. Crea uno nuevo.</div>
             ) : (
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader className="bg-muted/50">
                   <TableRow>
@@ -382,6 +383,7 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
                   ))}
                 </TableBody>
               </Table>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -434,7 +436,7 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
                 <Button 
                   type="submit" 
                   disabled={savingMulta}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-black italic rounded-xl px-6 h-12 shadow-lg shadow-blue-600/20"
+                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-black italic rounded-xl px-6 h-12 shadow-lg shadow-blue-600/20"
                 >
                   {savingMulta ? "Guardando..." : "GUARDAR CONFIGURACIÓN"}
                 </Button>
@@ -444,19 +446,23 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
         </Card>
 
         {/* HEADER PLANTILLAS DE CONTRATOS Y LEGALES */}
-        <div className="flex justify-between items-center bg-[#0C1327] p-6 rounded-3xl shadow-sm border border-white/5 mt-12">
-          <div>
-            <h1 className="text-3xl font-black italic uppercase tracking-tighter text-white flex items-center gap-3">
-              <div className="bg-blue-600 p-2 rounded-xl">
-                <FileSignature className="text-white w-6 h-6" />
+        <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center bg-[#0C1327] p-4 sm:p-6 rounded-3xl shadow-sm border border-white/5 mt-8 sm:mt-12">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-3xl font-black italic uppercase tracking-tighter text-white flex items-center gap-3">
+              <div className="bg-blue-600 p-2 rounded-xl shrink-0">
+                <FileSignature className="text-white w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              Plantillas de <span className="text-blue-400">Contrato</span>
+              <span className="min-w-0 leading-tight">
+                Plantillas de <span className="text-blue-400">Contrato</span>
+              </span>
             </h1>
-            <p className="text-slate-400 font-bold text-sm uppercase tracking-widest mt-1">Formatos predefinidos para la generación automática</p>
+            <p className="text-slate-400 font-bold text-[10px] sm:text-sm uppercase tracking-widest mt-1">
+              Formatos predefinidos para la generación automática
+            </p>
           </div>
           <Button 
             onClick={() => setIsCreatingPlantilla(true)}
-            className="bg-blue-600 text-white font-black italic rounded-xl px-6 hover:scale-105 transition-all shadow-lg shadow-blue-600/20"
+            className="w-full sm:w-auto shrink-0 bg-blue-600 text-white font-black italic rounded-xl px-6 hover:scale-105 transition-all shadow-lg shadow-blue-600/20 max-md:hover:scale-100"
           >
             <Plus className="mr-2 w-4 h-4" /> NUEVA PLANTILLA
           </Button>
@@ -464,12 +470,13 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
 
         {/* PLANTILLAS TABLE */}
         <Card className="border border-white/5 shadow-xl bg-[#0C1327] rounded-3xl overflow-hidden">
-          <CardHeader className="bg-[#0C1327] border-b border-white/5 p-6">
-            <CardTitle className="text-lg font-black uppercase italic text-white flex items-center gap-2">
-              <FileSignature className="w-5 h-5 text-blue-400" /> Documentos Legales y Contratos
+          <CardHeader className="bg-[#0C1327] border-b border-white/5 p-4 sm:p-6">
+            <CardTitle className="text-base sm:text-lg font-black uppercase italic text-white flex items-center gap-2">
+              <FileSignature className="w-5 h-5 text-blue-400 shrink-0" /> Documentos Legales y Contratos
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader className="bg-muted/80">
                 <TableRow className="hover:bg-transparent border-border">
@@ -540,6 +547,7 @@ export default function ConfiguracionPage({ empresaId }: ConfiguracionPageProps)
                 )}
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
 

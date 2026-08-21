@@ -454,7 +454,7 @@ export function ExpedienteUnidadImprimible({ data }: { data: ExpedienteUnidadPri
               @media print {
                 @page {
                   size: A4;
-                  margin: 10mm 11mm 11mm 11mm;
+                  margin: 8mm 10mm 10mm 10mm;
                 }
                 body * { visibility: hidden !important; }
                 .print-portal-content,

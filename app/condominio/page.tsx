@@ -30,9 +30,9 @@ import { RegistrarPagoModal } from "./RegistrarPagoModal";
 import { DetalleUnidadModal } from "./DetalleUnidadModal";
 import { ComprobantePreviewModal } from "./ComprobantePreviewModal";
 import AlertasVencimientoModal from "./AlertasVencimientoModal";
-import { Download, Printer, FileSpreadsheet, LayoutGrid, Table as TableIcon, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
+import { Download, Printer, LayoutGrid, Table as TableIcon, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatDuplex, displayCondoName, formatConceptoCobro, formatConceptoPeriodo, formatUnidadComprobante } from "@/lib/utils";
+import { formatDuplex, displayCondoName, formatConceptoCobro, formatConceptoPeriodo, formatUnidadComprobante, toApiDateTime } from "@/lib/utils";
 
 // --- Interfaces ---
 interface Contrato {
@@ -684,10 +684,6 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
             >
               <Printer className="w-4 h-4 mr-2" /> PDF / IMPRIMIR
             </Button>
-
-            <Button variant="outline" className="flex-1 md:flex-none h-11 px-6 rounded-xl border-border font-bold text-[10px] md:text-xs hover:bg-secondary flex items-center justify-center">
-              <FileSpreadsheet className="w-4 h-4 mr-2" /> EXCEL
-            </Button>
           </div>
 
         </div>
@@ -794,7 +790,7 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
                               setSelectedUnit(toSelectedUnit(unit, inquilino));
                               setIsDetalleModalOpen(true);
                             }}
-                            className={`group cursor-pointer transition-all duration-300 border border-border/50 rounded-2xl overflow-hidden hover:shadow-xl hover:border-primary/30 bg-card`}
+                            className={`group cursor-pointer border border-border/50 rounded-2xl overflow-hidden bg-card max-md:active:bg-muted/40 md:transition-all md:duration-300 md:hover:shadow-xl md:hover:border-primary/30`}
                           >
                             <CardContent className="p-3">
                               {/* Apilado hasta 2xl (incluye iPad Pro landscape); fila compacta solo en desktop grande */}
@@ -1019,9 +1015,23 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
           }
           
           th {
-            background-color: #f1f5f9 !important;
-            font-weight: bold !important;
+            background-color: #e8eef7 !important;
+            font-weight: 800 !important;
             text-transform: uppercase !important;
+            letter-spacing: 0.04em !important;
+            color: #0f172a !important;
+          }
+
+          .print-content-full::before {
+            content: "FONTANA DI LUQUE — PLANILLA CONDOMINIO AGUS";
+            display: block;
+            font-size: 11pt;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            color: #1E7BFF;
+            margin-bottom: 8px;
+            padding-bottom: 6px;
+            border-bottom: 2px solid #0f172a;
           }
         }
       `}} />
@@ -1054,9 +1064,9 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
                     cedula: data.inquilino.cedula,
                     telefono: data.inquilino.telefono,
                     email: data.inquilino.correo,
-                    fechaIngreso: data.contrato.fechaIngreso || data.contrato.fechaInicio,
-                    fechaInicio: data.contrato.fechaInicio,
-                    fechaFin: data.contrato.fechaFin,
+                    fechaIngreso: toApiDateTime(data.contrato.fechaIngreso, data.contrato.fechaInicio),
+                    fechaInicio: toApiDateTime(data.contrato.fechaInicio, data.contrato.fechaIngreso),
+                    fechaFin: toApiDateTime(data.contrato.fechaFin),
                     montoMensual: data.contrato.montoMensual,
                     garantia: data.contrato.garantia,
                     cantidadOcupantes: data.adicionales.cantidadOcupantes,
