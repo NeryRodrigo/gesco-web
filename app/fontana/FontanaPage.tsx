@@ -48,6 +48,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ComprobantePreviewModal } from "@/app/condominio/ComprobantePreviewModal";
+import { FontanaPropiedadesDashboard } from "./FontanaPropiedadesDashboard";
 import {
   Habitacion,
   Reserva,
@@ -60,6 +61,7 @@ import {
 } from "@/types/hostel";
 
 type FichaTab = "reserva" | "pagos" | "atrasados" | "deudas" | "reclamos" | "documentos";
+type FontanaVista = "dashboard" | "hospedaje";
 
 interface DuplexUnidad {
   unidadId: number;
@@ -208,6 +210,7 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [fichaTab, setFichaTab] = useState<FichaTab>("reserva");
+  const [fontanaVista, setFontanaVista] = useState<FontanaVista>("dashboard");
   const [desocupando, setDesocupando] = useState(false);
   const [comprobanteOpen, setComprobanteOpen] = useState(false);
   const [comprobantePagoData, setComprobantePagoData] = useState<any>(null);
@@ -1187,6 +1190,48 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
         openCtxAt(e.clientX, e.clientY, null);
       }}
     >
+      {/* Tabs Dashboard / Hospedaje */}
+      <div className="flex flex-wrap gap-1 p-1 rounded-2xl bg-[#0C1327] border border-white/5 w-full sm:w-fit">
+        <button
+          type="button"
+          onClick={() => setFontanaVista("dashboard")}
+          className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider min-h-11 touch-manipulation transition-colors ${
+            fontanaVista === "dashboard"
+              ? "bg-amber-500 text-slate-950"
+              : "text-slate-400 hover:text-white"
+          }`}
+        >
+          Dashboard
+        </button>
+        <button
+          type="button"
+          onClick={() => setFontanaVista("hospedaje")}
+          className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider min-h-11 touch-manipulation transition-colors ${
+            fontanaVista === "hospedaje"
+              ? "bg-amber-500 text-slate-950"
+              : "text-slate-400 hover:text-white"
+          }`}
+        >
+          Hospedaje
+        </button>
+      </div>
+
+      {fontanaVista === "dashboard" && (
+        <FontanaPropiedadesDashboard
+          lugares={lugares}
+          habitaciones={habitaciones}
+          etiquetaPorHabitacionId={etiquetaPorHabitacionId}
+          canCreate={lugaresDisponiblesAlta.length > 0}
+          onCrearHabitacion={openCreate}
+          onAbrirHabitacion={(h) => {
+            setSelectedId(h.habitacionId);
+            setFontanaVista("hospedaje");
+          }}
+        />
+      )}
+
+      {fontanaVista === "hospedaje" && (
+        <>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 bg-[#0C1327] p-4 sm:p-8 rounded-[1.5rem] sm:rounded-[1.75rem] border border-white/5">
         <div className="min-w-0">
           <h2 className="text-xl sm:text-2xl font-black italic uppercase tracking-tighter text-white flex items-center gap-3 mobile-title">
@@ -1997,6 +2042,8 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
 
       {/* Menú contextual */}
