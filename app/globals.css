@@ -428,3 +428,58 @@ html {
   }
 }
 
+/*
+  Toasts al centro en móvil / iPhone / iPad (cualquier marca).
+  Facilita tocar Confirmar / Seguir / Recargar.
+*/
+@media (max-width: 1023px) {
+  [data-sonner-toaster].vordia-toaster,
+  [data-sonner-toaster] {
+    top: 50% !important;
+    bottom: auto !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translate(-50%, -50%) !important;
+    width: min(92vw, 420px) !important;
+    max-width: min(92vw, 420px) !important;
+    z-index: 2147483000 !important;
+    padding-left: max(0.5rem, env(safe-area-inset-left));
+    padding-right: max(0.5rem, env(safe-area-inset-right));
+  }
+
+  [data-sonner-toast].vordia-toast,
+  [data-sonner-toast] {
+    width: 100% !important;
+    max-width: min(92vw, 420px) !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    font-size: 14px !important;
+    --width: min(92vw, 420px);
+  }
+
+  [data-sonner-toast] [data-button],
+  [data-sonner-toast] .vordia-toast-action,
+  [data-sonner-toast] button[data-button] {
+    min-height: 2.5rem !important;
+    padding: 0.5rem 0.9rem !important;
+    font-weight: 800 !important;
+    touch-action: manipulation;
+  }
+}
+
+/* PC: toasts de sesión más visibles (no pegados arriba) */
+@media (min-width: 1024px) {
+  [data-sonner-toaster].vordia-toaster {
+    top: 28% !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: min(420px, 92vw) !important;
+  }
+
+  [data-sonner-toast] [data-button],
+  [data-sonner-toast] .vordia-toast-action {
+    min-height: 2.25rem !important;
+    font-weight: 800 !important;
+  }
+}
+

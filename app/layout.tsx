@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Montserrat, Syncopate } from "next/font/google";
-import { Toaster } from 'sonner';
+import { Toaster } from "sonner";
+import { VersionSessionWatcher } from "@/components/VersionSessionWatcher";
+import { IdleSessionWatcher } from "@/components/IdleSessionWatcher";
 import "./globals.css";
 
 const montserrat = Montserrat({
@@ -49,9 +51,26 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" suppressHydrationWarning className="dark">
-      <body className={`${montserrat.variable} ${syncopate.variable} font-sans bg-background text-foreground antialiased min-h-screen overflow-x-hidden`} suppressHydrationWarning>
+      <body
+        className={`${montserrat.variable} ${syncopate.variable} font-sans bg-background text-foreground antialiased min-h-screen overflow-x-hidden`}
+        suppressHydrationWarning
+      >
+        <VersionSessionWatcher />
+        <IdleSessionWatcher />
         {children}
-        <Toaster position="top-center" richColors closeButton theme="dark" />
+        <Toaster
+          position="top-center"
+          richColors
+          closeButton
+          theme="dark"
+          className="vordia-toaster"
+          toastOptions={{
+            classNames: {
+              toast: "vordia-toast",
+              actionButton: "vordia-toast-action",
+            },
+          }}
+        />
       </body>
     </html>
   );
