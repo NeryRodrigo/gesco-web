@@ -416,7 +416,7 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
     });
   }, [lugares, cupos, ocupadasPorLugar]);
 
-  /** Etiqueta visible: Habitación N - Fontana X (por lugar, orden de creación) */
+  /** Etiqueta visible: Fontana X - Habitación N (número reinicia en 1 por cada lugar) */
   const etiquetaPorHabitacionId = useMemo(() => {
     const map = new Map<number, string>();
     const byLugar = new Map<string, Habitacion[]>();
@@ -431,15 +431,9 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
       const sorted = [...list].sort((a, b) => a.habitacionId - b.habitacionId);
       const lugarLabel =
         parseFontanaDetalles(sorted[0]?.detallesJson).nombreLugar?.trim() || "Fontana";
-      // Preferir número del nombre si es válido y único; si no, índice 1..n
-      const used = new Set<number>();
+      // Siempre 1..n por lugar (orden de creación), no reutilizar números viejos tipo Hab 5
       sorted.forEach((h, idx) => {
-        const parsed = extractNumeroHabitacion(h.nombre);
-        let n = parsed && !used.has(parsed) ? parsed : idx + 1;
-        if (used.has(n)) n = idx + 1;
-        while (used.has(n)) n += 1;
-        used.add(n);
-        map.set(h.habitacionId, formatNombreHabitacionLugar(n, lugarLabel));
+        map.set(h.habitacionId, formatNombreHabitacionLugar(idx + 1, lugarLabel));
       });
     }
     return map;
@@ -776,20 +770,22 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
         duplex?.nombreCondominio ||
         "Fontana";
 
-      // Nombre estándar: Habitación N - Fontana X (por lugar)
+      // Nombre estándar: Fontana X - Habitación N (número por lugar)
       let nombreHab = (form.nombreHabitacion || "").trim();
       if (!editingId) {
         const items = habitaciones.map((h) => ({
           nombre: h.nombre,
           nombreLugar: parseFontanaDetalles(h.detallesJson).nombreLugar,
         }));
-        const num =
-          extractNumeroHabitacion(nombreHab) ||
-          nextNumeroHabitacionEnLugar(items, lugar);
+        const num = nextNumeroHabitacionEnLugar(items, lugar);
         nombreHab = formatNombreHabitacionLugar(num, lugar);
-      } else if (lugar && !/Habitaci[oó]n\s+\d+\s*-/i.test(nombreHab)) {
-        const n = extractNumeroHabitacion(nombreHab) || extractNumeroHabitacion(form.nombreHabitacion) || 1;
-        nombreHab = formatNombreHabitacionLugar(n, lugar);
+      } else {
+        const etiqueta = etiquetaPorHabitacionId.get(editingId);
+        if (etiqueta) nombreHab = etiqueta;
+        else if (lugar) {
+          const n = extractNumeroHabitacion(nombreHab) || 1;
+          nombreHab = formatNombreHabitacionLugar(n, lugar);
+        }
       }
 
       // Al crear: solo registrar cobro de garantía (el alojamiento se factura al desocupar)
@@ -2125,13 +2121,13 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
                 value={form.nombreHabitacion}
                 readOnly={!editingId}
                 onChange={(e) => setForm((f) => ({ ...f, nombreHabitacion: e.target.value }))}
-                placeholder="Habitación 1 - Fontana 1"
+                placeholder="Fontana 1 - Habitación 1"
                 className={`bg-white/5 border-white/10 ${!editingId ? "opacity-90 cursor-default" : ""}`}
-                title={!editingId ? "Se asigna solo según el lugar (Habitación N - Lugar)" : undefined}
+                title={!editingId ? "Se asigna solo según el lugar (Fontana X - Habitación N)" : undefined}
               />
               {!editingId && (
                 <p className="text-[9px] text-slate-500 mt-1">
-                  Formato fijo: Habitación N - {form.nombreLugar || "lugar"}
+                  Formato fijo: {form.nombreLugar || "lugar"} - Habitación N
                 </p>
               )}
             </Field>
