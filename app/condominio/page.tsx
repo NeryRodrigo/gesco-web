@@ -231,7 +231,7 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
   const [isPreviewComprobanteOpen, setIsPreviewComprobanteOpen] = useState(false);
   const [comprobantePagoData, setComprobantePagoData] = useState<any>(null);
 
-  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "table">("table");
   const [groupBy, setGroupBy] = useState<"none" | "condominio" | "estado">("condominio");
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [columnOrder, setColumnOrder] = useState<string[]>([
@@ -701,17 +701,8 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
               />
            </div>
 
-           {/* VISTA TOGGLE */}
+           {/* VISTA TOGGLE — Tabla plana predeterminada · Cuadrícula segunda */}
            <div className="flex gap-1.5 bg-muted p-1.5 rounded-2xl border border-border w-full md:w-auto">
-             <Button
-               variant={viewMode === "grid" ? "default" : "ghost"}
-               onClick={() => setViewMode("grid")}
-               className={`flex-1 md:flex-initial h-12 px-6 rounded-xl font-black italic text-xs uppercase transition-all ${
-                 viewMode === "grid" ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-sidebar-foreground hover:bg-secondary"
-               }`}
-             >
-               <LayoutGrid className="w-4 h-4 mr-2" /> Cuadrícula
-             </Button>
              <Button
                variant={viewMode === "table" ? "default" : "ghost"}
                onClick={() => setViewMode("table")}
@@ -720,6 +711,15 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
                }`}
              >
                <TableIcon className="w-4 h-4 mr-2" /> Tabla Plana
+             </Button>
+             <Button
+               variant={viewMode === "grid" ? "default" : "ghost"}
+               onClick={() => setViewMode("grid")}
+               className={`flex-1 md:flex-initial h-12 px-6 rounded-xl font-black italic text-xs uppercase transition-all ${
+                 viewMode === "grid" ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-sidebar-foreground hover:bg-secondary"
+               }`}
+             >
+               <LayoutGrid className="w-4 h-4 mr-2" /> Cuadrícula
              </Button>
            </div>
 
