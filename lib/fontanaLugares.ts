@@ -139,6 +139,48 @@ export function sameLugar(a?: string | null, b?: string | null) {
     .toLowerCase() === String(b || "").trim().toLowerCase();
 }
 
+/** "Habitación 2 - Fontana 1" */
+export function formatNombreHabitacionLugar(numero: number, lugar: string) {
+  const n = Math.max(1, Math.floor(Number(numero) || 1));
+  const l = String(lugar || "").trim() || "Fontana";
+  return `Habitación ${n} - ${l}`;
+}
+
+/** Extrae número de nombres tipo Hab 1 / Habitación 3 / etc. */
+export function extractNumeroHabitacion(nombre?: string | null): number | null {
+  const raw = String(nombre || "").trim();
+  if (!raw) return null;
+  const m =
+    raw.match(/Habitaci[oó]n\s+(\d+)/i) ||
+    raw.match(/\bHab\.?\s*(\d+)\b/i) ||
+    raw.match(/^(\d+)\s*-/);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * Siguiente número de habitación para un lugar (según habitaciones ya cargadas).
+ */
+export function nextNumeroHabitacionEnLugar(
+  items: { nombre?: string | null; nombreLugar?: string | null }[],
+  lugar: string,
+  excludeNombreLugarMatch = true
+): number {
+  let max = 0;
+  for (const it of items) {
+    if (excludeNombreLugarMatch && !sameLugar(it.nombreLugar, lugar)) continue;
+    const n = extractNumeroHabitacion(it.nombre);
+    if (n) max = Math.max(max, n);
+  }
+  // Si ninguna tiene número parseable, usar cantidad + 1
+  if (max === 0) {
+    const count = items.filter((it) => sameLugar(it.nombreLugar, lugar)).length;
+    return count + 1;
+  }
+  return max + 1;
+}
+
 export const HABITACIONES_DUPLEX_AGUS = [
   { id: "1", label: "Habitación 1 — Suite" },
   { id: "2", label: "Habitación 2 — Frente al suite" },
