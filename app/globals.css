@@ -212,6 +212,7 @@ html {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
 }
 
 /* Tabs/chips: flex + scroll en todos los tamaños (evita romper ficha en desktop) */
@@ -221,14 +222,26 @@ html {
   gap: 1rem;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  scrollbar-width: thin;
   padding-bottom: 2px;
+  touch-action: pan-x pan-y;
 }
 .mobile-tabs-scroll::-webkit-scrollbar {
-  display: none;
+  height: 4px;
 }
 .mobile-tabs-scroll > * {
   flex-shrink: 0;
+}
+
+/* Montos en tarjetas KPI: no saltan de línea en celular/iPad */
+.metric-amount {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  max-width: 100%;
 }
 
 @media (max-width: 1023px) {
@@ -249,10 +262,18 @@ html {
     max-width: 100%;
   }
 
-  .mobile-scroll-x > table,
-  [data-mobile-scroll="x"] > table,
-  [data-mobile-scroll="xy"] > table {
+  /* Tablas: scroll X táctil + ancho mínimo (celular / iPhone / iPad) */
+  .mobile-scroll-x table,
+  [data-mobile-scroll="x"] table,
+  [data-mobile-scroll="xy"] table,
+  [data-slot="table-container"] > table {
     min-width: 720px;
+  }
+
+  [data-slot="table-container"] {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x pan-y;
   }
 
   /* Modales simples: altura segura. Los de scroll interno (ficha) se excluyen. */
@@ -273,13 +294,18 @@ html {
     letter-spacing: -0.02em;
     line-height: 1.2;
   }
+
+  .metric-amount {
+    font-size: clamp(0.78rem, 2.6vw, 1rem);
+  }
 }
 
 /* iPad landscape / phablets: un poco más de aire */
 @media (min-width: 768px) and (max-width: 1023px) {
-  .mobile-scroll-x > table,
-  [data-mobile-scroll="x"] > table,
-  [data-mobile-scroll="xy"] > table {
+  .mobile-scroll-x table,
+  [data-mobile-scroll="x"] table,
+  [data-mobile-scroll="xy"] table,
+  [data-slot="table-container"] > table {
     min-width: 880px;
   }
 }

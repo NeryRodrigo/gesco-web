@@ -253,20 +253,20 @@ export default function GastosInversionPage({ empresaId: propEmpresaId }: { empr
                 >
                   <CardContent className="p-2.5 lg:p-3 relative flex flex-row items-center gap-2 lg:gap-3 min-h-[64px] lg:min-h-[72px] min-w-0">
                     <div
-                      className={`w-9 h-9 lg:w-10 lg:h-10 rounded-lg ${metric.bg} ${metric.color} flex items-center justify-center shrink-0`}
+                      className={`w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10 rounded-lg ${metric.bg} ${metric.color} flex items-center justify-center shrink-0`}
                     >
                       <metric.icon className="w-4 h-4 lg:w-[18px] lg:h-[18px] stroke-[2px]" />
                     </div>
-                    <div className="min-w-0 flex-1 text-left">
+                    <div className="min-w-0 flex-1 text-left overflow-hidden">
                       <p className="text-[9px] lg:text-[10px] font-bold uppercase tracking-wide text-muted-foreground leading-tight truncate">
                         {metric.labelShort}
                       </p>
                       <h3
                         title={fullTitle}
-                        className="mt-0.5 text-[0.95rem] lg:text-lg font-heading font-extrabold text-foreground leading-snug tabular-nums tracking-tight break-words"
+                        className="metric-amount mt-0.5 text-foreground font-heading font-extrabold"
                       >
-                        <span className="md:hidden">{displayText}</span>
-                        <span className="hidden md:inline">
+                        <span className="lg:hidden">{displayText}</span>
+                        <span className="hidden lg:inline">
                           {metric.currency ? formatGS(metric.value as number) : displayText}
                         </span>
                       </h3>
