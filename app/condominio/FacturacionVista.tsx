@@ -611,24 +611,24 @@ export function FacturacionVista() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="border-none rounded-3xl bg-emerald-500 text-white p-6 shadow-lg shadow-emerald-500/10">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6">
+          <Card className="border-none rounded-2xl sm:rounded-3xl bg-emerald-500 text-white p-4 sm:p-6 shadow-lg shadow-emerald-500/10 min-w-0 overflow-hidden">
             <p className="text-[10px] font-black uppercase opacity-70">Cobrado Hoy</p>
-            <h3 className="text-3xl font-black mt-1 italic tracking-tighter">
-              Gs. {totalHoy.toLocaleString()}
+            <h3 className="metric-amount text-xl sm:text-3xl font-black mt-1 italic tracking-tighter">
+              Gs. {totalHoy.toLocaleString("es-PY")}
             </h3>
           </Card>
-          <Card className="border-none rounded-3xl bg-card p-6 border border-border shadow-sm">
+          <Card className="border-none rounded-2xl sm:rounded-3xl bg-card p-4 sm:p-6 border border-border shadow-sm min-w-0 overflow-hidden">
             <p className="text-[10px] font-black uppercase text-muted-foreground">
               Pendiente de Facturar
             </p>
-            <h3 className="text-3xl font-black mt-1 italic tracking-tighter">
-              Gs. {(dashboardSummary?.faltaCobrar || 0).toLocaleString()}
+            <h3 className="metric-amount text-xl sm:text-3xl font-black mt-1 italic tracking-tighter">
+              Gs. {(dashboardSummary?.faltaCobrar || 0).toLocaleString("es-PY")}
             </h3>
           </Card>
-          <Card className="border-none rounded-3xl bg-primary text-white p-6 shadow-lg shadow-primary/20">
+          <Card className="border-none rounded-2xl sm:rounded-3xl bg-primary text-white p-4 sm:p-6 shadow-lg shadow-primary/20 min-w-0 overflow-hidden">
             <p className="text-[10px] font-black uppercase opacity-70">Siguiente Correlativo</p>
-            <h3 className="text-2xl font-black mt-1 italic tracking-tighter">001-001-0000046</h3>
+            <h3 className="metric-amount text-base sm:text-2xl font-black mt-1 italic tracking-tighter">001-001-0000046</h3>
           </Card>
         </div>
 
@@ -650,8 +650,8 @@ export function FacturacionVista() {
           <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-3">
             Filtros para reimpresión · fechas, condominio o dúplex
           </p>
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="space-y-1 min-w-[140px] flex-1 sm:flex-none">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:flex 2xl:flex-wrap gap-3 2xl:items-end">
+            <div className="space-y-1 min-w-0 w-full 2xl:w-auto 2xl:min-w-[140px]">
               <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
                 Cobro desde
               </label>
@@ -664,7 +664,7 @@ export function FacturacionVista() {
                   setFiltroErrors((prev) => ({ ...prev, desde: undefined, general: undefined }));
                 }}
                 aria-invalid={!!filtroErrors.desde}
-                className={`h-11 rounded-xl bg-secondary border-none font-bold w-full sm:w-[150px] touch-manipulation ${
+                className={`h-11 rounded-xl bg-secondary border-none font-bold w-full 2xl:w-[150px] touch-manipulation ${
                   filtroErrors.desde ? "ring-2 ring-red-500 bg-red-50" : ""
                 }`}
               />
@@ -674,7 +674,7 @@ export function FacturacionVista() {
                 </p>
               )}
             </div>
-            <div className="space-y-1 min-w-[140px] flex-1 sm:flex-none">
+            <div className="space-y-1 min-w-0 w-full 2xl:w-auto 2xl:min-w-[140px]">
               <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
                 Cobro hasta
               </label>
@@ -687,7 +687,7 @@ export function FacturacionVista() {
                   setFiltroErrors((prev) => ({ ...prev, hasta: undefined, general: undefined }));
                 }}
                 aria-invalid={!!filtroErrors.hasta}
-                className={`h-11 rounded-xl bg-secondary border-none font-bold w-full sm:w-[150px] touch-manipulation ${
+                className={`h-11 rounded-xl bg-secondary border-none font-bold w-full 2xl:w-[150px] touch-manipulation ${
                   filtroErrors.hasta ? "ring-2 ring-red-500 bg-red-50" : ""
                 }`}
               />
@@ -697,7 +697,7 @@ export function FacturacionVista() {
                 </p>
               )}
             </div>
-            <div className="space-y-1 min-w-[160px] flex-1 sm:min-w-[180px]">
+            <div className="space-y-1 min-w-0 w-full 2xl:w-auto 2xl:min-w-[180px]">
               <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
                 Condominio
               </label>
@@ -716,7 +716,7 @@ export function FacturacionVista() {
               >
                 <SelectTrigger
                   ref={refCondoTrigger}
-                  className={`h-11 w-full min-w-0 sm:min-w-[180px] rounded-xl border-border bg-secondary font-bold text-sm touch-manipulation ${
+                  className={`h-11 w-full min-w-0 2xl:min-w-[180px] rounded-xl border-border bg-secondary font-bold text-sm touch-manipulation ${
                     filtroErrors.condominio ? "ring-2 ring-red-500" : ""
                   }`}
                 >
@@ -737,7 +737,7 @@ export function FacturacionVista() {
                 </p>
               )}
             </div>
-            <div className="space-y-1 min-w-[140px] flex-1 sm:min-w-[140px]">
+            <div className="space-y-1 min-w-0 w-full 2xl:w-auto 2xl:min-w-[140px]">
               <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
                 Dúplex
               </label>
@@ -753,7 +753,7 @@ export function FacturacionVista() {
                 }}
               >
                 <SelectTrigger
-                  className={`h-11 w-full min-w-0 sm:min-w-[140px] rounded-xl border-border bg-secondary font-bold text-sm touch-manipulation ${
+                  className={`h-11 w-full min-w-0 2xl:min-w-[140px] rounded-xl border-border bg-secondary font-bold text-sm touch-manipulation ${
                     filtroErrors.duplex ? "ring-2 ring-red-500" : ""
                   }`}
                 >
@@ -768,12 +768,17 @@ export function FacturacionVista() {
                   ))}
                 </SelectContent>
               </Select>
+              {filtroErrors.duplex && (
+                <p className="text-[10px] font-bold text-red-600 leading-snug">
+                  {filtroErrors.duplex}
+                </p>
+              )}
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 min-w-0 w-full sm:col-span-2 2xl:col-auto 2xl:w-auto">
               <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
                 Tipo doc.
               </label>
-              <div className="flex gap-1 bg-secondary p-1 rounded-xl">
+              <div className="flex gap-1 bg-secondary p-1 rounded-xl w-full 2xl:w-auto">
                 {(
                   [
                     ["todos", "Todos"],
@@ -785,7 +790,7 @@ export function FacturacionVista() {
                     key={id}
                     type="button"
                     onClick={() => setTipoDocFilter(id)}
-                    className={`h-8 px-3 rounded-lg text-[10px] font-black uppercase transition-all ${
+                    className={`flex-1 2xl:flex-none h-9 px-3 rounded-lg text-[10px] font-black uppercase transition-all touch-manipulation ${
                       tipoDocFilter === id
                         ? "bg-primary text-primary-foreground shadow"
                         : "text-muted-foreground hover:bg-card"
@@ -800,12 +805,12 @@ export function FacturacionVista() {
               <Button
                 variant="ghost"
                 onClick={clearFilters}
-                className="h-10 text-xs font-bold uppercase tracking-widest text-muted-foreground"
+                className="h-10 text-xs font-bold uppercase tracking-widest text-muted-foreground w-full sm:w-auto"
               >
                 Limpiar
               </Button>
             )}
-            <div className="ml-auto text-right">
+            <div className="sm:col-span-2 2xl:ml-auto text-left 2xl:text-right pt-1">
               <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
                 Visibles
               </p>
@@ -868,14 +873,14 @@ export function FacturacionVista() {
                     aria-label="Seleccionar todos los visibles"
                   />
                 </TableHead>
-                <TableHead className="pl-2 text-[10px] font-black uppercase">
+                <TableHead className="pl-2 text-[10px] font-black uppercase whitespace-nowrap">
                   Unidad / Condo
                 </TableHead>
-                <TableHead className="text-[10px] font-black uppercase">Inquilino</TableHead>
-                <TableHead className="text-center text-[10px] font-black uppercase">
+                <TableHead className="text-[10px] font-black uppercase whitespace-nowrap">Inquilino</TableHead>
+                <TableHead className="text-center text-[10px] font-black uppercase whitespace-nowrap">
                   Estado Legal
                 </TableHead>
-                <TableHead className="text-right pr-8 text-[10px] font-black uppercase">
+                <TableHead className="text-right pr-8 text-[10px] font-black uppercase whitespace-nowrap">
                   Acciones OIMA
                 </TableHead>
               </TableRow>

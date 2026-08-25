@@ -626,28 +626,21 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
   };
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-12 font-sans">
-      <div className="max-w-[1600px] mx-auto space-y-12">
+    <div className="min-h-0 w-full max-w-full overflow-x-hidden bg-background p-3 sm:p-4 md:p-12 font-sans">
+      <div className="max-w-[1600px] mx-auto space-y-6 sm:space-y-8 md:space-y-12">
         
         {/* PANEL HEADER */}
-        <div className="bg-card p-4 md:p-8 rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-border flex flex-col lg:flex-row justify-between items-center gap-6 no-print">
-          <div className="flex items-center gap-4 md:gap-6">
-            <div className="bg-primary p-3 md:p-4 rounded-2xl md:rounded-3xl shadow-xl shadow-primary/20 text-white">
+        <div className="bg-card p-4 sm:p-5 md:p-8 rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-border flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center no-print">
+          <div className="flex items-center gap-3 sm:gap-4 md:gap-6 min-w-0">
+            <div className="bg-primary p-3 md:p-4 rounded-2xl md:rounded-3xl shadow-xl shadow-primary/20 text-white shrink-0">
               <Building2 className="w-6 h-6 md:w-10 md:h-10" />
             </div>
-            <div>
-              <h1 className="text-xl md:text-4xl font-heading font-bold uppercase tracking-tighter text-primary leading-none">Condominios</h1>
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl md:text-4xl font-heading font-bold uppercase tracking-tighter text-primary leading-none truncate">Condominios</h1>
               <p className="text-muted-foreground text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] mt-1">Agus 1, 2 y 3</p>
             </div>
           </div>
-          {/* Botones: Se apilan en móvil */}
-          {/*
-          <div className="flex flex-wrap justify-center gap-2 w-full md:w-auto">
-            <Button className="flex-1 md:flex-none h-10 px-4 rounded-xl bg-amber-500 text-[10px] font-bold">🔔 ALERTAS</Button>
-            <Button variant="outline" className="flex-1 md:flex-none h-10 px-4 rounded-xl text-[10px] font-bold"><Printer className="w-4 h-4 mr-2"/> PDF</Button>
-          </div>
-          */}
-          <div className="flex flex-wrap justify-center gap-2 w-full md:w-auto">
+          <div className="grid grid-cols-2 gap-2 w-full lg:w-auto lg:flex lg:flex-wrap lg:justify-end">
             <Button 
               onClick={() => {
                 const verif = verificarPermisoGranular("condo_morosidad");
@@ -661,9 +654,9 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
                 }
                 setIsAlertasModalOpen(true);
               }}
-              className="flex-1 md:flex-none h-11 px-5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-[10px] md:text-xs flex items-center justify-center gap-2 shadow-md shadow-amber-500/20"
+              className="h-11 px-3 sm:px-5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-[10px] md:text-xs flex items-center justify-center gap-1.5 sm:gap-2 shadow-md shadow-amber-500/20 min-w-0"
             >
-              🔔 ALERTAS (5 DÍAS)
+              <span className="truncate">🔔 <span className="lg:hidden">Alertas</span><span className="hidden lg:inline">ALERTAS (5 DÍAS)</span></span>
             </Button>
 
             <Button 
@@ -680,57 +673,56 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
                 window.print();
               }}
               variant="outline" 
-              className="flex-1 md:flex-none h-11 px-6 rounded-xl border-border font-bold text-[10px] md:text-xs hover:bg-secondary flex items-center justify-center"
+              className="h-11 px-3 sm:px-6 rounded-xl border-border font-bold text-[10px] md:text-xs hover:bg-secondary flex items-center justify-center min-w-0"
             >
-              <Printer className="w-4 h-4 mr-2" /> PDF / IMPRIMIR
+              <Printer className="w-4 h-4 mr-1.5 shrink-0" />
+              <span className="truncate"><span className="lg:hidden">PDF</span><span className="hidden lg:inline">PDF / IMPRIMIR</span></span>
             </Button>
           </div>
 
         </div>
 
         {/* SEARCH BAR */}
-        <div className="bg-card p-6 rounded-[2rem] shadow-sm border border-border flex flex-col md:flex-row gap-4 items-center no-print">
-           <div className="relative flex-1 w-full">
-              <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+        <div className="bg-card p-3 sm:p-4 md:p-6 rounded-2xl md:rounded-[2rem] shadow-sm border border-border flex flex-col gap-3 md:flex-row md:gap-4 md:items-center no-print">
+           <div className="relative flex-1 w-full min-w-0">
+              <Search className="absolute left-4 sm:left-6 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
               <input 
                 type="text" 
-                placeholder="Buscar por inquilino, cédula o NIS..." 
-                className="w-full pl-16 pr-6 py-5 bg-muted rounded-2xl border-none font-bold text-sm text-foreground focus:ring-2 focus:ring-primary transition-all"
+                placeholder="Buscar inquilino, cédula o NIS…" 
+                className="w-full pl-11 sm:pl-16 pr-4 sm:pr-6 py-3 sm:py-4 md:py-5 bg-muted rounded-xl md:rounded-2xl border-none font-bold text-sm text-foreground focus:ring-2 focus:ring-primary transition-all"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
            </div>
 
-           {/* VISTA TOGGLE — Tabla plana predeterminada · Cuadrícula segunda */}
-           <div className="flex gap-1.5 bg-muted p-1.5 rounded-2xl border border-border w-full md:w-auto">
+           <div className="grid grid-cols-2 gap-2 w-full md:flex md:w-auto md:gap-1.5 bg-muted p-1.5 rounded-2xl border border-border">
              <Button
                variant={viewMode === "table" ? "default" : "ghost"}
                onClick={() => setViewMode("table")}
-               className={`flex-1 md:flex-initial h-12 px-6 rounded-xl font-black italic text-xs uppercase transition-all ${
+               className={`h-11 md:h-12 px-3 md:px-6 rounded-xl font-black italic text-[10px] sm:text-xs uppercase transition-all min-w-0 ${
                  viewMode === "table" ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-sidebar-foreground hover:bg-secondary"
                }`}
              >
-               <TableIcon className="w-4 h-4 mr-2" /> Tabla Plana
+               <TableIcon className="w-4 h-4 mr-1.5 shrink-0" /> <span className="truncate">Tabla</span>
              </Button>
              <Button
                variant={viewMode === "grid" ? "default" : "ghost"}
                onClick={() => setViewMode("grid")}
-               className={`flex-1 md:flex-initial h-12 px-6 rounded-xl font-black italic text-xs uppercase transition-all ${
+               className={`h-11 md:h-12 px-3 md:px-6 rounded-xl font-black italic text-[10px] sm:text-xs uppercase transition-all min-w-0 ${
                  viewMode === "grid" ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-sidebar-foreground hover:bg-secondary"
                }`}
              >
-               <LayoutGrid className="w-4 h-4 mr-2" /> Cuadrícula
+               <LayoutGrid className="w-4 h-4 mr-1.5 shrink-0" /> <span className="truncate">Cuadrícula</span>
              </Button>
            </div>
 
-           {/* AGRUPAR: visible en tabla; por defecto Condominio */}
            {viewMode === "table" && (
-              <div className="flex items-center gap-3 bg-neutral-100 dark:bg-muted p-1.5 px-4 h-12 rounded-2xl border border-neutral-200 dark:border-border w-full md:w-auto">
+              <div className="flex items-center gap-2 sm:gap-3 bg-neutral-100 dark:bg-muted p-1.5 px-3 sm:px-4 h-11 md:h-12 rounded-2xl border border-neutral-200 dark:border-border w-full md:w-auto min-w-0">
                <span className="text-[10px] font-black uppercase text-neutral-500 tracking-wider shrink-0">Agrupar:</span>
                <select
                  value={groupBy}
                  onChange={(e) => setGroupBy(e.target.value as any)}
-                 className="bg-transparent border-none font-black text-xs uppercase outline-none cursor-pointer text-orange-600 min-w-0"
+                 className="bg-transparent border-none font-black text-xs uppercase outline-none cursor-pointer text-orange-600 min-w-0 flex-1"
                >
                  <option value="condominio">Condominio</option>
                  <option value="estado">Estado</option>
@@ -739,7 +731,7 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
              </div>
            )}
 
-           <Button variant="outline" className="h-16 px-10 rounded-2xl border-border font-black italic text-xs tracking-widest uppercase w-full md:w-auto">
+           <Button variant="outline" className="hidden md:inline-flex h-16 px-10 rounded-2xl border-border font-black italic text-xs tracking-widest uppercase w-full md:w-auto">
               <Filter className="w-4 h-4 mr-2" /> Filtrar
            </Button>
         </div>
@@ -856,25 +848,26 @@ export default function CondominioDashboard({ empresaId, usuario }: { empresaId:
             ))}
           </div>
         ) : (
-          <Card className="border border-border shadow-xl shadow-primary/5 rounded-[2.5rem] overflow-hidden bg-card print-content-full">
-            <CardHeader className="p-8 border-b border-border flex flex-row items-center justify-between no-print">
-              <div className="flex items-center gap-3">
-                <Building2 className="w-5 h-5 text-primary" />
-                <CardTitle className="text-sm font-bold uppercase tracking-widest text-foreground font-sans">Listado de Unidades (Tabla Plana)</CardTitle>
+          <Card className="border border-border shadow-xl shadow-primary/5 rounded-2xl md:rounded-[2.5rem] overflow-hidden bg-card print-content-full w-full max-w-full">
+            <CardHeader className="p-4 sm:p-6 md:p-8 border-b border-border flex flex-row items-center justify-between gap-2 no-print">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <Building2 className="w-5 h-5 text-primary shrink-0" />
+                <CardTitle className="text-[11px] sm:text-sm font-bold uppercase tracking-widest text-foreground font-sans truncate">Listado de Unidades (Tabla Plana)</CardTitle>
               </div>
-              <Badge className="bg-slate-900 text-white text-[9px] rounded-full px-3 py-1 font-black italic border-none">
+              <Badge className="bg-slate-900 text-white text-[9px] rounded-full px-3 py-1 font-black italic border-none shrink-0">
                 {filteredUnits.length} REGISTROS
               </Badge>
             </CardHeader>
-            <div className="overflow-x-auto print-content-full">
+            {/* Scroll X en celular/iPad/tablet vía table-container (globals.css) */}
+            <div className="w-full max-w-full print-content-full">
               <Table className="print-content-full">
                 <TableHeader className="bg-muted">
                   <TableRow>
                     {columnOrder.map((colKey, colIdx) => (
-                      <TableHead key={colKey} className="py-4 text-[10px] font-black uppercase text-muted-foreground select-none relative group">
+                      <TableHead key={colKey} className="py-4 text-[10px] font-black uppercase text-muted-foreground select-none relative group whitespace-nowrap">
                         <div className="flex items-center justify-between gap-2">
                           <span>{columnLabels[colKey]}</span>
-                          <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity bg-card/85 p-0.5 rounded border border-border/40 shadow-sm gap-0.5 no-print">
+                          <div className="hidden lg:flex items-center opacity-0 group-hover:opacity-100 transition-opacity bg-card/85 p-0.5 rounded border border-border/40 shadow-sm gap-0.5 no-print">
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); handleShiftColumn(colKey, "left"); }}

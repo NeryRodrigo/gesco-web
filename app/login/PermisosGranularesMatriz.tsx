@@ -310,16 +310,16 @@ export function PermisosGranularesMatriz({
   const verifResultado = permisoAProbar ? verificarPermisoGranular(permisoAProbar.id, usuarioActual.email) : null;
 
   return (
-    <div className="bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 text-white p-6 sm:p-8 rounded-3xl border border-slate-800 shadow-2xl space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+    <div className="bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 text-white p-4 sm:p-6 md:p-8 rounded-3xl border border-slate-800 shadow-2xl space-y-6 animate-in slide-in-from-bottom-4 duration-500 w-full max-w-full overflow-x-hidden">
       {/* Cabecera y Selector de Usuario */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b border-slate-800/80 pb-6">
-        <div className="flex items-start gap-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center justify-between border-b border-slate-800/80 pb-6">
+        <div className="flex items-start gap-3 sm:gap-4 min-w-0">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-black text-xl shadow-lg shadow-blue-500/20 shrink-0 border border-white/10">
             <ShieldCheck className="w-6 h-6" />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-lg sm:text-xl font-black italic uppercase tracking-tight text-white">
+              <h3 className="text-base sm:text-lg md:text-xl font-black italic uppercase tracking-tight text-white leading-snug">
                 Matriz de Permisos y Comportamientos por Módulo
               </h3>
               <span className="bg-blue-500/20 text-blue-300 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border border-blue-500/30">
@@ -333,7 +333,7 @@ export function PermisosGranularesMatriz({
         </div>
 
         {/* Selector de Usuario */}
-        <div className="flex items-center gap-2 bg-slate-800/60 p-2.5 rounded-2xl border border-slate-700/60">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 bg-slate-800/60 p-2.5 rounded-2xl border border-slate-700/60 w-full lg:w-auto lg:max-w-md min-w-0">
           <span className="text-[11px] font-black uppercase text-muted-foreground px-2 flex items-center gap-1.5 shrink-0">
             <User className="w-3.5 h-3.5 text-amber-400" /> Configurar Usuario:
           </span>
@@ -344,7 +344,7 @@ export function PermisosGranularesMatriz({
               setSelectedId(id);
               if (onSelectUsuario) onSelectUsuario(id);
             }}
-            className="bg-slate-900 text-white font-bold text-xs rounded-xl px-4 py-2 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-inner min-w-[240px]"
+            className="bg-slate-900 text-white font-bold text-xs rounded-xl px-3 py-2 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-inner w-full min-w-0 truncate"
           >
             {usuarios.map(u => (
               <option key={u.usuarioId} value={u.usuarioId} className="font-bold py-1">
@@ -407,8 +407,8 @@ export function PermisosGranularesMatriz({
       </div>
 
       {/* Pestañas / Filtro por Módulo */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
-        <span className="text-[11px] font-black uppercase text-muted-foreground flex items-center gap-1 mr-2 shrink-0">
+      <div className="mobile-tabs-scroll items-center gap-2 pb-2">
+        <span className="text-[11px] font-black uppercase text-muted-foreground flex items-center gap-1 mr-1 shrink-0">
           <Filter className="w-3.5 h-3.5" /> Filtrar Módulo:
         </span>
         {modulosDisponibles.map(mod => {
@@ -423,7 +423,7 @@ export function PermisosGranularesMatriz({
             <button
               key={mod}
               onClick={() => setModuloFiltro(mod)}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-2 ${
+              className={`px-3 sm:px-4 py-2 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-2 shrink-0 ${
                 moduloFiltro === mod 
                   ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30 border border-blue-400/30" 
                   : "bg-slate-800/80 text-muted-foreground hover:bg-slate-800 hover:text-white border border-slate-700/50"
@@ -441,16 +441,16 @@ export function PermisosGranularesMatriz({
       </div>
 
       {/* Datatable Granular de Comportamientos */}
-      <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/70 shadow-inner">
-        <table className="w-full text-left border-collapse text-xs sm:text-sm">
+      <div data-mobile-scroll="x" className="mobile-scroll-x rounded-2xl border border-slate-800 bg-slate-950/70 shadow-inner">
+        <table className="w-full text-left border-collapse text-xs sm:text-sm min-w-[900px]">
           <thead>
             <tr className="bg-slate-900/95 text-muted-foreground font-black uppercase text-[11px] tracking-wider border-b border-slate-800">
-              <th className="py-4 px-5">Módulo del Sistema</th>
-              <th className="py-4 px-5">Comportamiento / Opción Operativa</th>
-              <th className="py-4 px-5">Descripción de la Funcionalidad</th>
-              <th className="py-4 px-5 text-center">Permiso</th>
-              <th className="py-4 px-5 text-center">Estado de Acceso</th>
-              <th className="py-4 px-5 text-right">Probar Intercepción</th>
+              <th className="py-4 px-5 whitespace-nowrap">Módulo del Sistema</th>
+              <th className="py-4 px-5 whitespace-nowrap">Comportamiento / Opción Operativa</th>
+              <th className="py-4 px-5 whitespace-nowrap">Descripción de la Funcionalidad</th>
+              <th className="py-4 px-5 text-center whitespace-nowrap">Permiso</th>
+              <th className="py-4 px-5 text-center whitespace-nowrap">Estado de Acceso</th>
+              <th className="py-4 px-5 text-right whitespace-nowrap">Probar Intercepción</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/60 font-medium">
