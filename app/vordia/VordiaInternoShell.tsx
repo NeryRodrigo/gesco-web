@@ -24,14 +24,14 @@ export function VordiaModuloVacio({
   icon?: ReactNode;
 }) {
   return (
-    <div className="animate-in fade-in duration-300 space-y-6">
-      <div className="rounded-[1.75rem] border border-white/5 bg-[#0C1327] p-8 lg:p-12 shadow-2xl">
-        <div className="flex flex-col items-start gap-4 max-w-2xl">
+    <div className="vordia-hq-page animate-in fade-in duration-300 space-y-6">
+      <div className="rounded-[1.75rem] border border-white/5 bg-[#0C1327] p-6 sm:p-8 lg:p-12 shadow-2xl">
+        <div className="flex flex-col items-start gap-4 max-w-2xl min-w-0">
           <div className="h-12 w-12 rounded-2xl bg-[#007bff]/15 border border-[#007bff]/30 flex items-center justify-center text-[#007bff]">
             {icon ?? <LayoutDashboard size={22} />}
           </div>
-          <div>
-            <h3 className="text-2xl lg:text-3xl font-semibold tracking-tight text-white">
+          <div className="min-w-0">
+            <h3 className="text-xl sm:text-2xl lg:text-3xl font-semibold tracking-tight text-white">
               {titulo}
             </h3>
             <p className="mt-2 text-sm lg:text-base text-[#94a3b8] leading-relaxed">

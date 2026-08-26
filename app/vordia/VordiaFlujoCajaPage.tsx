@@ -90,10 +90,10 @@ export function VordiaFlujoCajaPage({ empresaId }: Props) {
   const maxMes = Math.max(1, ...(flujo?.ultimosMeses.map((m) => m.ingresos) || [1]));
 
   return (
-    <div className="animate-in fade-in duration-300 space-y-4">
+    <div className="vordia-hq-page animate-in fade-in duration-300 space-y-4">
       <div className="rounded-[1.5rem] border border-white/5 bg-[#0C1327] p-4 lg:p-5 flex items-start gap-3">
         <Wallet size={18} className="text-[#007bff] mt-0.5 shrink-0" />
-        <div>
+        <div className="min-w-0">
           <p className="text-sm text-white font-medium">Flujo de caja y reparto de socios</p>
           <p className="text-xs text-[#94a3b8] mt-1">
             Se calcula desde los pagos reales. El reparto usa los % de cada socio sobre cobrado del mes, total y MRR.
@@ -182,14 +182,14 @@ export function VordiaFlujoCajaPage({ empresaId }: Props) {
       </div>
 
       {editSocio && (
-        <div className="fixed inset-0 z-[80] bg-black/60 flex items-center justify-center p-4" onClick={() => setEditSocio(null)}>
-          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#0C1327] p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="vordia-modal fixed inset-0 z-[80] bg-black/60 flex items-center justify-center p-4" onClick={() => setEditSocio(null)}>
+          <div className="vordia-modal-panel w-full max-w-sm rounded-2xl border border-white/10 bg-[#0C1327] p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-semibold text-white">% de {editSocio.nombre}</h3>
-              <button type="button" onClick={() => setEditSocio(null)} className="text-slate-500 hover:text-white"><X size={18} /></button>
+              <button type="button" onClick={() => setEditSocio(null)} className="vordia-icon-btn text-slate-500 hover:text-white"><X size={18} /></button>
             </div>
             <Input type="number" value={pct} onChange={(e) => setPct(e.target.value)} className="bg-[#050B18] border-white/10 text-white rounded-xl" />
-            <div className="flex justify-end gap-2">
+            <div className="vordia-modal-actions flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setEditSocio(null)} className="rounded-xl text-slate-400">Cancelar</Button>
               <Button onClick={guardarSocio} className="bg-[#007bff] hover:bg-[#0069d9] rounded-xl font-bold">Guardar</Button>
             </div>

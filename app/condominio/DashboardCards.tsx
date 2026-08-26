@@ -599,8 +599,8 @@ export function DashboardCards({
         return;
       }
       startTransition(() => {
-        setDetailView(view);
-        setColFilters({});
+      setDetailView(view);
+      setColFilters({});
         setListPage(1);
         if (view !== "cobrados" && groupByDetail === "comprobante") {
           setGroupByDetail("condominio");
@@ -704,7 +704,7 @@ export function DashboardCards({
             const dateStr = ande.fechaPagoLabel || "";
             if (!dateStr.toLowerCase().includes(deferredColFilters.fechaPago.toLowerCase())) return false;
           } else {
-            const isPagado = item.andePagadoEsteMes;
+          const isPagado = item.andePagadoEsteMes;
             const dateStr = isPagado && item.andeFechaPago ? new Date(item.andeFechaPago).toLocaleDateString() : "";
             if (!dateStr.toLowerCase().includes(deferredColFilters.fechaPago.toLowerCase())) return false;
           }
@@ -717,8 +717,8 @@ export function DashboardCards({
               : "sin consultar";
             if (!str.includes(deferredColFilters.estadoPago.toLowerCase())) return false;
           } else {
-            const isPagado = item.andePagadoEsteMes;
-            const str = isPagado ? "al dia al día pagado sin deuda" : "pendiente activa no pagado emitido factura emitida prox proxima próxima emisión";
+          const isPagado = item.andePagadoEsteMes;
+          const str = isPagado ? "al dia al día pagado sin deuda" : "pendiente activa no pagado emitido factura emitida prox proxima próxima emisión";
             if (!str.includes(deferredColFilters.estadoPago.toLowerCase())) return false;
           }
         }
@@ -728,11 +728,11 @@ export function DashboardCards({
             const str = `${ande.consumoKw} kw`.toLowerCase();
             if (!str.includes(deferredColFilters.consumo.toLowerCase())) return false;
           } else {
-            const isPagado = item.andePagadoEsteMes;
-            const montoFactura = item.andeMontoDeuda || 0;
-            const montoReal = item.andeMontoDeuda ? item.andeMontoDeuda : (isPagado ? ((parseInt((item.nisAnde || "0").slice(-2)) * 2500) + 85000) : montoFactura);
-            const kWConsumo = item.andeConsumoKw || Math.round((montoReal - 85000) / 450);
-            const str = `${kWConsumo} kw`.toLowerCase();
+          const isPagado = item.andePagadoEsteMes;
+          const montoFactura = item.andeMontoDeuda || 0;
+          const montoReal = item.andeMontoDeuda ? item.andeMontoDeuda : (isPagado ? ((parseInt((item.nisAnde || "0").slice(-2)) * 2500) + 85000) : montoFactura);
+          const kWConsumo = item.andeConsumoKw || Math.round((montoReal - 85000) / 450);
+          const str = `${kWConsumo} kw`.toLowerCase();
             if (!str.includes(deferredColFilters.consumo.toLowerCase())) return false;
           }
         }
@@ -742,8 +742,8 @@ export function DashboardCards({
             const val = ande.monto || 0;
             if (!val.toString().includes(deferredColFilters.monto) && !val.toLocaleString().includes(deferredColFilters.monto)) return false;
           } else {
-            const isPagado = item.andePagadoEsteMes;
-            const montoFactura = item.andeMontoDeuda || 0;
+          const isPagado = item.andePagadoEsteMes;
+          const montoFactura = item.andeMontoDeuda || 0;
             const montoReal = montoFactura;
             const val = item.montoRestante || montoReal || item.monto || 0;
             if (!val.toString().includes(deferredColFilters.monto) && !val.toLocaleString().includes(deferredColFilters.monto)) return false;
@@ -760,9 +760,9 @@ export function DashboardCards({
             const str = `${tipo} ${item.numeroFactura || item.factura || item.tipoComprobante || item.estadoFactura || ""}`.toLowerCase();
             if (!str.includes(f)) return false;
           } else {
-            const str = `${item.factura || item.numeroFactura || item.estadoFactura || ""}`.toLowerCase();
+          const str = `${item.factura || item.numeroFactura || item.estadoFactura || ""}`.toLowerCase();
             if (!str.includes(f)) return false;
-          }
+        }
         }
         if (deferredColFilters.interes) {
           const val = item.interesAcumulado || 0;
@@ -914,7 +914,7 @@ export function DashboardCards({
                   ) : (
                     <p className={`font-bold text-sm ${detailView === "disponibles" ? "text-emerald-400" : "text-slate-100"}`}>{item.inquilino}</p>
                   )}
-                  {detailView === "ocupados" && item.ocupantes && (
+              {detailView === "ocupados" && item.ocupantes && (
                     <p className="text-[10px] text-slate-400">{item.ocupantes} ocupantes</p>
                   )}
                   {detailView === "morosos" && (
@@ -959,12 +959,12 @@ export function DashboardCards({
                     </>
                 );
                 }
-
+                
                 if (!ande.consulted) {
                 return (
-                    <>
+                <>
                     <td className="px-8 py-4 text-center">
-                      <div className="flex flex-col items-center gap-1.5">
+                    <div className="flex flex-col items-center gap-1.5">
                         <Badge className="bg-muted text-muted-foreground font-black px-3 border-none uppercase tracking-widest">{item.nisAnde}</Badge>
                         <Badge className="bg-slate-100 text-slate-500 text-[9px] font-bold px-2 py-0.5 border border-slate-200 uppercase tracking-tighter">
                           SIN CONSULTAR
@@ -1031,9 +1031,9 @@ export function DashboardCards({
                     <td className="px-8 py-4 text-center">
                     {(isPagado || esperandoMesActual) && fechaPagoLabel ? (
                         <div className="flex flex-col items-center gap-0.5">
-                          <p className="text-[10px] font-bold text-muted-foreground bg-muted py-1 px-2 rounded-md inline-block">
+                        <p className="text-[10px] font-bold text-muted-foreground bg-muted py-1 px-2 rounded-md inline-block">
                           {fechaPagoLabel}
-                          </p>
+                        </p>
                           {esperandoMesActual && (
                             <span className="text-[8px] font-bold text-red-400 uppercase tracking-tighter">Pago última emitida</span>
                           )}
@@ -1146,7 +1146,7 @@ export function DashboardCards({
                             } font-black italic text-[9px] uppercase`}
                           >
                             {esFactura ? "Factura" : "Recibo"}
-                          </Badge>
+                    </Badge>
                           {nro ? (
                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">
                               {nro}
@@ -1302,7 +1302,7 @@ export function DashboardCards({
                 <X className="w-3.5 h-3.5 text-red-500" /> Limpiar Filtros
               </button>
             )}
-
+            
             {detailView === "morosos" && (
               <Button
                 onClick={() => setIsMorosidadesOpen(true)}
@@ -1334,16 +1334,16 @@ export function DashboardCards({
               </span>
             )}
             {detailView === "andeNIS" && (
-              <button
-                onClick={() => {
-                  setSelectedNisForModal("");
-                  setIsAndeModalOpen(true);
-                }}
+            <button
+              onClick={() => {
+                setSelectedNisForModal("");
+                setIsAndeModalOpen(true);
+              }}
                 className="bg-card hover:bg-muted text-foreground text-[10px] font-black uppercase px-3 py-2 rounded-full border border-black/15 shadow-sm transition-all mr-1"
                 title="Consulta puntual de un NIS"
-              >
+            >
                 NIS puntual
-              </button>
+            </button>
             )}
             <button
               onClick={async () => {
@@ -1721,7 +1721,7 @@ export function DashboardCards({
                   className="mt-0.5 text-[0.95rem] lg:text-lg font-heading font-extrabold text-foreground leading-snug tabular-nums tracking-tight break-words"
                 >
                   {displayText}
-                </h3>
+              </h3>
                 {metric.suffix ? (
                   <span className="block text-[9px] lg:text-[10px] font-sans font-semibold text-muted-foreground">
                     {metric.suffix.trim()}

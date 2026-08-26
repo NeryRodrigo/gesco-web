@@ -144,15 +144,15 @@ export function VordiaIngresosPage({ empresaId, usuario }: Props) {
   ];
 
   return (
-    <div className="animate-in fade-in duration-300 space-y-4">
-      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between rounded-[1.5rem] border border-white/5 bg-[#0C1327] p-4 lg:p-5">
-        <div>
+    <div className="vordia-hq-page animate-in fade-in duration-300 space-y-4">
+      <div className="vordia-toolbar flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between rounded-[1.5rem] border border-white/5 bg-[#0C1327] p-4 lg:p-5">
+        <div className="min-w-0">
           <p className="text-sm text-white font-medium">Ingresos recurrentes y historial de pagos</p>
           <p className="text-xs text-[#94a3b8] mt-1">
             Activos: {resumen?.contratosActivos ?? 0} · Pendientes: {resumen?.contratosPendientesPago ?? 0} · Vencidos: {resumen?.contratosVencidos ?? 0}
           </p>
         </div>
-        <Button onClick={abrirPago} className="bg-[#007bff] hover:bg-[#0069d9] rounded-xl font-bold gap-2">
+        <Button onClick={abrirPago} className="bg-[#007bff] hover:bg-[#0069d9] rounded-xl font-bold gap-2 w-full sm:w-auto shrink-0">
           <Plus size={16} /> Registrar pago
         </Button>
       </div>
@@ -216,8 +216,8 @@ export function VordiaIngresosPage({ empresaId, usuario }: Props) {
       </div>
 
       {modalOpen && (
-        <div className="fixed inset-0 z-[80] bg-black/60 flex items-center justify-center p-4" onClick={() => setModalOpen(false)}>
-          <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#0C1327] p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="vordia-modal fixed inset-0 z-[80] bg-black/60 flex items-center justify-center p-4" onClick={() => setModalOpen(false)}>
+          <div className="vordia-modal-panel w-full max-w-lg rounded-2xl border border-white/10 bg-[#0C1327] p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-semibold text-white">Registrar pago</h3>
               <button type="button" onClick={() => setModalOpen(false)} className="text-slate-500 hover:text-white"><X size={18} /></button>
@@ -265,7 +265,7 @@ export function VordiaIngresosPage({ empresaId, usuario }: Props) {
                 Marcar contrato al día y avanzar vencimiento
               </label>
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="vordia-modal-actions flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setModalOpen(false)} className="rounded-xl text-slate-400">Cancelar</Button>
               <Button onClick={registrar} className="bg-[#007bff] hover:bg-[#0069d9] rounded-xl font-bold">Registrar</Button>
             </div>

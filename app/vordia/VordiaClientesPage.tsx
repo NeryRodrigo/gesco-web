@@ -263,10 +263,10 @@ export function VordiaClientesPage({ empresaId, usuario }: Props) {
   }, [clientes, q]);
 
   return (
-    <div className="animate-in fade-in duration-300 space-y-4">
-      <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between rounded-[1.5rem] border border-white/5 bg-[#0C1327] p-4 lg:p-5">
-        <div className="flex flex-1 flex-col sm:flex-row gap-3">
-          <div className="relative flex-1 max-w-md">
+    <div className="vordia-hq-page animate-in fade-in duration-300 space-y-4">
+      <div className="vordia-toolbar flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between rounded-[1.5rem] border border-white/5 bg-[#0C1327] p-4 lg:p-5">
+        <div className="flex flex-1 flex-col sm:flex-row gap-3 min-w-0">
+          <div className="relative flex-1 max-w-md w-full">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
             <Input
               value={q}
@@ -279,7 +279,7 @@ export function VordiaClientesPage({ empresaId, usuario }: Props) {
           <select
             value={filtroEstado}
             onChange={(e) => setFiltroEstado(e.target.value)}
-            className="bg-[#050B18] border border-white/10 text-slate-300 rounded-xl px-3 py-2 text-sm"
+            className="bg-[#050B18] border border-white/10 text-slate-300 rounded-xl px-3 py-2 text-sm w-full sm:w-auto"
           >
             <option value="">Todos los estados</option>
             {PIPELINE_ESTADOS.map((e) => (
@@ -287,7 +287,7 @@ export function VordiaClientesPage({ empresaId, usuario }: Props) {
             ))}
           </select>
         </div>
-        <Button onClick={abrirNuevo} className="bg-[#007bff] hover:bg-[#0069d9] rounded-xl font-bold gap-2">
+        <Button onClick={abrirNuevo} className="bg-[#007bff] hover:bg-[#0069d9] rounded-xl font-bold gap-2 w-full lg:w-auto shrink-0">
           <Plus size={16} /> Nuevo cliente
         </Button>
       </div>
@@ -332,7 +332,7 @@ export function VordiaClientesPage({ empresaId, usuario }: Props) {
                       tabIndex={0}
                       onClick={(e) => { e.stopPropagation(); abrirEditar(c); }}
                       onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); abrirEditar(c); } }}
-                      className="p-2 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"
+                      className="vordia-icon-btn p-2 rounded-lg text-slate-500 hover:text-white hover:bg-white/5"
                     >
                       <Pencil size={14} />
                     </span>
@@ -341,7 +341,7 @@ export function VordiaClientesPage({ empresaId, usuario }: Props) {
                       tabIndex={0}
                       onClick={(e) => { e.stopPropagation(); eliminar(c); }}
                       onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); eliminar(c); } }}
-                      className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-white/5"
+                      className="vordia-icon-btn p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-white/5"
                     >
                       <Trash2 size={14} />
                     </span>
@@ -416,9 +416,9 @@ export function VordiaClientesPage({ empresaId, usuario }: Props) {
       </div>
 
       {modalOpen && (
-        <div className="fixed inset-0 z-[80] bg-black/60 flex items-center justify-center p-4" onClick={() => setModalOpen(false)}>
+        <div className="vordia-modal fixed inset-0 z-[80] bg-black/60 flex items-center justify-center p-4" onClick={() => setModalOpen(false)}>
           <div
-            className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 bg-[#0C1327] p-5 lg:p-6 space-y-4"
+            className="vordia-modal-panel w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 bg-[#0C1327] p-5 lg:p-6 space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
@@ -488,7 +488,7 @@ export function VordiaClientesPage({ empresaId, usuario }: Props) {
                 />
               </div>
             </div>
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="vordia-modal-actions flex justify-end gap-2 pt-2">
               <Button variant="ghost" onClick={() => setModalOpen(false)} className="rounded-xl text-slate-400">Cancelar</Button>
               <Button onClick={guardar} className="bg-[#007bff] hover:bg-[#0069d9] rounded-xl font-bold">Guardar</Button>
             </div>

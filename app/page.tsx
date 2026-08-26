@@ -6,7 +6,8 @@ import {
   AlertTriangle, LayoutDashboard, ChevronRight, MapPin, Edit, Trash2, ArrowLeft, 
   ExternalLink, Save, X, DollarSign, Ruler, ShieldCheck, XCircle, 
   Search, Filter, Sparkles, User, Building2, Wallet, LogOut, 
-  Activity, Users, FileText, Cpu, Lock, History, Settings, List, CheckSquare, Menu, Bed
+  Activity, Users, FileText, Cpu, Lock, History, Settings, List, CheckSquare, Menu, Bed,
+  Package, FolderKanban, Truck, FolderOpen, Zap, Map, BarChart3, CreditCard, LineChart
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,9 +37,9 @@ import { ProduccionPage } from "./produccion/ProduccionPage";
 import { ContabilidadPage } from "./contabilidad/ContabilidadPage";
 import { MigradorPage } from "./configuracion/MigradorPage";
 import { FontanaPage } from "./fontana/FontanaPage";
-import {
-  VordiaResumenOperativo,
-} from "./vordia/VordiaInternoShell";
+import { VordiaModuloVacio } from "./vordia/VordiaInternoShell";
+import { VordiaHqInicio } from "./vordia/VordiaHqInicio";
+import { VordiaHqSidebarNav, VordiaHqHealthWidget, VORDIA_HQ_TITULOS } from "./vordia/VordiaHqNav";
 import { VordiaClientesPage } from "./vordia/VordiaClientesPage";
 import { VordiaPipelinePage } from "./vordia/VordiaPipelinePage";
 import { VordiaContratosPage } from "./vordia/VordiaContratosPage";
@@ -86,7 +87,19 @@ type Vista =
   | "vordia_contratos"
   | "vordia_ingresos"
   | "vordia_tareas"
-  | "vordia_caja";
+  | "vordia_caja"
+  | "vordia_productos"
+  | "vordia_proyectos"
+  | "vordia_finanzas_resumen"
+  | "vordia_cxc"
+  | "vordia_gastos"
+  | "vordia_cxp"
+  | "vordia_proyecciones"
+  | "vordia_proveedores"
+  | "vordia_documentos"
+  | "vordia_automatizaciones"
+  | "vordia_roadmap"
+  | "vordia_reportes";
 
 export default function OimaDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -266,7 +279,7 @@ export default function OimaDashboard() {
   }
 
   return (
-    <div className="flex min-h-dvh bg-[#050B18] text-white font-sans overflow-x-hidden">
+    <div className={`flex min-h-dvh bg-[#050B18] text-white font-sans overflow-x-hidden ${isUsuarioVordia ? "vordia-hq" : ""}`}>
       
       {/* SIDEBAR — drawer en móvil; ancho fijo w-72 en escritorio (como antes) */}
       <aside
@@ -294,15 +307,16 @@ export default function OimaDashboard() {
           
           <div className="mb-6 lg:mb-12 w-full flex justify-start lg:justify-center cursor-pointer" onClick={() => { setVistaActual("inicio"); setIsMobileMenuOpen(false); }}>
             {isUsuarioVordia ? (
-              <div className="flex items-center gap-3 w-full justify-start lg:justify-center">
+              <div className="flex items-center gap-3 w-full justify-start">
                 <img
                   src="/images/ISOTIPO.png"
-                  alt="Vordia"
-                  className="h-10 w-10 object-contain drop-shadow-[0_0_20px_rgba(0,123,255,0.35)]"
+                  alt="Vordia HQ"
+                  className="h-9 w-9 object-contain drop-shadow-[0_0_20px_rgba(0,123,255,0.35)]"
                 />
-                <span className="text-xl font-black tracking-[0.2em] text-white uppercase">
-                  Vordia
-                </span>
+                <div className="leading-tight">
+                  <p className="text-[10px] font-black tracking-[0.28em] text-[#5eb0ff] uppercase">Vordia</p>
+                  <p className="text-sm font-bold tracking-[0.12em] text-white uppercase">HQ Headquarters</p>
+                </div>
               </div>
             ) : isUsuarioCondominio ? (
               <img
@@ -321,67 +335,18 @@ export default function OimaDashboard() {
 
           <nav className="w-full space-y-1 overflow-y-auto max-h-[calc(100dvh-280px)] lg:max-h-[calc(100vh-320px)] custom-scrollbar overscroll-contain">
             <p className="text-[10px] font-black uppercase text-[#007bff] tracking-[0.2em] mb-4 lg:mb-6 ml-2">
-              {isUsuarioVordia ? "Módulos de Gestión" : "Módulo de gestión"}
+              {isUsuarioVordia ? "Vordia HQ" : "Módulo de gestión"}
             </p>
             
             <div className="space-y-1.5">
               {isUsuarioVordia ? (
-                <>
-                  <SidebarItem
-                    icon={<LayoutDashboard size={18}/>}
-                    label="Dashboard"
-                    active={vistaActual === "inicio"}
-                    onClick={() => { setVistaActual("inicio"); setIsMobileMenuOpen(false); }}
-                  />
-                  <SidebarItem
-                    icon={<Users size={18}/>}
-                    label="Clientes"
-                    active={vistaActual === "vordia_clientes"}
-                    onClick={() => { setVistaActual("vordia_clientes"); setIsMobileMenuOpen(false); }}
-                  />
-                  <SidebarItem
-                    icon={<List size={18}/>}
-                    label="Pipeline"
-                    active={vistaActual === "vordia_pipeline"}
-                    onClick={() => { setVistaActual("vordia_pipeline"); setIsMobileMenuOpen(false); }}
-                  />
-                  <SidebarItem
-                    icon={<FileText size={18}/>}
-                    label="Contratos y fees"
-                    active={vistaActual === "vordia_contratos"}
-                    onClick={() => { setVistaActual("vordia_contratos"); setIsMobileMenuOpen(false); }}
-                  />
-                  <SidebarItem
-                    icon={<DollarSign size={18}/>}
-                    label="Ingresos y pagos"
-                    active={vistaActual === "vordia_ingresos"}
-                    onClick={() => { setVistaActual("vordia_ingresos"); setIsMobileMenuOpen(false); }}
-                  />
-                  <SidebarItem
-                    icon={<Wallet size={18}/>}
-                    label="Flujo de caja"
-                    active={vistaActual === "vordia_caja"}
-                    onClick={() => { setVistaActual("vordia_caja"); setIsMobileMenuOpen(false); }}
-                  />
-                  <SidebarItem
-                    icon={<CheckSquare size={18}/>}
-                    label="Tareas"
-                    active={vistaActual === "vordia_tareas"}
-                    onClick={() => { setVistaActual("vordia_tareas"); setIsMobileMenuOpen(false); }}
-                  />
-                  <SidebarItem
-                    icon={<Settings size={18}/>}
-                    label="Configuración"
-                    active={vistaActual === "configuracion"}
-                    onClick={() => { setVistaActual("configuracion"); setIsMobileMenuOpen(false); }}
-                  />
-                  <SidebarItem
-                    icon={<ShieldCheck size={18}/>}
-                    label="Usuarios / Roles"
-                    active={vistaActual === "usuarios"}
-                    onClick={() => { setVistaActual("usuarios"); setIsMobileMenuOpen(false); }}
-                  />
-                </>
+                <VordiaHqSidebarNav
+                  vistaActual={vistaActual}
+                  onNavigate={(v) => {
+                    setVistaActual(v as Vista);
+                    setIsMobileMenuOpen(false);
+                  }}
+                />
               ) : (
                 <>
               <SidebarItem 
@@ -452,14 +417,17 @@ export default function OimaDashboard() {
           </nav>
         </div>
 
-        <div className="mt-auto p-5 lg:p-6 bg-[#0B1222]/50 border-t border-white/5">
+        <div className="mt-auto p-5 lg:p-6 bg-[#0B1222]/50 border-t border-white/5 space-y-3">
+          {isUsuarioVordia && <VordiaHqHealthWidget score={87} />}
           <div className="flex items-center gap-3 min-w-0">
             <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-xs shadow-lg shadow-blue-600/20 shrink-0">
               {usuarioActivo?.nombre?.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 overflow-hidden text-left min-w-0">
               <p className="text-xs font-bold truncate text-white">{usuarioActivo?.nombre}</p>
-              <p className="text-[9px] text-blue-400 font-black uppercase tracking-widest truncate">{usuarioActivo?.rol}</p>
+              <p className="text-[9px] text-blue-400 font-black uppercase tracking-widest truncate">
+                {isUsuarioVordia ? (usuarioActivo?.rol || "Dirección") : usuarioActivo?.rol}
+              </p>
             </div>
             <button type="button" onClick={handleLogoutConfirmation} className="text-slate-500 hover:text-red-400 transition-colors p-2 shrink-0" aria-label="Cerrar sesión">
               <LogOut size={16} />
@@ -490,34 +458,33 @@ export default function OimaDashboard() {
               <Menu size={28} strokeWidth={2.5} />
             </button>   
 
-            <h2 className="mobile-title lg:text-2xl font-semibold text-white tracking-tight truncate capitalize lg:normal-case">
-              {vistaActual === "inicio"
+            <h2 className={`mobile-title lg:text-2xl font-semibold text-white tracking-tight truncate capitalize lg:normal-case ${isUsuarioVordia ? "max-lg:text-[1.05rem]" : ""}`}>
+              {isUsuarioVordia && VORDIA_HQ_TITULOS[vistaActual]
+                ? VORDIA_HQ_TITULOS[vistaActual]
+                : vistaActual === "inicio"
                 ? "Resumen operativo"
                 : vistaActual === "condominio"
                   ? "Gestión de unidades"
                   : vistaActual === "fontana"
                     ? "Fontana · Hospedaje"
-                    : vistaActual === "vordia_clientes"
-                      ? "Clientes"
-                      : vistaActual === "vordia_pipeline"
-                        ? "Pipeline comercial"
-                        : vistaActual === "vordia_contratos"
-                          ? "Contratos y fees"
-                          : vistaActual === "vordia_ingresos"
-                            ? "Ingresos y pagos"
-                            : vistaActual === "vordia_tareas"
-                              ? "Tareas"
-                              : vistaActual === "vordia_caja"
-                                ? "Flujo de caja"
-                              : vistaActual.replace(/_/g, " ")}
+                    : vistaActual.replace(/_/g, " ")}
             </h2>
           </div>
 
           <div className="flex items-center gap-2 lg:gap-4 shrink-0">
             <div className="hidden md:flex items-center bg-white/5 border border-white/10 rounded-xl px-4 py-2 gap-3 text-slate-400">
                 <Search size={16} />
-                <input type="text" placeholder="Buscar…" className="bg-transparent border-none outline-none text-xs w-40" />
+                <input
+                  type="text"
+                  placeholder={isUsuarioVordia ? "Buscar en VORDIA HQ…" : "Buscar…"}
+                  className="bg-transparent border-none outline-none text-xs w-40"
+                />
             </div>
+            {isUsuarioVordia && (
+              <div className="hidden lg:flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Periodo: {new Date().toLocaleDateString("es-PY", { month: "long", year: "numeric" })}
+              </div>
+            )}
             <button type="button" className="h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 text-slate-400" aria-label="Actividad">
                 <Activity size={18} />
             </button>
@@ -525,10 +492,14 @@ export default function OimaDashboard() {
 
         </header>
 
-        <div className="flex-1 p-3 sm:p-4 lg:p-6 pb-2 min-w-0 max-w-full overflow-x-hidden">
+        <div className={`flex-1 p-3 sm:p-4 lg:p-6 pb-2 min-w-0 max-w-full overflow-x-hidden ${isUsuarioVordia ? "vordia-hq-content" : ""}`}>
           
           {vistaActual === "inicio" && isUsuarioVordia && (
-            <VordiaResumenOperativo nombreUsuario={usuarioActivo?.nombre} empresaId={empresaId} />
+            <VordiaHqInicio
+              nombreUsuario={usuarioActivo?.nombre}
+              empresaId={empresaId}
+              onNavigate={(v) => setVistaActual(v as Vista)}
+            />
           )}
 
           {vistaActual === "inicio" && !isUsuarioVordia && condoDashboardData && (
@@ -581,6 +552,92 @@ export default function OimaDashboard() {
 
           {vistaActual === "vordia_tareas" && isUsuarioVordia && (
             <VordiaTareasPage empresaId={empresaId} usuario={usuarioActivo} />
+          )}
+
+          {vistaActual === "vordia_finanzas_resumen" && isUsuarioVordia && (
+            <VordiaHqInicio
+              nombreUsuario={usuarioActivo?.nombre}
+              empresaId={empresaId}
+              onNavigate={(v) => setVistaActual(v as Vista)}
+            />
+          )}
+
+          {vistaActual === "vordia_productos" && isUsuarioVordia && (
+            <VordiaModuloVacio
+              titulo="Productos"
+              descripcion="Portafolio Vordia: Condominios, Hostel, HQ y productos en desarrollo. Estado, margen y facturación por línea (P0 hoja de ruta)."
+              icon={<Package size={22} />}
+            />
+          )}
+          {vistaActual === "vordia_proyectos" && isUsuarioVordia && (
+            <VordiaModuloVacio
+              titulo="Proyectos"
+              descripcion="Implementaciones e iniciativas internas vinculadas a clientes, contratos y tareas."
+              icon={<FolderKanban size={22} />}
+            />
+          )}
+          {vistaActual === "vordia_cxc" && isUsuarioVordia && (
+            <VordiaModuloVacio
+              titulo="Cuentas por cobrar"
+              descripcion="Fees y facturas pendientes, vencidas y próximas a cobro. Por ahora usá Contratos e Ingresos."
+              icon={<CreditCard size={22} />}
+            />
+          )}
+          {vistaActual === "vordia_gastos" && isUsuarioVordia && (
+            <VordiaModuloVacio
+              titulo="Gastos"
+              descripcion="Gastos operativos de Vordia HQ: registro, categoría, aprobación y vínculo a flujo de caja."
+              icon={<Wallet size={22} />}
+            />
+          )}
+          {vistaActual === "vordia_cxp" && isUsuarioVordia && (
+            <VordiaModuloVacio
+              titulo="Cuentas por pagar"
+              descripcion="Obligaciones con proveedores y vencimientos. Se conectará al módulo Proveedores."
+              icon={<CreditCard size={22} />}
+            />
+          )}
+          {vistaActual === "vordia_proyecciones" && isUsuarioVordia && (
+            <VordiaModuloVacio
+              titulo="Proyecciones"
+              descripcion="Flujo proyectado a 30/90 días, ARR y escenarios. El núcleo actual está en Flujo de caja."
+              icon={<LineChart size={22} />}
+            />
+          )}
+          {vistaActual === "vordia_proveedores" && isUsuarioVordia && (
+            <VordiaModuloVacio
+              titulo="Proveedores"
+              descripcion="Proveedores y servicios contratados por Vordia, con contratos y pagos asociados."
+              icon={<Truck size={22} />}
+            />
+          )}
+          {vistaActual === "vordia_documentos" && isUsuarioVordia && (
+            <VordiaModuloVacio
+              titulo="Documentos"
+              descripcion="Repositorio empresarial: contratos, propuestas, actas y archivos por cliente/proyecto."
+              icon={<FolderOpen size={22} />}
+            />
+          )}
+          {vistaActual === "vordia_automatizaciones" && isUsuarioVordia && (
+            <VordiaModuloVacio
+              titulo="Automatizaciones"
+              descripcion="Reglas Automation First: alertas, recordatorios de cobro y tareas sin intervención manual."
+              icon={<Zap size={22} />}
+            />
+          )}
+          {vistaActual === "vordia_reportes" && isUsuarioVordia && (
+            <VordiaModuloVacio
+              titulo="Reportes"
+              descripcion="Business Intelligence: rentabilidad por producto, conversión comercial y cumplimiento operativo."
+              icon={<BarChart3 size={22} />}
+            />
+          )}
+          {vistaActual === "vordia_roadmap" && isUsuarioVordia && (
+            <VordiaModuloVacio
+              titulo="Roadmap"
+              descripcion="Objetivos estratégicos P0/P1/P2 de Vordia HQ según la hoja de ruta administrativa."
+              icon={<Map size={22} />}
+            />
           )}
 
           {vistaActual === "condominio" && !isUsuarioVordia && (

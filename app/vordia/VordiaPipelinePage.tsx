@@ -83,8 +83,8 @@ export function VordiaPipelinePage({ empresaId, usuario }: Props) {
   }
 
   return (
-    <div className="animate-in fade-in duration-300 space-y-4">
-      <div className="rounded-[1.5rem] border border-white/5 bg-[#0C1327] px-5 py-4">
+    <div className="vordia-hq-page animate-in fade-in duration-300 space-y-4">
+      <div className="rounded-[1.5rem] border border-white/5 bg-[#0C1327] px-4 sm:px-5 py-4">
         <p className="text-sm text-[#94a3b8]">
           Arrastrá mentalmente el flujo:{" "}
           <span className="text-white font-medium">
@@ -94,11 +94,11 @@ export function VordiaPipelinePage({ empresaId, usuario }: Props) {
         </p>
       </div>
 
-      <div className="flex gap-3 overflow-x-auto pb-3 snap-x">
+      <div className="vordia-kanban flex gap-3 overflow-x-auto pb-3 snap-x">
         {columnas.map((col) => (
           <div
             key={col.estado}
-            className="snap-start shrink-0 w-[280px] lg:w-[300px] rounded-[1.25rem] border border-white/5 bg-[#080E1E] flex flex-col max-h-[70vh]"
+            className="snap-start shrink-0 w-[min(280px,85vw)] lg:w-[300px] rounded-[1.25rem] border border-white/5 bg-[#080E1E] flex flex-col max-h-[70vh]"
           >
             <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between gap-2">
               <div>
@@ -151,7 +151,7 @@ export function VordiaPipelinePage({ empresaId, usuario }: Props) {
                         type="button"
                         disabled={moviendoId === c.clienteId}
                         onClick={() => avanzar(c)}
-                        className="shrink-0 inline-flex items-center gap-0.5 px-2 py-1.5 rounded-lg bg-[#007bff]/15 text-[#5eb0ff] text-[10px] font-bold border border-[#007bff]/25 hover:bg-[#007bff]/25"
+                        className="shrink-0 inline-flex items-center gap-0.5 px-2.5 min-h-[2.5rem] rounded-lg bg-[#007bff]/15 text-[#5eb0ff] text-[10px] font-bold border border-[#007bff]/25 hover:bg-[#007bff]/25"
                         title="Avanzar una etapa"
                       >
                         Avanzar <ChevronRight size={12} />
