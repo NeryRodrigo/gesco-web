@@ -119,12 +119,12 @@ export function VordiaConfiguracionPage({ empresaId, usuario, onNavigate }: Prop
   };
 
   return (
-    <div className="animate-in fade-in duration-300 space-y-4">
+    <div className="vordia-hq-page animate-in fade-in duration-300 space-y-4">
       <div className="rounded-[1.5rem] border border-white/5 bg-[#0C1327] p-5 lg:p-6 flex gap-3 items-start">
         <div className="h-11 w-11 rounded-2xl bg-[#007bff]/15 text-[#007bff] flex items-center justify-center shrink-0">
           <Settings size={20} />
         </div>
-        <div>
+        <div className="min-w-0">
           <h3 className="text-lg font-semibold text-white">Configuración Vordia</h3>
           <p className="text-sm text-[#94a3b8] mt-1">
             Empresa, circuito de módulos, socios y parámetros operativos del CRM interno.
@@ -266,21 +266,21 @@ export function VordiaConfiguracionPage({ empresaId, usuario, onNavigate }: Prop
         </div>
         <Button
           onClick={() => onNavigate?.("usuarios")}
-          className="bg-[#007bff] hover:bg-[#0069d9] rounded-xl font-bold"
+          className="bg-[#007bff] hover:bg-[#0069d9] rounded-xl font-bold w-full sm:w-auto shrink-0"
         >
           Ir a Usuarios / Roles
         </Button>
       </div>
 
       {editSocio && (
-        <div className="fixed inset-0 z-[80] bg-black/60 flex items-center justify-center p-4" onClick={() => setEditSocio(null)}>
-          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#0C1327] p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="vordia-modal fixed inset-0 z-[80] bg-black/60 flex items-center justify-center p-4" onClick={() => setEditSocio(null)}>
+          <div className="vordia-modal-panel w-full max-w-sm rounded-2xl border border-white/10 bg-[#0C1327] p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-semibold text-white">% de {editSocio.nombre}</h3>
-              <button type="button" onClick={() => setEditSocio(null)} className="text-slate-500 hover:text-white"><X size={18} /></button>
+              <button type="button" onClick={() => setEditSocio(null)} className="vordia-icon-btn text-slate-500 hover:text-white"><X size={18} /></button>
             </div>
             <Input type="number" value={pct} onChange={(e) => setPct(e.target.value)} className="bg-[#050B18] border-white/10 text-white rounded-xl" />
-            <div className="flex justify-end gap-2">
+            <div className="vordia-modal-actions flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setEditSocio(null)} className="rounded-xl text-slate-400">Cancelar</Button>
               <Button onClick={guardarSocio} className="bg-[#007bff] hover:bg-[#0069d9] rounded-xl font-bold">Guardar</Button>
             </div>

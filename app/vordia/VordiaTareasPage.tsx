@@ -147,12 +147,12 @@ export function VordiaTareasPage({ empresaId, usuario }: Props) {
   };
 
   return (
-    <div className="animate-in fade-in duration-300 space-y-4">
-      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between rounded-[1.5rem] border border-white/5 bg-[#0C1327] p-4 lg:p-5">
+    <div className="vordia-hq-page animate-in fade-in duration-300 space-y-4">
+      <div className="vordia-toolbar flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between rounded-[1.5rem] border border-white/5 bg-[#0C1327] p-4 lg:p-5">
         <p className="text-sm text-[#94a3b8]">
           Tablero cronológico: prioridades, vencimientos y responsables (Eli / Nery).
         </p>
-        <Button onClick={abrirNueva} className="bg-[#007bff] hover:bg-[#0069d9] rounded-xl font-bold gap-2">
+        <Button onClick={abrirNueva} className="bg-[#007bff] hover:bg-[#0069d9] rounded-xl font-bold gap-2 w-full sm:w-auto shrink-0">
           <Plus size={16} /> Nueva tarea
         </Button>
       </div>
@@ -160,11 +160,11 @@ export function VordiaTareasPage({ empresaId, usuario }: Props) {
       {loading ? (
         <p className="text-slate-500 text-sm p-4">Cargando tareas…</p>
       ) : (
-        <div className="flex gap-3 overflow-x-auto pb-3 snap-x">
+        <div className="vordia-kanban flex gap-3 overflow-x-auto pb-3 snap-x">
           {porEstado.map((col) => (
             <div
               key={col.estado}
-              className="snap-start shrink-0 w-[260px] lg:w-[280px] rounded-[1.25rem] border border-white/5 bg-[#080E1E] flex flex-col max-h-[70vh]"
+              className="snap-start shrink-0 w-[min(260px,85vw)] lg:w-[280px] rounded-[1.25rem] border border-white/5 bg-[#080E1E] flex flex-col max-h-[70vh]"
             >
               <div className="px-4 py-3 border-b border-white/5 flex justify-between">
                 <p className="text-[11px] font-bold uppercase text-white">{col.estado}</p>
@@ -183,7 +183,7 @@ export function VordiaTareasPage({ empresaId, usuario }: Props) {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-semibold text-white leading-snug">{t.titulo}</p>
-                      <button type="button" onClick={() => eliminar(t)} className="text-slate-600 hover:text-red-400">
+                      <button type="button" onClick={() => eliminar(t)} className="vordia-icon-btn p-2 rounded-lg text-slate-600 hover:text-red-400">
                         <Trash2 size={12} />
                       </button>
                     </div>
@@ -219,8 +219,8 @@ export function VordiaTareasPage({ empresaId, usuario }: Props) {
       )}
 
       {modalOpen && (
-        <div className="fixed inset-0 z-[80] bg-black/60 flex items-center justify-center p-4" onClick={() => setModalOpen(false)}>
-          <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#0C1327] p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="vordia-modal fixed inset-0 z-[80] bg-black/60 flex items-center justify-center p-4" onClick={() => setModalOpen(false)}>
+          <div className="vordia-modal-panel w-full max-w-lg rounded-2xl border border-white/10 bg-[#0C1327] p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <CheckSquare size={18} className="text-[#007bff]" /> Nueva tarea
@@ -247,7 +247,7 @@ export function VordiaTareasPage({ empresaId, usuario }: Props) {
                 ))}
               </select>
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="vordia-modal-actions flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setModalOpen(false)} className="rounded-xl text-slate-400">Cancelar</Button>
               <Button onClick={guardar} className="bg-[#007bff] hover:bg-[#0069d9] rounded-xl font-bold">Crear</Button>
             </div>

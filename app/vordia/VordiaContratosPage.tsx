@@ -198,13 +198,13 @@ export function VordiaContratosPage({ empresaId, usuario }: Props) {
   };
 
   return (
-    <div className="animate-in fade-in duration-300 space-y-4">
-      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between rounded-[1.5rem] border border-white/5 bg-[#0C1327] p-4 lg:p-5">
-        <div className="flex gap-2 flex-wrap">
+    <div className="vordia-hq-page animate-in fade-in duration-300 space-y-4">
+      <div className="vordia-toolbar flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between rounded-[1.5rem] border border-white/5 bg-[#0C1327] p-4 lg:p-5">
+        <div className="flex gap-2 flex-wrap min-w-0">
           <select
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}
-            className="bg-[#050B18] border border-white/10 text-slate-300 rounded-xl px-3 py-2 text-sm"
+            className="bg-[#050B18] border border-white/10 text-slate-300 rounded-xl px-3 py-2 text-sm w-full sm:w-auto"
           >
             <option value="">Todos los contratos</option>
             {ESTADOS_CONTRATO.map((e) => (
@@ -215,7 +215,7 @@ export function VordiaContratosPage({ empresaId, usuario }: Props) {
             Fees, vencimientos y estado de pago por cliente.
           </p>
         </div>
-        <Button onClick={abrirNuevo} className="bg-[#007bff] hover:bg-[#0069d9] rounded-xl font-bold gap-2">
+        <Button onClick={abrirNuevo} className="bg-[#007bff] hover:bg-[#0069d9] rounded-xl font-bold gap-2 w-full sm:w-auto shrink-0">
           <Plus size={16} /> Nuevo contrato
         </Button>
       </div>
@@ -255,11 +255,11 @@ export function VordiaContratosPage({ empresaId, usuario }: Props) {
                     Cobrado: {formatGs(c.totalCobrado)} ({c.cantidadPagos} pagos)
                   </p>
                 </div>
-                <div className="flex gap-1">
-                  <button type="button" onClick={() => abrirEditar(c)} className="p-2 rounded-lg text-slate-500 hover:text-white hover:bg-white/5">
+                <div className="flex gap-1 shrink-0">
+                  <button type="button" onClick={() => abrirEditar(c)} className="vordia-icon-btn p-2 rounded-lg text-slate-500 hover:text-white hover:bg-white/5">
                     <Pencil size={14} />
                   </button>
-                  <button type="button" onClick={() => eliminar(c)} className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-white/5">
+                  <button type="button" onClick={() => eliminar(c)} className="vordia-icon-btn p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-white/5">
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -270,8 +270,8 @@ export function VordiaContratosPage({ empresaId, usuario }: Props) {
       </div>
 
       {modalOpen && (
-        <div className="fixed inset-0 z-[80] bg-black/60 flex items-center justify-center p-4" onClick={() => setModalOpen(false)}>
-          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 bg-[#0C1327] p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="vordia-modal fixed inset-0 z-[80] bg-black/60 flex items-center justify-center p-4" onClick={() => setModalOpen(false)}>
+          <div className="vordia-modal-panel w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 bg-[#0C1327] p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-semibold text-white">{editId ? "Editar contrato" : "Nuevo contrato / fee"}</h3>
               <button type="button" onClick={() => setModalOpen(false)} className="text-slate-500 hover:text-white"><X size={18} /></button>
@@ -342,7 +342,7 @@ export function VordiaContratosPage({ empresaId, usuario }: Props) {
                 <Input value={form.notas} onChange={(e) => setForm({ ...form, notas: e.target.value })} className="mt-1 bg-[#050B18] border-white/10 text-white rounded-xl" />
               </div>
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="vordia-modal-actions flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setModalOpen(false)} className="rounded-xl text-slate-400">Cancelar</Button>
               <Button onClick={guardar} className="bg-[#007bff] hover:bg-[#0069d9] rounded-xl font-bold">Guardar</Button>
             </div>
