@@ -67,7 +67,7 @@ export const VORDIA_HQ_TITULOS: Record<string, string> = {
   vordia_proveedores: "Proveedores",
   vordia_documentos: "Documentos",
   vordia_automatizaciones: "Automatizaciones",
-  vordia_roadmap: "Roadmap",
+  vordia_roadmap: "Roadmap · Ideas & Alianzas",
   vordia_reportes: "Reportes",
   configuracion: "Configuración",
   usuarios: "Usuarios / Roles",
@@ -220,7 +220,7 @@ export function VordiaHqSidebarNav({
       />
       <HqItem
         icon={<Map size={16} />}
-        label="Roadmap"
+        label="Roadmap · Ideas"
         active={vistaActual === "vordia_roadmap"}
         onClick={() => go("vordia_roadmap")}
       />

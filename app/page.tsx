@@ -7,7 +7,7 @@ import {
   ExternalLink, Save, X, DollarSign, Ruler, ShieldCheck, XCircle, 
   Search, Filter, Sparkles, User, Building2, Wallet, LogOut, 
   Activity, Users, FileText, Cpu, Lock, History, Settings, List, CheckSquare, Menu, Bed,
-  Package, FolderKanban, Truck, FolderOpen, Zap, Map, BarChart3, CreditCard, LineChart
+  Package, FolderKanban, Truck, FolderOpen, Zap, BarChart3, CreditCard, LineChart
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,7 @@ import { VordiaIngresosPage } from "./vordia/VordiaIngresosPage";
 import { VordiaTareasPage } from "./vordia/VordiaTareasPage";
 import { VordiaFlujoCajaPage } from "./vordia/VordiaFlujoCajaPage";
 import { VordiaConfiguracionPage } from "./vordia/VordiaConfiguracionPage";
+import { VordiaRoadmapPage } from "./vordia/VordiaRoadmapPage";
 import AuthScreen from "./login/Registro";
 import { RegistroUsuarioModal } from "./login/RegistroUsuarioModal";
 import { EditarUsuarioModal } from "./login/EditarUsuarioModal";
@@ -633,11 +634,7 @@ export default function OimaDashboard() {
             />
           )}
           {vistaActual === "vordia_roadmap" && isUsuarioVordia && (
-            <VordiaModuloVacio
-              titulo="Roadmap"
-              descripcion="Objetivos estratégicos P0/P1/P2 de Vordia HQ según la hoja de ruta administrativa."
-              icon={<Map size={22} />}
-            />
+            <VordiaRoadmapPage empresaId={empresaId} usuario={usuarioActivo} />
           )}
 
           {vistaActual === "condominio" && !isUsuarioVordia && (
