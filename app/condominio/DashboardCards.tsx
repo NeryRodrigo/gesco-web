@@ -5,7 +5,7 @@ import { API_BASE } from "@/lib/api";
 import React, { useMemo, useState, useDeferredValue, useEffect, startTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Home, CheckCircle2, Wallet, Clock, Calendar, AlertTriangle, Filter, Zap, Check, X, RefreshCw, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { Users, Home, CheckCircle2, Wallet, Clock, Calendar, AlertTriangle, Filter, Zap, Check, X, RefreshCw, ChevronDown, ChevronUp, Loader2, ClipboardList } from "lucide-react";
 import { ConsultarEstadoAndeModal } from "./ConsultarEstadoAndeModal";
 import { AndeDesgloseFacturasModal, abrirFacturaPdf } from "./AndeDesgloseFacturasModal";
 import { AndeLoginCredencialesModal } from "./AndeLoginCredencialesModal";
@@ -273,12 +273,23 @@ export function DashboardCards({
   dashboardData,
   onRefresh,
   onOpenFicha,
+  empresaId,
+  fichasIncompletasRefreshKey = 0,
 }: {
   dashboardData: any;
   onRefresh?: () => Promise<void> | void;
-  onOpenFicha?: (unidad: DashboardFichaTarget, tab?: "ficha" | "pagos") => void;
+  onOpenFicha?: (
+    unidad: DashboardFichaTarget,
+    tab?: "ficha" | "pagos",
+    draft?: { modo?: string; payloadJson: string } | null
+  ) => void;
+  empresaId?: number;
+  /** Cambia al guardar/borrar borradores para refrescar la tarjeta. */
+  fichasIncompletasRefreshKey?: number;
 }) {
-  const [detailView, setDetailView] = useState<"none" | "ocupados" | "disponibles" | "objetivos" | "cobrados" | "faltaCobrar" | "vencimientos" | "morosos" | "andeNIS">("none");
+  const [detailView, setDetailView] = useState<"none" | "ocupados" | "disponibles" | "objetivos" | "cobrados" | "faltaCobrar" | "vencimientos" | "morosos" | "andeNIS" | "fichasIncompletas">("none");
+  const [fichasIncompletas, setFichasIncompletas] = useState<any[]>([]);
+  const [loadingFichasInc, setLoadingFichasInc] = useState(false);
   const [colFilters, setColFilters] = useState<Record<string, string>>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isAndeModalOpen, setIsAndeModalOpen] = useState(false);
@@ -478,6 +489,52 @@ export function DashboardCards({
     }
   };
 
+  const loadFichasIncompletas = React.useCallback(async () => {
+    if (!empresaId) return;
+    setLoadingFichasInc(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/FichasIncompletas?empresaId=${empresaId}`);
+      if (res.ok) setFichasIncompletas(await res.json());
+      else setFichasIncompletas([]);
+    } catch {
+      setFichasIncompletas([]);
+    } finally {
+      setLoadingFichasInc(false);
+    }
+  }, [empresaId]);
+
+  React.useEffect(() => {
+    void loadFichasIncompletas();
+  }, [loadFichasIncompletas, fichasIncompletasRefreshKey]);
+
+  const openFichaIncompleta = async (row: any) => {
+    if (!onOpenFicha || !row?.unidadId) return;
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/FichasIncompletas/unidad/${row.unidadId}?empresaId=${empresaId}`
+      );
+      if (!res.ok) {
+        toast.error("No se pudo cargar la ficha incompleta");
+        return;
+      }
+      const full = await res.json();
+      onOpenFicha(
+        {
+          id: Number(row.unidadId),
+          code: String(row.codigoUnidad || full.codigoUnidad || ""),
+          condo: String(row.nombreCondominio || full.nombreCondominio || "").replace(/Aguz/gi, "Agus"),
+          tenant: row.nombreInquilino || full.nombreInquilino || null,
+          status: "Ocupado",
+          nisAnde: null,
+        },
+        "ficha",
+        { modo: full.modo || row.modo, payloadJson: full.payloadJson }
+      );
+    } catch {
+      toast.error("Error de red al abrir ficha incompleta");
+    }
+  };
+
   // Al entrar a ANDE NIS: si hay credenciales y poco/nada en cache, reconsultar datos reales.
   React.useEffect(() => {
     if (detailView !== "andeNIS") {
@@ -506,18 +563,29 @@ export function DashboardCards({
   }, [detailView]);
 
   const openTenantFicha = (item: any, tab: "ficha" | "pagos" = "ficha") => {
-    if (!onOpenFicha || !item?.unidadId) return;
+    if (!onOpenFicha) return;
+    const unidadId = Number(item?.unidadId ?? item?.UnidadId ?? 0);
+    if (!unidadId) {
+      toast.warning("No se pudo abrir la ficha", {
+        description: "Falta el identificador de la unidad (dúplex). Actualizá el panel e intentá de nuevo.",
+      });
+      return;
+    }
+    const estadoRaw = String(item?.estado || item?.status || "").toLowerCase();
     const esDisponible =
       detailView === "disponibles" ||
-      String(item?.estado || item?.inquilino || "")
-        .toLowerCase()
-        .includes("disponible");
+      estadoRaw === "disponible" ||
+      estadoRaw.includes("disponible");
+    const tenantName = esDisponible
+      ? null
+      : String(item?.inquilino || item?.tenant || "").trim() || null;
+
     onOpenFicha(
       {
-        id: Number(item.unidadId),
-        code: String(item.duplex || ""),
-        condo: String(item.condominio || ""),
-        tenant: esDisponible ? null : item.inquilino ?? null,
+        id: unidadId,
+        code: String(item.duplex || item.codigoUnidad || item.code || ""),
+        condo: String(item.condominio || item.nombreCondominio || item.condo || "").replace(/Aguz/gi, "Agus"),
+        tenant: tenantName,
         status: esDisponible ? "Disponible" : "Ocupado",
         nisAnde: String(item.nisAnde ?? "")
           .trim()
@@ -526,6 +594,17 @@ export function DashboardCards({
       tab
     );
   };
+
+  /** Tab sugerido según la tarjeta del dashboard (pagos si es circuito de cobro). */
+  const defaultFichaTabForView = (): "ficha" | "pagos" => {
+    if (detailView === "cobrados" || detailView === "faltaCobrar" || detailView === "vencimientos") {
+      return "pagos";
+    }
+    return "ficha";
+  };
+
+  const canOpenFichaFromRow = (item: any) =>
+    Boolean(onOpenFicha && Number(item?.unidadId ?? item?.UnidadId ?? 0) > 0);
 
   // Si cambia un NIS en ocupados mientras estamos en ANDE NIS, reconsultar lote.
   const ocupadosNisFingerprint = useMemo(
@@ -585,6 +664,23 @@ export function DashboardCards({
     }
   };
 
+  const handleRowOpenFicha = (item: any, e?: React.MouseEvent) => {
+    // En morosos el clic en la fila abre ficha; el chevron maneja cuotas aparte.
+    if (e) {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest?.("[data-stop-ficha]")) return;
+    }
+    if (!canOpenFichaFromRow(item)) {
+      if (onOpenFicha) {
+        toast.warning("No se pudo abrir la ficha", {
+          description: "Esta fila no tiene unidad vinculada.",
+        });
+      }
+      return;
+    }
+    openTenantFicha(item, defaultFichaTabForView());
+  };
+
   const toggleDetail = (view: any) => {
     if (detailView === view) {
       setDetailView("none");
@@ -622,6 +718,85 @@ export function DashboardCards({
 
   const renderDetailList = () => {
     if (detailView === "none") return null;
+
+    if (detailView === "fichasIncompletas") {
+      return (
+        <Card className="border border-border shadow-xl rounded-[1.5rem] sm:rounded-[2.5rem] overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500 bg-[#0C1327] text-white">
+          <CardHeader className="bg-[#0A1631] p-4 sm:p-8 border-b border-white/5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <CardTitle className="text-lg sm:text-2xl font-black italic uppercase tracking-tighter flex items-center gap-3 text-violet-300">
+                <ClipboardList className="w-6 h-6" />
+                Fichas incompletas
+              </CardTitle>
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-xl border-white/15 bg-white/5 text-white hover:bg-white/10 h-10"
+                onClick={() => void loadFichasIncompletas()}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${loadingFichasInc ? "animate-spin" : ""}`} />
+                Actualizar
+              </Button>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-2 font-medium">
+              Doble clic en una fila para reabrir la ficha con los datos guardados a medias. Cuando completes y guardes todo, desaparece de este listado.
+            </p>
+          </CardHeader>
+          <CardContent className="p-0">
+            {loadingFichasInc ? (
+              <p className="p-8 text-sm text-slate-400">Cargando fichas incompletas…</p>
+            ) : fichasIncompletas.length === 0 ? (
+              <p className="p-8 text-sm text-slate-400 italic">No hay fichas incompletas. Al cerrar una edición con “Sí” en guardar cambios, aparecen acá.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-[#0A1631] text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-white/5">
+                    <tr>
+                      <th className="px-6 py-4">Dúplex</th>
+                      <th className="px-6 py-4">Inquilino</th>
+                      <th className="px-6 py-4">Condominio</th>
+                      <th className="px-6 py-4">Modo</th>
+                      <th className="px-6 py-4">Actualizado</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {fichasIncompletas.map((row) => (
+                      <tr
+                        key={row.fichaIncompletaId || row.unidadId}
+                        className="hover:bg-white/5 cursor-pointer h-14"
+                        title="Doble clic: abrir ficha incompleta"
+                        onDoubleClick={() => void openFichaIncompleta(row)}
+                      >
+                        <td className="px-6 py-3">
+                          <p className="font-black italic uppercase text-sm">{formatDuplex(row.codigoUnidad)}</p>
+                        </td>
+                        <td className="px-6 py-3">
+                          <p className="font-bold text-sm text-violet-200">{row.nombreInquilino || "Sin nombre"}</p>
+                          <p className="text-[10px] text-slate-500">Doble clic para continuar</p>
+                        </td>
+                        <td className="px-6 py-3 text-xs text-slate-300 uppercase">
+                          {String(row.nombreCondominio || "").replace(/Aguz/gi, "Agus") || "—"}
+                        </td>
+                        <td className="px-6 py-3">
+                          <Badge className="bg-violet-500/20 text-violet-200 border-violet-500/30 font-black text-[9px] uppercase">
+                            {row.modo || "edit"}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-3 text-xs text-slate-400">
+                          {row.fechaActualizacion
+                            ? new Date(row.fechaActualizacion).toLocaleString("es-PY")
+                            : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      );
+    }
 
     let list: any[] = [];
     let title = "";
@@ -853,23 +1028,26 @@ export function DashboardCards({
       <React.Fragment key={idx}>
         <tr
           className={`hover:bg-white/5 transition-colors h-[56px] text-white ${
-            detailView === "morosos" ||
-            (detailView === "disponibles" && onOpenFicha && item.unidadId)
-              ? "cursor-pointer"
-              : ""
+            canOpenFichaFromRow(item) || detailView === "morosos" ? "cursor-pointer" : ""
           }`}
-          onClick={
-            detailView === "morosos"
-              ? (e) => handleMorosoClick(item, e)
-              : detailView === "disponibles" && onOpenFicha && item.unidadId
-                ? () => openTenantFicha(item, "ficha")
-                : undefined
-          }
+          onClick={(e) => {
+            if (canOpenFichaFromRow(item)) {
+              handleRowOpenFicha(item, e);
+              return;
+            }
+            if (detailView === "morosos") {
+              handleMorosoClick(item, e);
+            }
+          }}
           title={
-            detailView === "morosos"
-              ? "Clic: ver cuotas · Doble clic: cerrar"
-              : detailView === "disponibles"
-                ? "Abrir ficha del dúplex"
+            canOpenFichaFromRow(item)
+              ? detailView === "cobrados" || detailView === "faltaCobrar" || detailView === "vencimientos"
+                ? "Abrir ficha del inquilino · Historial de pagos"
+                : detailView === "disponibles"
+                  ? "Abrir ficha del dúplex"
+                  : "Abrir ficha del inquilino"
+              : detailView === "morosos"
+                ? "Clic: ver cuotas · Doble clic: cerrar"
                 : undefined
           }
         >
@@ -880,15 +1058,18 @@ export function DashboardCards({
             <td className="px-8 py-4">
               <div className="flex items-center gap-2">
                 {detailView === "morosos" && (
-                  isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-red-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  <button
+                    type="button"
+                    data-stop-ficha
+                    className="shrink-0 p-1 rounded-lg hover:bg-white/10"
+                    title={isExpanded ? "Cerrar cuotas" : "Ver cuotas de morosidad"}
+                    onClick={(e) => handleMorosoClick(item, e)}
+                  >
+                    {isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-red-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
+                  </button>
                 )}
                 <div>
-                  {(detailView === "ocupados" ||
-                    detailView === "objetivos" ||
-                    detailView === "cobrados" ||
-                    detailView === "disponibles") &&
-                  onOpenFicha &&
-                  item.unidadId ? (
+                  {canOpenFichaFromRow(item) ? (
                     <button
                       type="button"
                       className={`font-bold text-sm text-left hover:underline hover:text-blue-400 transition-colors ${
@@ -896,13 +1077,10 @@ export function DashboardCards({
                       }`}
                       onClick={(e) => {
                         e.stopPropagation();
-                        openTenantFicha(
-                          item,
-                          detailView === "cobrados" ? "pagos" : "ficha"
-                        );
+                        openTenantFicha(item, defaultFichaTabForView());
                       }}
                       title={
-                        detailView === "cobrados"
+                        detailView === "cobrados" || detailView === "faltaCobrar" || detailView === "vencimientos"
                           ? "Abrir ficha · Historial de pagos"
                           : detailView === "disponibles"
                             ? "Abrir ficha del dúplex disponible"
@@ -919,7 +1097,11 @@ export function DashboardCards({
                   )}
                   {detailView === "morosos" && (
                     <p className="text-[9px] text-red-400 font-bold uppercase tracking-wider">
-                      {loadingMorosoId === morosidadId ? "Cargando cuotas..." : isExpanded ? "Detalle de cuotas abierto" : "Clic para ver cuotas"}
+                      {loadingMorosoId === morosidadId
+                        ? "Cargando cuotas..."
+                        : isExpanded
+                          ? "Detalle de cuotas abierto · clic fila = ficha"
+                          : "Clic fila: ficha · chevron: cuotas"}
                     </p>
                   )}
                 </div>
@@ -1693,7 +1875,8 @@ export function DashboardCards({
           { id: "faltaCobrar", label: "Falta Cobrar", labelShort: "Falta cobrar", value: stats.pending, icon: Clock, color: "text-amber-400", bg: "bg-amber-400/10", suffix: "", currency: true },
           { id: "vencimientos", label: "Finalización Contratos", labelShort: "Vencimientos", value: dashboardData?.vencimientos?.length || 0, icon: Calendar, color: "text-orange-400", bg: "bg-orange-400/10", suffix: " Contratos", currency: false },
           { id: "morosos", label: "Morosos (Desalojados)", labelShort: "Morosos", value: stats.debtors, icon: AlertTriangle, color: "text-red-400", bg: "bg-red-400/10", suffix: "", currency: true },
-          { id: "andeNIS", label: "ANDE NIS", labelShort: "ANDE NIS", value: stats.occupied, icon: Zap, color: "text-blue-400", bg: "bg-blue-400/10", suffix: " Medidores", currency: false }
+          { id: "andeNIS", label: "ANDE NIS", labelShort: "ANDE NIS", value: stats.occupied, icon: Zap, color: "text-blue-400", bg: "bg-blue-400/10", suffix: " Medidores", currency: false },
+          { id: "fichasIncompletas", label: "Fichas incompletas", labelShort: "Incompletas", value: fichasIncompletas.length, icon: ClipboardList, color: "text-violet-400", bg: "bg-violet-400/10", suffix: " Fichas", currency: false }
         ].map((metric, i) => {
           const fullTitle = metric.currency && typeof metric.value === "number"
             ? formatCurrency(metric.value)

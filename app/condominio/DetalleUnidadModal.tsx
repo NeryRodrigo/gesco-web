@@ -198,6 +198,12 @@ interface DetalleUnidadModalProps {
   onUpdate?: (patch?: Partial<Unidad>) => void;
   /** Tab inicial al abrir (ej. "pagos" = Historial de pagos). */
   initialTab?: DetalleUnidadTab;
+  empresaId?: number;
+  usuario?: { id?: number; nombre?: string } | null;
+  /** Borrador de ficha incompleta a restaurar al abrir. */
+  initialDraft?: { modo?: string; payloadJson: string } | null;
+  /** Avisa al Dashboard para refrescar el listado de fichas incompletas. */
+  onDraftsChanged?: () => void;
 }
 
 const normalizeNisValue = (raw?: string | null): string => {
@@ -232,7 +238,17 @@ const formatCodigoFicha = (codigo?: string) => {
   });
 };
 
-export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialTab = "ficha" }: DetalleUnidadModalProps) {
+export function DetalleUnidadModal({
+  isOpen,
+  onClose,
+  unidad,
+  onUpdate,
+  initialTab = "ficha",
+  empresaId: empresaIdProp,
+  usuario,
+  initialDraft,
+  onDraftsChanged,
+}: DetalleUnidadModalProps) {
   const [activeTab, setActiveTab] = useState<DetalleUnidadTab>(initialTab);
   const [isEditing, setIsEditing] = useState(false);
   const [isRenewing, setIsRenewing] = useState(false);
@@ -310,6 +326,159 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
   }, [isOpen, activeTab, plantillasList.length]);
 
   const openedUnidadRef = useRef<number | null>(null);
+  const FICHA_SAVE_BTN_ID = "ficha-btn-guardar-cambios";
+  const [showSaveOnCloseConfirm, setShowSaveOnCloseConfirm] = useState(false);
+  const [savingIncompleteOnClose, setSavingIncompleteOnClose] = useState(false);
+  const closingConfirmRef = useRef(false);
+  const draftAppliedRef = useRef<number | null>(null);
+
+  const resolveEmpresaId = () =>
+    Number(empresaIdProp || contractData?.inquilino?.empresaId || 7);
+
+  const isFichaCompleta = (data: Contrato | null | undefined) => {
+    if (!data) return false;
+    const nombre = String(data.inquilino?.razonSocial || "").trim();
+    const doc = String(data.inquilino?.documento || "").trim();
+    const inicio = data.fechaInicioContrato;
+    const fin = data.fechaFinContrato;
+    const monto = Number(data.montoMensualAlquiler || 0);
+    return Boolean(nombre && doc && inicio && fin && monto > 0);
+  };
+
+  const buildDraftPayload = () => ({
+    contractData,
+    localNisAnde,
+    localCodigoUnidad,
+    modo: isContratando ? "contratar" : isRenewing ? "renovar" : "edit",
+  });
+
+  const upsertFichaIncompleta = async () => {
+    if (!unidad?.id) return false;
+    const payload = buildDraftPayload();
+    const nombre =
+      String(contractData?.inquilino?.razonSocial || unidad.tenant || "").trim() || "Sin nombre";
+    try {
+      const res = await fetch(`${API_BASE}/api/FichasIncompletas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          empresaId: resolveEmpresaId(),
+          unidadId: unidad.id,
+          codigoUnidad: localCodigoUnidad || unidad.code || "",
+          nombreCondominio: unidad.condo || "",
+          nombreInquilino: nombre,
+          modo: payload.modo,
+          payloadJson: JSON.stringify(payload),
+          usuarioId: usuario?.id ?? null,
+          usuarioNombre: usuario?.nombre ?? null,
+        }),
+      });
+      if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        toast.error("No se pudo guardar la ficha incompleta", {
+          description: t?.slice(0, 180) || `Error ${res.status}`,
+        });
+        return false;
+      }
+      onDraftsChanged?.();
+      return true;
+    } catch {
+      toast.error("Error de red al guardar ficha incompleta");
+      return false;
+    }
+  };
+
+  const clearFichaIncompleta = async () => {
+    if (!unidad?.id) return;
+    try {
+      await fetch(
+        `${API_BASE}/api/FichasIncompletas/unidad/${unidad.id}?empresaId=${resolveEmpresaId()}`,
+        { method: "DELETE" }
+      );
+      onDraftsChanged?.();
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const applyDraftPayload = (raw: string, modo?: string) => {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed?.contractData) setContractData(parsed.contractData);
+      if (parsed?.localNisAnde != null) setLocalNisAnde(normalizeNisValue(parsed.localNisAnde));
+      if (parsed?.localCodigoUnidad) setLocalCodigoUnidad(String(parsed.localCodigoUnidad));
+      const m = String(modo || parsed?.modo || "edit").toLowerCase();
+      setIsEditing(m === "edit" || m === "renovar");
+      setIsContratando(m === "contratar");
+      setIsRenewing(m === "renovar");
+      setActiveTab("ficha");
+      toast.info("Ficha incompleta restaurada", {
+        description: "Completá los datos y tocá Guardar cambios.",
+      });
+    } catch {
+      toast.error("No se pudo restaurar el borrador de la ficha");
+    }
+  };
+
+  const discardEditingAndClose = () => {
+    setIsEditing(false);
+    setIsContratando(false);
+    setIsRenewing(false);
+    closingConfirmRef.current = false;
+    setShowSaveOnCloseConfirm(false);
+    setSavingIncompleteOnClose(false);
+    onClose();
+  };
+
+  const requestCloseFicha = () => {
+    if (showSaveOnCloseConfirm || savingIncompleteOnClose) return;
+    const hasPending = isEditing || isContratando || isRenewing;
+    if (!hasPending) {
+      discardEditingAndClose();
+      return;
+    }
+    // Modal propio (no toast): el Dialog de la ficha bloquea clics del Sonner
+    setShowSaveOnCloseConfirm(true);
+  };
+
+  const handleConfirmSaveIncomplete = async () => {
+    if (savingIncompleteOnClose) return;
+    setSavingIncompleteOnClose(true);
+    try {
+      const ok = await upsertFichaIncompleta();
+      if (ok) {
+        toast.success("Ficha incompleta guardada", {
+          description: "La vas a ver en el listado del Dashboard.",
+        });
+        discardEditingAndClose();
+      }
+    } finally {
+      setSavingIncompleteOnClose(false);
+    }
+  };
+
+  const handleDiscardAndClose = () => {
+    toast.message("Cambios descartados");
+    discardEditingAndClose();
+  };
+
+  const handleDialogOpenChange = (open: boolean) => {
+    if (!open) requestCloseFicha();
+  };
+
+  const focusSaveChangesButton = () => {
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        const el = document.getElementById(FICHA_SAVE_BTN_ID) as HTMLButtonElement | null;
+        if (!el) return;
+        el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        el.focus({ preventScroll: true });
+        // Pulso visual para que el usuario vea dónde guardar
+        el.classList.add("ring-2", "ring-emerald-400", "ring-offset-2");
+        setTimeout(() => el.classList.remove("ring-2", "ring-emerald-400", "ring-offset-2"), 1800);
+      }, 100);
+    });
+  };
 
   const convertirNumeroALetras = (num: number): string => {
       const unidades = ["", "UN", "DOS", "TRES", "CUATRO", "CINCO", "SEIS", "SIETE", "OCHO", "NUEVE"];
@@ -428,7 +597,26 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
 
   const deseleccionarTodasPlantillas = () => setSelectedPlantillaIds([]);
 
+  /** Si hay edición/contratación sin guardar, no permitir generar docs; enfoca Guardar cambios. */
+  const ensureFichaGuardadaAntesDeDocumentos = (): boolean => {
+    if (!isEditing && !isContratando && !isRenewing) return true;
+    toast.warning("Guardá los cambios primero", {
+      description:
+        "Tenés cambios sin guardar en la ficha. Guardá los cambios para luego generar contratos o documentos.",
+      duration: 5000,
+    });
+    setActiveTab("ficha");
+    focusSaveChangesButton();
+    return false;
+  };
+
+  const openGenerarContratoModal = () => {
+    if (!ensureFichaGuardadaAntesDeDocumentos()) return;
+    setIsGenerarContratoModalOpen(true);
+  };
+
   const handleAbrirVistaPreviaDocs = () => {
+      if (!ensureFichaGuardadaAntesDeDocumentos()) return;
       if (selectedPlantillaIds.length === 0) {
           toast.error("Seleccioná al menos una plantilla.");
           return;
@@ -443,6 +631,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
   };
 
   const handleConfirmarGenerarZip = async () => {
+      if (!ensureFichaGuardadaAntesDeDocumentos()) return;
       const datos = buildDatosPlantillaPreview();
       if (!datos || !contractData?.contratoId) {
           toast.error("No hay contrato activo");
@@ -854,21 +1043,33 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
   React.useEffect(() => {
     if (isOpen && unidad?.id) {
       const changedUnit = openedUnidadRef.current !== unidad.id;
+      const justOpened = openedUnidadRef.current === null;
       openedUnidadRef.current = unidad.id;
-      // Contrato al abrir / cambiar dúplex (histórico se carga lazy por tab)
-      void fetchContract();
-      if (changedUnit) {
-        setHistoricoContratos([]);
+      if (changedUnit || justOpened) {
+        if (changedUnit) {
+          setHistoricoContratos([]);
+          setFilterDesde("");
+          setFilterHasta("");
+          setFilterContratoDesde("");
+          setFilterContratoHasta("");
+          setAndeLuzConsulta(null);
+          draftAppliedRef.current = null;
+        }
         setActiveTab(initialTab || "ficha");
-        setFilterDesde("");
-        setFilterHasta("");
-        setFilterContratoDesde("");
-        setFilterContratoHasta("");
-        setAndeLuzConsulta(null);
+        setLocalNisAnde(normalizeNisValue(unidad?.nisAnde));
+        setLocalCodigoUnidad(unidad?.code || "");
       }
-      setLocalNisAnde(normalizeNisValue(unidad?.nisAnde));
-      setLocalCodigoUnidad(unidad?.code || "");
       void (async () => {
+        await fetchContract();
+        // Restaurar borrador incompleto (después del contrato base)
+        if (
+          initialDraft?.payloadJson &&
+          draftAppliedRef.current !== unidad.id
+        ) {
+          draftAppliedRef.current = unidad.id;
+          applyDraftPayload(initialDraft.payloadJson, initialDraft.modo);
+          return;
+        }
         try {
           const r = await fetch(`${API_BASE}/api/UnidadesCondominio/${unidad.id}?t=${Date.now()}`);
           if (!r.ok) return;
@@ -883,14 +1084,42 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
       })();
     } else if (!isOpen) {
       openedUnidadRef.current = null;
+      draftAppliedRef.current = null;
+      closingConfirmRef.current = false;
       setIsEditing(false);
       setIsRenewing(false);
       setIsContratando(false);
     }
     // No depender de nisAnde/code: al guardar disparaba refetch y ralentizaba el móvil
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, unidad?.id, initialTab]);
+  }, [isOpen, unidad?.id, initialTab, initialDraft?.payloadJson]);
 
+  const fetchContract = async () => {
+    setIsLoading(true);
+    try {
+      const resp = await fetch(`${API_BASE}/api/Contratos/unidad/${unidad?.id}?t=${Date.now()}`);
+      if (resp.ok) {
+        const data = await resp.json();
+        setContractData(data);
+      } else if (resp.status === 404) {
+        // Unidad disponible / sin contrato: estado válido, no es error de usuario
+        setContractData(null);
+      } else {
+        setContractData(null);
+        toast.error("No se pudo cargar el contrato de la unidad", {
+          description: `Código ${resp.status}. Podés reintentar cerrando y abriendo la ficha.`,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching contract", error);
+      setContractData(null);
+      toast.error("Error de red al cargar la ficha", {
+        description: "Revisá la conexión e intentá de nuevo.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
   React.useEffect(() => {
     if (!isOpen || !unidad?.id || unidad.id <= 0) return;
     if (activeTab !== "comprobantes" && activeTab !== "historico") return;
@@ -964,23 +1193,6 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
     if (!isOpen || !unidad?.id || unidad.id <= 0 || activeTab !== "gastos") return;
     void fetchGastosServicios();
   }, [isOpen, unidad?.id, activeTab, fetchGastosServicios]);
-
-  const fetchContract = async () => {
-    setIsLoading(true);
-    try {
-      const resp = await fetch(`${API_BASE}/api/Contratos/unidad/${unidad?.id}?t=${Date.now()}`);
-      if (resp.ok) {
-        const data = await resp.json();
-        setContractData(data);
-      } else {
-        setContractData(null);
-      }
-    } catch (error) {
-      console.error("Error fetching contract", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const refreshContratoYHistorial = React.useCallback(async () => {
     await fetchContract();
@@ -1093,6 +1305,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
       if (!contractData) {
         toast.success("NIS actualizado correctamente");
         setIsEditing(false);
+        await clearFichaIncompleta();
         return;
       }
 
@@ -1125,6 +1338,14 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
         setIsEditing(false);
         fetchContract();
         if (onUpdate) onUpdate({ nisAnde: normalizeNisValue(localNisAnde), code: localCodigoUnidad });
+        if (isFichaCompleta(contractData)) {
+          await clearFichaIncompleta();
+        } else {
+          await upsertFichaIncompleta();
+          toast.message("Sigue como ficha incompleta", {
+            description: "Completá nombre, cédula, fechas y monto para sacarla del listado.",
+          });
+        }
       } else {
         const errText = await resp.text();
         console.error("Error API:", errText);
@@ -1203,6 +1424,13 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
         setIsContratando(false);
         fetchContract();
         if (onUpdate) onUpdate();
+        if (isFichaCompleta(contractData)) await clearFichaIncompleta();
+        else {
+          await upsertFichaIncompleta();
+          toast.message("Quedó como ficha incompleta", {
+            description: "Completá los datos faltantes desde el Dashboard.",
+          });
+        }
       } else {
         const errText = await resp.text().catch(() => "");
         toast.error("Error al registrar el contrato.", {
@@ -2417,7 +2645,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
       <DialogContent
         data-scroll="internal"
         className="flex max-h-[min(94vh,920px)] w-[min(96vw,1320px)] max-w-[1320px] flex-col gap-0 overflow-hidden border-none p-0 shadow-2xl rounded-[2rem] bg-card sm:max-w-[1320px]"
@@ -2427,7 +2655,62 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
           <DialogTitle>Detalle de la Unidad {unidad?.code}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {/* relative solo en wrapper interno: no pisar fixed/centrado del Dialog */}
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+        {/* Confirmación Sí/No dentro de la ficha (evita toast/Sonner bloqueado por el Dialog) */}
+        {showSaveOnCloseConfirm && (
+          <div
+            className="absolute inset-0 z-[200] flex items-center justify-center bg-black/55 p-4"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="ficha-save-close-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="w-full max-w-[420px] rounded-[1.75rem] border border-border bg-card p-6 sm:p-8 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start gap-4">
+                <div className="h-12 w-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div className="min-w-0">
+                  <h3
+                    id="ficha-save-close-title"
+                    className="text-lg font-black italic uppercase tracking-tighter text-foreground"
+                  >
+                    ¿Desea guardar los cambios?
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                    <span className="font-bold text-foreground">Sí:</span> guarda una ficha incompleta para continuar después.
+                    {" "}
+                    <span className="font-bold text-foreground">No:</span> descarta lo editado en esta sesión.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-6">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={savingIncompleteOnClose}
+                  onClick={handleDiscardAndClose}
+                  className="h-11 rounded-xl font-bold"
+                >
+                  No
+                </Button>
+                <Button
+                  type="button"
+                  disabled={savingIncompleteOnClose}
+                  onClick={() => void handleConfirmSaveIncomplete()}
+                  className="h-11 rounded-xl font-black italic bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {savingIncompleteOnClose ? "Guardando…" : "Sí, guardar incompleta"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
           
           {/* HEADER PREMIUM (INQUILINO) */}
           <div className="bg-secondary p-4 sm:p-6 lg:p-8 text-foreground relative shrink-0 border-b border-border">
@@ -2436,7 +2719,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
             <div className="flex flex-col gap-4 xl:flex-row xl:justify-between xl:items-start relative z-10 min-w-0">
               <div className="flex items-start sm:items-center gap-4 sm:gap-6 min-w-0 flex-1 xl:pr-4">
                 <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-3xl bg-primary text-primary-foreground flex items-center justify-center font-black text-2xl sm:text-3xl shadow-xl shadow-primary/20 shrink-0">
-                  {dataInquilino.nombre.substring(0, 1).toUpperCase()}
+                  {(dataInquilino.nombre || "D").substring(0, 1).toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -2469,35 +2752,37 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
                     {!isEditing && contractData && (
                         <div className="flex flex-wrap gap-2">
                             {(() => {
+                                try {
                                 const hoy = new Date();
-                                const inicio = new Date(contractData.fechaInicioContrato);
                                 const fin = new Date(contractData.fechaFinContrato);
-                                
-                                // Próximo vencimiento es la primera cuota no pagada
                                 const nextPending = installments.slice().reverse().find(i => i.estado !== "Pagado");
-                                const proximoVencimiento = nextPending ? nextPending.fechaVencimiento : (installments[0]?.fechaVencimiento || new Date());
-                                
-                                const diasParaFin = (fin.getTime() - hoy.getTime()) / (1000 * 3600 * 24);
+                                const proximoVencimiento = nextPending ? nextPending.fechaVencimiento : (installments[0]?.fechaVencimiento || null);
+                                const diasParaFin = Number.isNaN(fin.getTime())
+                                  ? null
+                                  : (fin.getTime() - hoy.getTime()) / (1000 * 3600 * 24);
                                 
                                 return (
                                     <>
-                                        {hoy > proximoVencimiento && nextPending?.estado === "Atrasado" ? (
+                                        {proximoVencimiento && hoy > proximoVencimiento && nextPending?.estado === "Atrasado" ? (
                                             <Badge className="bg-red-100 text-red-700 border-none font-black text-[8px] uppercase px-2 shadow-sm">
                                                 Alquiler Vencido (Desde {proximoVencimiento.toLocaleDateString()})
                                             </Badge>
-                                        ) : (
+                                        ) : proximoVencimiento ? (
                                             <Badge className="bg-emerald-100 text-emerald-700 border-none font-black text-[8px] uppercase px-2 shadow-sm">
                                                 Al Día (Próx. Venc: {proximoVencimiento.toLocaleDateString()})
                                             </Badge>
-                                        )}
+                                        ) : null}
                                         
-                                        {diasParaFin > 0 && diasParaFin < 30 && (
+                                        {diasParaFin != null && diasParaFin > 0 && diasParaFin < 30 && (
                                             <Badge className="bg-orange-100 text-orange-700 border-none font-black text-[8px] uppercase px-2 shadow-sm">
                                                 Contrato expira en {Math.round(diasParaFin)} días
                                             </Badge>
                                         )}
                                     </>
                                 );
+                                } catch {
+                                  return null;
+                                }
                             })()}
                         </div>
                     )}
@@ -2512,7 +2797,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
                     <Button variant="outline" onClick={() => { setIsRenewing(false); setIsEditing(false); }} className="bg-card border-border text-muted-foreground font-bold rounded-xl px-3 h-10 text-[10px] sm:text-xs">
                         <X className="w-4 h-4 mr-1.5 shrink-0" /> CANCELAR
                     </Button>
-                    <Button onClick={handleRenovarContrato} className="bg-blue-600 hover:bg-blue-700 text-white font-black italic rounded-xl px-3 h-10 shadow-lg shadow-blue-500/20 text-[10px] sm:text-xs">
+                    <Button id={FICHA_SAVE_BTN_ID} onClick={handleRenovarContrato} className="bg-blue-600 hover:bg-blue-700 text-white font-black italic rounded-xl px-3 h-10 shadow-lg shadow-blue-500/20 text-[10px] sm:text-xs focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-400">
                         <Save className="w-4 h-4 mr-1.5 shrink-0" /> RENOVAR
                     </Button>
                   </div>
@@ -2524,17 +2809,28 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
                     <Button onClick={handlePrintContract} className="bg-primary text-primary-foreground font-black italic rounded-xl px-3 h-10 shadow-lg shadow-primary/20 text-[10px] sm:text-xs">
                         <Printer className="w-4 h-4 mr-1.5 shrink-0" /> IMPR. CONTRATO
                     </Button>
-                    <Button onClick={handleContratar} className="bg-emerald-600 text-white font-black italic rounded-xl px-3 h-10 shadow-lg shadow-emerald-200 text-[10px] sm:text-xs col-span-2">
+                    <Button id={FICHA_SAVE_BTN_ID} onClick={handleContratar} className="bg-emerald-600 text-white font-black italic rounded-xl px-3 h-10 shadow-lg shadow-emerald-200 text-[10px] sm:text-xs col-span-2 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-emerald-400">
                         <Save className="w-4 h-4 mr-1.5 shrink-0" /> GUARDAR CONTRATO
                     </Button>
                   </div>
                 ) : isEditing ? (
                   <div className="grid grid-cols-2 gap-2">
-                    <Button variant="outline" onClick={() => setIsEditing(false)} className="bg-card border-border text-muted-foreground font-bold rounded-xl px-3 h-10 text-[10px] sm:text-xs">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsEditing(false);
+                        void fetchContract();
+                      }}
+                      className="bg-card border-border text-muted-foreground font-bold rounded-xl px-3 h-10 text-[10px] sm:text-xs"
+                    >
                         <X className="w-4 h-4 mr-1.5 shrink-0" /> CANCELAR
                     </Button>
-                    <Button onClick={handleUpdate} className="bg-emerald-600 text-white font-black italic rounded-xl px-3 h-10 shadow-lg shadow-emerald-200 text-[10px] sm:text-xs">
-                        <Save className="w-4 h-4 mr-1.5 shrink-0" /> GUARDAR
+                    <Button
+                      id={FICHA_SAVE_BTN_ID}
+                      onClick={handleUpdate}
+                      className="bg-emerald-600 text-white font-black italic rounded-xl px-3 h-10 shadow-lg shadow-emerald-200 text-[10px] sm:text-xs focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-emerald-400"
+                    >
+                        <Save className="w-4 h-4 mr-1.5 shrink-0" /> GUARDAR CAMBIOS
                     </Button>
                   </div>
                 ) : (
@@ -2543,7 +2839,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {contractData && dataUnidad.estado !== "Disponible" ? (
                         <>
-                          <Button onClick={() => setIsGenerarContratoModalOpen(true)} variant="outline" className="bg-amber-50 border-amber-200 text-amber-700 font-black italic rounded-xl px-2.5 h-10 hover:bg-amber-100 shadow-sm text-[9px] sm:text-[10px]">
+                          <Button onClick={openGenerarContratoModal} variant="outline" className="bg-amber-50 border-amber-200 text-amber-700 font-black italic rounded-xl px-2.5 h-10 hover:bg-amber-100 shadow-sm text-[9px] sm:text-[10px]">
                               <FileText className="w-3.5 h-3.5 mr-1 shrink-0" /> GENERAR CONTRATO
                           </Button>
                           <Button onClick={handleCompartirWhatsAppFicha} variant="outline" className="bg-emerald-50 border-emerald-200 text-emerald-700 font-black italic rounded-xl px-2.5 h-10 hover:bg-emerald-100 shadow-sm text-[9px] sm:text-[10px]">
@@ -3272,7 +3568,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
                                         {isGeneratingDoc ? "Generando..." : "Vista previa y generar"}
                                     </Button>
                                     <Button 
-                                        onClick={() => setIsGenerarContratoModalOpen(true)}
+                                        onClick={openGenerarContratoModal}
                                         className="bg-slate-900 hover:bg-slate-800 text-white font-black text-xs px-5 py-6 rounded-xl uppercase tracking-wider shadow-lg whitespace-nowrap transition-all hover:scale-105 active:scale-95"
                                     >
                                         <Pencil className="w-4 h-4 mr-2" />
@@ -3683,7 +3979,7 @@ export function DetalleUnidadModal({ isOpen, onClose, unidad, onUpdate, initialT
           <DialogFooter className="p-8 pt-4 border-t border-border bg-card flex items-center justify-between shrink-0">
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest italic">Expediente VORDIA Condominios v2.0</p>
             <div className="flex gap-3">
-                <Button onClick={onClose} variant="ghost" className="font-black italic text-xs text-muted-foreground uppercase tracking-widest">SALIR</Button>
+                <Button onClick={requestCloseFicha} variant="ghost" className="font-black italic text-xs text-muted-foreground uppercase tracking-widest">SALIR</Button>
             </div>
           </DialogFooter>
         </div>
