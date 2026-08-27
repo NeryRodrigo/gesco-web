@@ -126,6 +126,8 @@ export default function OimaDashboard() {
   } | null>(null);
   const [fichaTab, setFichaTab] = useState<"ficha" | "pagos">("ficha");
   const [isFichaOpen, setIsFichaOpen] = useState(false);
+  const [fichaDraft, setFichaDraft] = useState<{ modo?: string; payloadJson: string } | null>(null);
+  const [fichasIncKey, setFichasIncKey] = useState(0);
 
   const empresaId = usuarioActivo?.empresaId || 7;
   const isUsuarioVordia = String(usuarioActivo?.rubro || "").toUpperCase() === "VORDIA";
@@ -521,9 +523,12 @@ export default function OimaDashboard() {
                 <DashboardCards
                   dashboardData={condoDashboardData}
                   onRefresh={cargarDatos}
-                  onOpenFicha={(unidad, tab) => {
+                  empresaId={empresaId}
+                  fichasIncompletasRefreshKey={fichasIncKey}
+                  onOpenFicha={(unidad, tab, draft) => {
                     setFichaUnidad(unidad);
                     setFichaTab(tab === "pagos" ? "pagos" : "ficha");
+                    setFichaDraft(draft || null);
                     setIsFichaOpen(true);
                   }}
                 />
@@ -715,9 +720,14 @@ export default function OimaDashboard() {
         onClose={() => {
           setIsFichaOpen(false);
           setFichaUnidad(null);
+          setFichaDraft(null);
         }}
         unidad={fichaUnidad}
         initialTab={fichaTab}
+        empresaId={empresaId}
+        usuario={usuarioActivo}
+        initialDraft={fichaDraft}
+        onDraftsChanged={() => setFichasIncKey((k) => k + 1)}
         onUpdate={async (patch) => {
           if (patch && fichaUnidad) {
             setFichaUnidad({
@@ -727,6 +737,7 @@ export default function OimaDashboard() {
             });
           }
           await cargarDatos();
+          setFichasIncKey((k) => k + 1);
         }}
       />
     </div>
