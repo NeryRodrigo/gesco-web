@@ -173,7 +173,7 @@ interface AndeConsultaUi {
 }
 
 interface Contrato {
-  [key: string]: string | number | Persona | Pago[] | undefined | null;
+  [key: string]: string | number | boolean | Persona | Pago[] | undefined | null;
   contratoId: number;
   inquilinoId: number;
   inquilino: Persona;
@@ -187,6 +187,57 @@ interface Contrato {
   observaciones: string;
   serviciosIncluidos?: string; // Viene como string separado por comas o JSON string
   pagos: Pago[];
+  estaActivo?: boolean;
+}
+
+/** Marca en notas del pago: al anular desalojo se borran estos cobros y vuelven las cuotas al historial. */
+const MARCA_COBRO_RESTANTE_DESALOJO = "[DESALOJO_COBRO_RESTANTE]";
+
+function normalizeContratoApi(raw: any): Contrato | null {
+  if (!raw || typeof raw !== "object") return null;
+  const contratoId = Number(raw.contratoId ?? raw.ContratoId ?? 0);
+  if (!Number.isFinite(contratoId) || contratoId <= 0) return null;
+  const inquilinoRaw = raw.inquilino ?? raw.Inquilino ?? {};
+  const pagosRaw = raw.pagos ?? raw.Pagos ?? [];
+  return {
+    ...raw,
+    contratoId,
+    inquilinoId: Number(raw.inquilinoId ?? raw.InquilinoId ?? inquilinoRaw?.personaId ?? inquilinoRaw?.PersonaId ?? 0),
+    unidadId: Number(raw.unidadId ?? raw.UnidadId ?? 0),
+    fechaIngreso: raw.fechaIngreso ?? raw.FechaIngreso ?? "",
+    fechaInicioContrato: raw.fechaInicioContrato ?? raw.FechaInicioContrato ?? "",
+    fechaFinContrato: raw.fechaFinContrato ?? raw.FechaFinContrato ?? "",
+    montoMensualAlquiler: Number(raw.montoMensualAlquiler ?? raw.MontoMensualAlquiler ?? 0),
+    depositoGarantia: Number(raw.depositoGarantia ?? raw.DepositoGarantia ?? 0),
+    cantidadOcupantes: Number(raw.cantidadOcupantes ?? raw.CantidadOcupantes ?? 1),
+    vehiculoInfo: raw.vehiculoInfo ?? raw.VehiculoInfo ?? "",
+    observaciones: raw.observaciones ?? raw.Observaciones ?? "",
+    serviciosIncluidos: raw.serviciosIncluidos ?? raw.ServiciosIncluidos ?? "",
+    estaActivo: raw.estaActivo ?? raw.EstaActivo,
+    pagos: Array.isArray(pagosRaw)
+      ? pagosRaw.map((p: any) => ({
+          ...p,
+          pagoId: p.pagoId ?? p.PagoId,
+          contratoId: p.contratoId ?? p.ContratoId ?? contratoId,
+          tipoPago: p.tipoPago ?? p.TipoPago,
+          mesPagado: Number(p.mesPagado ?? p.MesPagado ?? 0),
+          anioPagado: Number(p.anioPagado ?? p.AnioPagado ?? 0),
+          fechaPago: p.fechaPago ?? p.FechaPago,
+          montoPagado: Number(p.montoPagado ?? p.MontoPagado ?? 0),
+          metodoPago: p.metodoPago ?? p.MetodoPago,
+          notas: p.notas ?? p.Notas,
+        }))
+      : [],
+    inquilino: {
+      ...inquilinoRaw,
+      personaId: Number(inquilinoRaw.personaId ?? inquilinoRaw.PersonaId ?? 0),
+      razonSocial: inquilinoRaw.razonSocial ?? inquilinoRaw.RazonSocial ?? "",
+      documento: inquilinoRaw.documento ?? inquilinoRaw.Documento ?? "",
+      telefono: inquilinoRaw.telefono ?? inquilinoRaw.Telefono ?? "",
+      email: inquilinoRaw.email ?? inquilinoRaw.Email ?? "",
+      empresaId: inquilinoRaw.empresaId ?? inquilinoRaw.EmpresaId,
+    },
+  } as Contrato;
 }
 
 type DetalleUnidadTab = "ficha" | "pagos" | "gastos" | "documentos" | "historico" | "comprobantes";
@@ -864,6 +915,10 @@ export function DetalleUnidadModal({
   };
   
   const [contractData, setContractData] = useState<Contrato | null>(null);
+  const contratoIdRef = useRef<number>(0);
+  const isRegisteringPaymentRef = useRef(false);
+  const pendingDesalojoTrasCobroRef = useRef(false);
+  const [pendingDesalojoTrasCobro, setPendingDesalojoTrasCobro] = useState(false);
   const [documentUrls, setDocumentUrls] = useState<Record<string, string>>({});
   const [tempUrls, setTempUrls] = useState<Record<string, string>>({});
   const [selectedFiles, setSelectedFiles] = useState<Record<string, File>>({});
@@ -1094,28 +1149,47 @@ export function DetalleUnidadModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, unidad?.id, initialTab, initialDraft?.payloadJson]);
 
-  const fetchContract = async () => {
+  const fetchContract = async (): Promise<Contrato | null> => {
     setIsLoading(true);
     try {
       const resp = await fetch(`${API_BASE}/api/Contratos/unidad/${unidad?.id}?t=${Date.now()}`);
       if (resp.ok) {
-        const data = await resp.json();
-        setContractData(data);
+        const raw = await resp.json();
+        const data = normalizeContratoApi(raw);
+        if (data) {
+          setContractData(data);
+          contratoIdRef.current = data.contratoId;
+          return data;
+        }
+        // Respuesta OK pero sin id usable: no borrar ficha si hay cobro en curso
+        if (!(isRegisteringPaymentRef.current && contratoIdRef.current)) {
+          setContractData(null);
+        }
+        return null;
       } else if (resp.status === 404) {
-        // Unidad disponible / sin contrato: estado válido, no es error de usuario
-        setContractData(null);
+        if (!(isRegisteringPaymentRef.current && contratoIdRef.current)) {
+          setContractData(null);
+          contratoIdRef.current = 0;
+        }
+        return null;
       } else {
-        setContractData(null);
+        if (!(isRegisteringPaymentRef.current && contratoIdRef.current)) {
+          setContractData(null);
+        }
         toast.error("No se pudo cargar el contrato de la unidad", {
           description: `Código ${resp.status}. Podés reintentar cerrando y abriendo la ficha.`,
         });
+        return null;
       }
     } catch (error) {
       console.error("Error fetching contract", error);
-      setContractData(null);
+      if (!(isRegisteringPaymentRef.current && contratoIdRef.current)) {
+        setContractData(null);
+      }
       toast.error("Error de red al cargar la ficha", {
         description: "Revisá la conexión e intentá de nuevo.",
       });
+      return null;
     } finally {
       setIsLoading(false);
     }
@@ -1495,10 +1569,19 @@ export function DetalleUnidadModal({
   };
 
   const handleRegisterPayment = async () => {
-    if (!contractData) {
+    let contrato = contractData;
+    if (!contrato?.contratoId) {
+      contrato = await fetchContract();
+    }
+    if (!contrato?.contratoId && contratoIdRef.current) {
+      // Último recurso: reutilizar id conocido si el refetch falló en medio del cobro
+      contrato = { ...(contrato || contractData || ({} as Contrato)), contratoId: contratoIdRef.current };
+    }
+    if (!contrato?.contratoId) {
       toast.error("Error: No se ha cargado la información del contrato. Reintente en un momento.");
       return;
     }
+    contratoIdRef.current = contrato.contratoId;
 
     const periodos =
       paymentForm.mesesSeleccionados.length > 0
@@ -1524,9 +1607,14 @@ export function DetalleUnidadModal({
       const descPlural = formatConceptoCobro(
         periodos.map((p) => ({ tipoPago: "Alquiler", mes: p.mes, anio: p.anio }))
       );
+      const notaBase = pendingDesalojoTrasCobroRef.current
+        ? [MARCA_COBRO_RESTANTE_DESALOJO, paymentForm.notas, "Cobro restante previo a desalojo"]
+            .filter(Boolean)
+            .join(" | ")
+        : paymentForm.notas;
 
       const pagosPayload = periodos.map((p, idx) => ({
-        contratoId: contractData.contratoId,
+        contratoId: contrato!.contratoId,
         tipoPago: "Alquiler",
         mesPagado: p.mes,
         anioPagado: p.anio,
@@ -1535,8 +1623,8 @@ export function DetalleUnidadModal({
         fechaPago: paymentForm.fecha,
         notas:
           idx === 0
-            ? [paymentForm.notas, descPlural].filter(Boolean).join(" | ")
-            : paymentForm.notas || `Parte de: ${descPlural}`,
+            ? [notaBase, descPlural].filter(Boolean).join(" | ")
+            : notaBase || `Parte de: ${descPlural}`,
         nroComprobante: paymentForm.nroComprobante,
         banco: paymentForm.banco,
         saldoPendiente: 0,
@@ -1564,6 +1652,7 @@ export function DetalleUnidadModal({
             : `Cobro de ${paymentForm.metodo} registrado con éxito`
         );
         setIsRegisteringPayment(false);
+        isRegisteringPaymentRef.current = false;
 
         const itemsComprobante = periodos.map((p, idx) => ({
           cantidad: 1,
@@ -1574,20 +1663,20 @@ export function DetalleUnidadModal({
 
         const relatedPagoIds = Array.isArray(createdPagos)
           ? createdPagos
-              .map((p: any) => Number(p?.pagoId))
+              .map((p: any) => Number(p?.pagoId ?? p?.PagoId))
               .filter((id: number) => Number.isFinite(id) && id > 0)
           : [];
 
         setComprobantePagoData({
-          pagoId: firstPago?.pagoId || relatedPagoIds[0] || Date.now(),
+          pagoId: firstPago?.pagoId || firstPago?.PagoId || relatedPagoIds[0] || Date.now(),
           tipoPago: "Alquiler",
-          mesPagado: firstPago?.mesPagado || periodos[0].mes,
-          anioPagado: firstPago?.anioPagado || periodos[0].anio,
+          mesPagado: firstPago?.mesPagado || firstPago?.MesPagado || periodos[0].mes,
+          anioPagado: firstPago?.anioPagado || firstPago?.AnioPagado || periodos[0].anio,
           montoPagado: paymentForm.monto,
           metodoPago: paymentForm.metodo,
           fechaPago: paymentForm.fecha,
           facturaEmitida: paymentForm.tipoComprobante === "factura",
-          numeroFactura: firstPago?.numeroFactura,
+          numeroFactura: firstPago?.numeroFactura ?? firstPago?.NumeroFactura,
           relatedPagoIds,
           comprobanteUrl: JSON.stringify({
             descripcion: `${descPlural} - ${formatUnidadComprobante(dataUnidad.codigo)}`,
@@ -1595,14 +1684,15 @@ export function DetalleUnidadModal({
             items: itemsComprobante,
           }),
           inquilinoNombre:
-            contractData?.inquilino?.razonSocial ||
-            contractData?.inquilino?.nombre ||
+            contrato?.inquilino?.razonSocial ||
+            contrato?.inquilino?.nombre ||
             dataInquilino.nombre ||
             "Cliente",
-          inquilinoEmail: contractData?.inquilino?.email || dataInquilino?.correo || "",
+          inquilinoEmail: contrato?.inquilino?.email || dataInquilino?.correo || "",
           inquilinoDocumento:
-            contractData?.inquilino?.ruc ||
-            contractData?.inquilino?.cedula ||
+            contrato?.inquilino?.ruc ||
+            contrato?.inquilino?.cedula ||
+            contrato?.inquilino?.documento ||
             dataInquilino.cedula ||
             "Sin Documento",
           unidadCodigo: dataUnidad.codigo || "",
@@ -1618,6 +1708,25 @@ export function DetalleUnidadModal({
           banco: "",
           mesesSeleccionados: [],
         }));
+
+        const debeDesalojar = pendingDesalojoTrasCobroRef.current;
+        pendingDesalojoTrasCobroRef.current = false;
+        setPendingDesalojoTrasCobro(false);
+
+        if (debeDesalojar) {
+          const resDesalojo = await fetch(`${API_BASE}/api/Contratos/${contrato.contratoId}/desalojar`, {
+            method: "POST",
+          });
+          if (resDesalojo.ok) {
+            toast.success("Cobro restante registrado y unidad desalojada. Sin deuda en morosidades.");
+            setIsDesalojarModalOpen(false);
+            await fetchHistoricoContratos();
+            if (onUpdate) onUpdate();
+            onClose();
+            return;
+          }
+          toast.error("Cobro OK, pero falló el desalojo. Reintentá desalojar desde la ficha.");
+        }
 
         await refreshContratoYHistorial();
         setActiveTab("pagos");
@@ -1635,6 +1744,23 @@ export function DetalleUnidadModal({
         }
         toast.success("Cobro registrado (modo simple)");
         setIsRegisteringPayment(false);
+        isRegisteringPaymentRef.current = false;
+        const debeDesalojar = pendingDesalojoTrasCobroRef.current;
+        pendingDesalojoTrasCobroRef.current = false;
+        setPendingDesalojoTrasCobro(false);
+        if (debeDesalojar) {
+          const resDesalojo = await fetch(`${API_BASE}/api/Contratos/${contrato.contratoId}/desalojar`, {
+            method: "POST",
+          });
+          if (resDesalojo.ok) {
+            toast.success("Cobro restante registrado y unidad desalojada.");
+            setIsDesalojarModalOpen(false);
+            await fetchHistoricoContratos();
+            if (onUpdate) onUpdate();
+            onClose();
+            return;
+          }
+        }
         await refreshContratoYHistorial();
         setActiveTab("pagos");
       }
@@ -2094,7 +2220,12 @@ export function DetalleUnidadModal({
   };
 
   const filteredInstallments = useMemo(() => {
+    const contratoInactivo = contractData?.estaActivo === false;
     return installments.filter(row => {
+      // Desalojo sin cobro: cuotas no pagadas salen del historial (viven en Morosidades)
+      if (contratoInactivo && row.estado !== "Pagado" && !(row.pagado > 0)) {
+        return false;
+      }
       // Mostrar hasta el mes actual; si ya hay cobro (pagado), mostrar aunque el periodo sea futuro
       const tieneCobro = row.pagado > 0 || row.estado === "Pagado";
       if (
@@ -2154,7 +2285,7 @@ export function DetalleUnidadModal({
       }
       return sortDirection === "asc" ? comparison : -comparison;
   });
-  }, [installments, anioActual, mesActual, filterDesde, filterHasta, filterContratoDesde, filterContratoHasta, sortColumn, sortDirection]);
+  }, [installments, anioActual, mesActual, filterDesde, filterHasta, filterContratoDesde, filterContratoHasta, sortColumn, sortDirection, contractData?.estaActivo]);
 
   const calcularDeudaAtrasada = () => {
     return installments.reduce((acc, curr) => {
@@ -2165,19 +2296,28 @@ export function DetalleUnidadModal({
     }, 0);
   };
 
-  const handleConfirmarDesalojo = async () => {
-    if (!contractData) return;
+  const handleConfirmarDesalojo = async (opts?: { pasarAMorosidad?: boolean }) => {
+    if (!contractData?.contratoId) {
+      toast.error("No hay contrato activo para desalojar.");
+      return;
+    }
+    const pasarAMorosidad = opts?.pasarAMorosidad !== false;
     try {
       setIsLoading(true);
 
-      // Si hay deuda, registrar la morosidad primero
-      if (deudaTotalDesalojo > 0) {
+      // Si hay deuda y se eligió no cobrar ahora → transferir a morosidad
+      if (deudaTotalDesalojo > 0 && pasarAMorosidad) {
+        const cuotasPendientes = installments.filter((i) => i.estado !== "Pagado" && i.pagado < i.monto);
+        const detalleCuotas = cuotasPendientes
+          .map((i) => `${i.mesNombre} ${i.anio}`)
+          .join(", ");
         const bodyMora = {
           inquilinoId: contractData.inquilinoId,
           unidadId: unidad?.id,
           montoTotal: deudaTotalDesalojo,
           cantidadCuotas: desalojoForm.cantCuotas,
-          observaciones: desalojoForm.observaciones,
+          observaciones:
+            `${desalojoForm.observaciones || "Acuerdo de desalojo"} | Cuotas transferidas desde historial: ${detalleCuotas || "saldo pendiente"}`,
           montoInteresDiario: desalojoForm.montoInteresDiario
         };
         const resMora = await fetch(`${API_BASE}/api/Morosidad`, {
@@ -2192,17 +2332,22 @@ export function DetalleUnidadModal({
         }
       }
 
-      // Desalojar / terminar contrato
       const resDesalojo = await fetch(`${API_BASE}/api/Contratos/${contractData.contratoId}/desalojar`, {
           method: "POST"
       });
 
       if (resDesalojo.ok) {
-          toast.success(deudaTotalDesalojo > 0 ? "Expediente creado y unidad desalojada. Datos pasados a Histórico." : "Unidad desalojada sin deudas. Datos guardados en Histórico.");
+          toast.success(
+            deudaTotalDesalojo > 0 && pasarAMorosidad
+              ? "Unidad desalojada. Cuotas pendientes pasaron a Morosidades (ya no figuran en historial de pagos)."
+              : "Unidad desalojada. Datos guardados en Histórico."
+          );
           setIsDesalojarModalOpen(false);
+          pendingDesalojoTrasCobroRef.current = false;
+          setPendingDesalojoTrasCobro(false);
           await fetchHistoricoContratos();
           if (onUpdate) onUpdate();
-          onClose(); // cerramos el modal actual porque ya está disponible
+          onClose();
       } else {
           toast.error("Error al desalojar unidad");
       }
@@ -2212,6 +2357,35 @@ export function DetalleUnidadModal({
     } finally {
        setIsLoading(false);
     }
+  };
+
+  const abrirCobroRestanteDesalojo = () => {
+    if (!contractData?.contratoId) {
+      toast.error("No se ha cargado el contrato. Esperá un momento y reintentá.");
+      return;
+    }
+    const pendientes = installments.filter((i) => i.estado !== "Pagado");
+    const list = (pendientes.length ? pendientes : installments).map((i) => ({
+      mes: i.mes,
+      anio: i.anio,
+    }));
+    const total = list.reduce((acc, p) => {
+      const inst = installments.find((x) => x.mes === p.mes && x.anio === p.anio);
+      return acc + (inst ? Math.max(0, inst.monto - inst.pagado) : 0);
+    }, 0);
+    setPaymentForm((prev) => ({
+      ...prev,
+      mesesSeleccionados: list.length ? list : prev.mesesSeleccionados,
+      mes: list[0]?.mes || prev.mes,
+      anio: list[0]?.anio || prev.anio,
+      monto: total || deudaTotalDesalojo || prev.monto,
+      notas: "Cobro restante previo a desalojo",
+    }));
+    pendingDesalojoTrasCobroRef.current = true;
+    setPendingDesalojoTrasCobro(true);
+    isRegisteringPaymentRef.current = true;
+    setIsRegisteringPayment(true);
+    setIsDesalojarModalOpen(false);
   };
 
   const dataUnidad = {
@@ -3134,6 +3308,9 @@ export function DetalleUnidadModal({
                                         anio: anio0,
                                         mesesSeleccionados: [{ mes: mes0, anio: anio0 }],
                                     }));
+                                    pendingDesalojoTrasCobroRef.current = false;
+                                    setPendingDesalojoTrasCobro(false);
+                                    isRegisteringPaymentRef.current = true;
                                     setIsRegisteringPayment(true);
                                 }}
                                 className="bg-slate-900 text-white font-black italic rounded-xl px-6 sm:px-8 h-12 shadow-xl hover:scale-105 transition-all w-full sm:w-auto min-h-11 touch-manipulation"
@@ -3986,7 +4163,17 @@ export function DetalleUnidadModal({
       </DialogContent>
 
       {/* MODAL DE REGISTRO DE COBRO */}
-      <Dialog open={isRegisteringPayment} onOpenChange={setIsRegisteringPayment}>
+      <Dialog
+        open={isRegisteringPayment}
+        onOpenChange={(open) => {
+          setIsRegisteringPayment(open);
+          isRegisteringPaymentRef.current = open;
+          if (!open) {
+            pendingDesalojoTrasCobroRef.current = false;
+            setPendingDesalojoTrasCobro(false);
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-[480px] w-[calc(100vw-1.5rem)] p-5 sm:p-8 rounded-[2rem] bg-card border-none shadow-2xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader className="sr-only">
             <DialogTitle>Registrar Cobro - Unidad {formatCodigoFicha(dataUnidad.codigo)}</DialogTitle>
@@ -4001,6 +4188,19 @@ export function DetalleUnidadModal({
                     <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">Unidad {formatCodigoFicha(dataUnidad.codigo)}</p>
                 </div>
             </div>
+
+            {pendingDesalojoTrasCobro && (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-900 leading-snug">
+                Cobro restante previo a desalojo. Al confirmar se registra el pago y se desaloja la unidad (sin pasar a morosidad).
+              </div>
+            )}
+
+            {!contractData?.contratoId && (
+              <div className="rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-[11px] font-bold text-red-700 leading-snug flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                No se ha cargado la información del contrato. Cerrá y reabrí la ficha, o reintentá en un momento.
+              </div>
+            )}
 
             <div className="space-y-4">
                 <div className="space-y-2">
@@ -4565,8 +4765,8 @@ export function DetalleUnidadModal({
                           <p className="text-[10px] font-black uppercase text-red-600 tracking-widest">Deuda Pendiente Detectada</p>
                           <p className="text-3xl sm:text-4xl font-black italic text-red-600 mt-1">Gs. {deudaTotalDesalojo.toLocaleString()}</p>
                       </div>
-                      <p className="text-xs font-bold text-muted-foreground leading-relaxed text-center px-4">
-                          Al confirmar un <strong>Desalojo</strong> o una <strong>Renovación</strong>, el saldo pendiente se transferirá automáticamente a un <strong>Expediente de Mora</strong> configurado abajo:
+                      <p className="text-xs font-bold text-muted-foreground leading-relaxed text-center px-2">
+                          Podés <strong>cobrar el saldo restante ahora</strong> y desalojar sin mora, o <strong>pasar las cuotas a Morosidades</strong> (salen del historial de pagos). Si más adelante anulás el desalojo: sin cobrar se restablece el historial; si ya cobraste el restante, ese cobro se anula y el historial vuelve como estaba.
                       </p>
                       
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -4607,11 +4807,11 @@ export function DetalleUnidadModal({
                   </div>
                )}
 
-               <div className="flex flex-col sm:flex-row gap-3 mt-4 pt-4 border-t border-border">
-                  <Button variant="outline" className="w-full sm:w-32 rounded-xl font-bold h-12 text-muted-foreground hover:bg-muted shrink-0" onClick={() => setIsDesalojarModalOpen(false)}>
+               <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-border">
+                  <Button variant="outline" className="w-full rounded-xl font-bold h-11 text-muted-foreground hover:bg-muted" onClick={() => setIsDesalojarModalOpen(false)}>
                      CANCELAR
                   </Button>
-                  <div className="flex-1 flex flex-col sm:flex-row gap-3 w-full">
+                  <div className="flex flex-col sm:flex-row gap-3 w-full">
                       <Button 
                          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-black italic rounded-xl shadow-lg shadow-blue-500/20 h-12 hover:scale-105 transition-all"
                          onClick={() => {
@@ -4624,12 +4824,25 @@ export function DetalleUnidadModal({
                       >
                          RENOVAR CONTRATO
                       </Button>
+                      {deudaTotalDesalojo > 0 && (
+                        <Button
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black italic rounded-xl shadow-lg shadow-emerald-500/20 h-12 hover:scale-105 transition-all"
+                          onClick={abrirCobroRestanteDesalojo}
+                          disabled={isLoading}
+                        >
+                          COBRAR RESTANTE Y DESALOJAR
+                        </Button>
+                      )}
                       <Button 
                          className="flex-1 bg-red-600 hover:bg-red-700 text-white font-black italic rounded-xl shadow-lg shadow-red-500/20 h-12 hover:scale-105 transition-all"
-                         onClick={handleConfirmarDesalojo}
+                         onClick={() => handleConfirmarDesalojo({ pasarAMorosidad: deudaTotalDesalojo > 0 })}
                          disabled={isLoading}
                       >
-                         {isLoading ? "PROCESANDO..." : "CONFIRMAR DESALOJO"}
+                         {isLoading
+                           ? "PROCESANDO..."
+                           : deudaTotalDesalojo > 0
+                             ? "PASAR A MOROSIDAD Y DESALOJAR"
+                             : "CONFIRMAR DESALOJO"}
                       </Button>
                   </div>
                </div>
@@ -4895,7 +5108,10 @@ export function DetalleUnidadModal({
                 <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" /> La unidad volverá al estado <span className="text-blue-600 font-black">OCUPADO</span>.
               </p>
               <p className="flex items-center gap-2 font-bold text-foreground">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" /> Se mantendrá intacta la ficha detallada y el historial de pagos tal como estaba antes.
+                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" /> Si había cuotas en morosidad sin cobrar, vuelven al <span className="text-foreground font-black">historial de pagos</span>.
+              </p>
+              <p className="flex items-center gap-2 font-bold text-foreground">
+                <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" /> Si se cobró el restante al desalojar, ese cobro se <span className="text-red-600 font-black">anula</span> y el historial queda como antes.
               </p>
             </div>
             <div className="flex w-full gap-3 pt-2">
@@ -4915,7 +5131,7 @@ export function DetalleUnidadModal({
                     setIsLoading(true);
                     const res = await fetch(`${API_BASE}/api/Contratos/${confirmAnularContrato.contratoId}/anular-desalojo`, { method: "POST" });
                     if (res.ok) {
-                      toast.success("Desalojo anulado. Contrato e inquilino restablecidos intactos como activos.");
+                      toast.success("Desalojo anulado. Contrato activo; morosidades pendientes y cobros restantes del desalojo revertidos.");
                       await fetchHistoricoContratos();
                       setConfirmAnularContrato(null);
                       if (onUpdate) onUpdate();

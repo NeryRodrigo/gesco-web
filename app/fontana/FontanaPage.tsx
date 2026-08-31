@@ -49,6 +49,17 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ComprobantePreviewModal } from "@/app/condominio/ComprobantePreviewModal";
 import { FontanaPropiedadesDashboard } from "./FontanaPropiedadesDashboard";
+import { FontanaCroquisDashboard } from "@/components/fontana/FontanaCroquisDashboard";
+import { FontanaFinanzasPage } from "@/components/fontana/FontanaFinanzasPage";
+import { FontanaPersonalPage } from "@/components/fontana/FontanaPersonalPage";
+import { FontanaReportesPage } from "@/components/fontana/FontanaReportesPage";
+import {
+  isFontanaPropiedadPlano,
+  resolveFontanaPropiedadPlano,
+  type FontanaPlanta,
+  type FontanaPropiedadPlano,
+} from "@/lib/fontanaPlanos";
+import { addFontanaMovimiento } from "@/lib/fontanaFinanzas";
 import {
   Habitacion,
   Reserva,
@@ -61,7 +72,13 @@ import {
 } from "@/types/hostel";
 
 type FichaTab = "reserva" | "pagos" | "atrasados" | "deudas" | "reclamos" | "documentos";
-type FontanaVista = "dashboard" | "hospedaje";
+type FontanaVista =
+  | "croquis"
+  | "propiedades"
+  | "hospedaje"
+  | "finanzas"
+  | "personal"
+  | "reportes";
 
 interface DuplexUnidad {
   unidadId: number;
@@ -152,6 +169,10 @@ function sameDay(a: Date, b: Date) {
 const emptyForm = (): FontanaDetalles & { nombreHabitacion: string } => ({
   nombreHabitacion: "",
   nombreLugar: LUGARES_FONTANA_DEFAULT[0],
+  numeroHabitacion: undefined,
+  planta: undefined,
+  modalidad: undefined,
+  plazasOcupadas: undefined,
   cantidadHabitaciones: 1,
   precioAcordado: 0,
   nombreApellido: "",
@@ -210,7 +231,8 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [fichaTab, setFichaTab] = useState<FichaTab>("reserva");
-  const [fontanaVista, setFontanaVista] = useState<FontanaVista>("dashboard");
+  const [fontanaVista, setFontanaVista] = useState<FontanaVista>("croquis");
+  const [finanzasTick, setFinanzasTick] = useState(0);
   const [desocupando, setDesocupando] = useState(false);
   const [comprobanteOpen, setComprobanteOpen] = useState(false);
   const [comprobantePagoData, setComprobantePagoData] = useState<any>(null);
@@ -397,6 +419,17 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
     setCalendarStart(monthStart);
   }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const totalPorLugar = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const h of habitaciones) {
+      const lugar = parseFontanaDetalles(h.detallesJson).nombreLugar || "";
+      if (!lugar) continue;
+      const key = lugares.find((l) => sameLugar(l, lugar)) || lugar;
+      map[key] = (map[key] || 0) + 1;
+    }
+    return map;
+  }, [habitaciones, lugares]);
+
   const ocupadasPorLugar = useMemo(() => {
     const map: Record<string, number> = {};
     for (const h of habitaciones) {
@@ -414,12 +447,15 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
     return lugares.filter((l) => {
       const cfg = cupos[l] || { cupo: cupoDefaultParaLugar(l), habilitado: true };
       if (!cfg.habilitado) return false;
-      const ocup = ocupadasPorLugar[l] || 0;
-      return ocup < cfg.cupo;
+      // Fontana 1/2/3: cupo = habitaciones físicas totales del croquis
+      const usadas = isFontanaPropiedadPlano(l)
+        ? totalPorLugar[l] || 0
+        : ocupadasPorLugar[l] || 0;
+      return usadas < cfg.cupo;
     });
-  }, [lugares, cupos, ocupadasPorLugar]);
+  }, [lugares, cupos, ocupadasPorLugar, totalPorLugar]);
 
-  /** Etiqueta visible: Fontana X - Habitación N (número reinicia en 1 por cada lugar) */
+  /** Etiqueta visible: Fontana X · PB · Hab. 01 (o secuencia si no hay croquis) */
   const etiquetaPorHabitacionId = useMemo(() => {
     const map = new Map<number, string>();
     const byLugar = new Map<string, Habitacion[]>();
@@ -434,9 +470,15 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
       const sorted = [...list].sort((a, b) => a.habitacionId - b.habitacionId);
       const lugarLabel =
         parseFontanaDetalles(sorted[0]?.detallesJson).nombreLugar?.trim() || "Fontana";
-      // Siempre 1..n por lugar (orden de creación), no reutilizar números viejos tipo Hab 5
       sorted.forEach((h, idx) => {
-        map.set(h.habitacionId, formatNombreHabitacionLugar(idx + 1, lugarLabel));
+        const d = parseFontanaDetalles(h.detallesJson);
+        if (d.numeroHabitacion && d.numeroHabitacion > 0) {
+          const n = String(d.numeroHabitacion).padStart(2, "0");
+          const pl = d.planta ? ` · ${d.planta}` : "";
+          map.set(h.habitacionId, `${lugarLabel}${pl} · Hab. ${n}`);
+        } else {
+          map.set(h.habitacionId, formatNombreHabitacionLugar(idx + 1, lugarLabel));
+        }
       });
     }
     return map;
@@ -461,8 +503,54 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
       ...emptyForm(),
       nombreLugar: lugarInicial,
       nombreHabitacion: formatNombreHabitacionLugar(num, lugarInicial),
+      numeroHabitacion: num,
     });
     setFormOpen(true);
+  };
+
+  const openCreateDesdeSlot = (args: {
+    propiedad: FontanaPropiedadPlano;
+    planta: FontanaPlanta;
+    numero: number;
+    capacidad: number;
+    modalidad: "DIARIA" | "MENSUAL";
+  }) => {
+    const cfg = cupos[args.propiedad] || {
+      cupo: cupoDefaultParaLugar(args.propiedad),
+      habilitado: true,
+    };
+    const usadas = totalPorLugar[args.propiedad] || 0;
+    if (!cfg.habilitado) {
+      toast.error(`«${args.propiedad}» está deshabilitada`);
+      return;
+    }
+    if (usadas >= cfg.cupo) {
+      toast.error(`«${args.propiedad}» ya llegó al cupo (${cfg.cupo})`, {
+        description: "Aumentá el cupo en «Gestionar cupos» si necesitás más altas.",
+      });
+      return;
+    }
+    const n = String(args.numero).padStart(2, "0");
+    const tipoAlquiler: TipoAlquilerFontana =
+      args.modalidad === "MENSUAL" ? "Mensualero" : "Diario";
+    setEditingId(null);
+    setForm({
+      ...emptyForm(),
+      nombreLugar: args.propiedad,
+      planta: args.planta,
+      numeroHabitacion: args.numero,
+      modalidad: args.modalidad,
+      cantidadHabitaciones: args.capacidad,
+      plazasOcupadas: 0,
+      tipoAlquiler,
+      estadoInquilino: "Retirado",
+      nombreHabitacion: `${args.propiedad} · ${args.planta} · Hab. ${n}`,
+      nombreApellido: "Disponible",
+    });
+    setFormOpen(true);
+    toast.message("Alta desde croquis", {
+      description: `${args.propiedad} · ${args.planta} · HAB. ${n} · ${args.modalidad}`,
+    });
   };
 
   const openEdit = (h: Habitacion) => {
@@ -722,8 +810,10 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
           setSaving(false);
           return;
         }
-        const ocup = ocupadasPorLugar[form.nombreLugar] || 0;
-        if (ocup >= cfg.cupo) {
+        const usadas = isFontanaPropiedadPlano(form.nombreLugar)
+          ? totalPorLugar[form.nombreLugar] || 0
+          : ocupadasPorLugar[form.nombreLugar] || 0;
+        if (usadas >= cfg.cupo) {
           toast.error(`«${form.nombreLugar}» ya está en su cupo máximo (${cfg.cupo})`);
           setSaving(false);
           return;
@@ -773,9 +863,13 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
         duplex?.nombreCondominio ||
         "Fontana";
 
-      // Nombre estándar: Fontana X - Habitación N (número por lugar)
+      // Nombre: prioriza croquis (planta + número) si está definido
       let nombreHab = (form.nombreHabitacion || "").trim();
-      if (!editingId) {
+      if (form.numeroHabitacion && form.numeroHabitacion > 0) {
+        const n = String(form.numeroHabitacion).padStart(2, "0");
+        const pl = form.planta ? ` · ${form.planta}` : "";
+        nombreHab = `${lugar}${pl} · Hab. ${n}`;
+      } else if (!editingId) {
         const items = habitaciones.map((h) => ({
           nombre: h.nombre,
           nombreLugar: parseFontanaDetalles(h.detallesJson).nombreLugar,
@@ -807,9 +901,35 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
         }
       }
 
+      const capacidad = Number(form.cantidadHabitaciones) || 1;
+      const modalidad =
+        form.modalidad ||
+        (String(form.tipoAlquiler || "").toLowerCase().includes("mensual")
+          ? "MENSUAL"
+          : form.tipoAlquiler === "Diario" || form.tipoAlquiler === "Semanal"
+            ? "DIARIA"
+            : form.modalidad);
+
+      let plazasOcupadas = form.plazasOcupadas;
+      if (
+        form.estadoInquilino === "Activo" ||
+        form.estadoInquilino === "Moroso"
+      ) {
+        if (plazasOcupadas == null || Number(plazasOcupadas) <= 0) {
+          plazasOcupadas = capacidad;
+        }
+      } else if (form.estadoInquilino === "Retirado") {
+        plazasOcupadas = 0;
+      }
+
       const detalles: FontanaDetalles = {
         nombreLugar: lugar,
-        cantidadHabitaciones: Number(form.cantidadHabitaciones) || 1,
+        numeroHabitacion: form.numeroHabitacion || undefined,
+        planta: form.planta || undefined,
+        modalidad: modalidad || undefined,
+        plazasOcupadas:
+          plazasOcupadas == null ? undefined : Math.max(0, Number(plazasOcupadas) || 0),
+        cantidadHabitaciones: capacidad,
         precioAcordado: Number(form.precioAcordado) || Number(form.monto) || 0,
         nombreApellido: form.nombreApellido,
         cedula: form.cedula,
@@ -957,6 +1077,28 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
       if (habitacionId) {
         setSelectedId(habitacionId);
         setFichaTab("reserva");
+      }
+
+      // Automatización PDF v1: pago de hospedaje/garantía → ingreso en Finanzas
+      const propFin = resolveFontanaPropiedadPlano(lugar);
+      if (propFin && !editingId) {
+        const garantiaMontoFin = Number(form.garantia) || 0;
+        if (garantiaMontoFin > 0) {
+          addFontanaMovimiento(empresaId, {
+            tipo: "ingreso",
+            propiedad: propFin,
+            categoria: "Otros ingresos",
+            concepto: `Garantía · ${nombreHab}`,
+            monto: garantiaMontoFin,
+            fecha: (form.fechaIngreso || new Date().toISOString().slice(0, 10)).slice(0, 10),
+            metodoPago: "Efectivo",
+            origen: `garantia:hab:${habitacionId}`,
+          })
+            .then(() => setFinanzasTick((t) => t + 1))
+            .catch(() => {
+              /* no bloquear alta de habitación */
+            });
+        }
       }
 
       // Si hay garantía: abrir recibo (sin IVA) de inmediato
@@ -1186,33 +1328,63 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
         openCtxAt(e.clientX, e.clientY, null);
       }}
     >
-      {/* Tabs Dashboard / Hospedaje */}
-      <div className="flex flex-wrap gap-1 p-1 rounded-2xl bg-[#0C1327] border border-white/5 w-full sm:w-fit">
-        <button
-          type="button"
-          onClick={() => setFontanaVista("dashboard")}
-          className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider min-h-11 touch-manipulation transition-colors ${
-            fontanaVista === "dashboard"
-              ? "bg-amber-500 text-slate-950"
-              : "text-slate-400 hover:text-white"
-          }`}
-        >
-          Dashboard
-        </button>
-        <button
-          type="button"
-          onClick={() => setFontanaVista("hospedaje")}
-          className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider min-h-11 touch-manipulation transition-colors ${
-            fontanaVista === "hospedaje"
-              ? "bg-amber-500 text-slate-950"
-              : "text-slate-400 hover:text-white"
-          }`}
-        >
-          Hospedaje
-        </button>
+      {/* Módulo Fontana dentro del entorno Condominio Agus / Fontana Di Luque */}
+      <div className="bg-[#0C1327] border border-amber-500/20 rounded-[1.5rem] p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-400/90">
+              Condominio Agus · Módulo Fontana
+            </p>
+            <h2 className="text-lg sm:text-xl font-black italic uppercase tracking-tighter text-white mt-1">
+              Fontana · Alojamiento operativo
+            </h2>
+            <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+              Croquis · propiedades · hospedaje · finanzas · personal · reportes
+            </p>
+          </div>
+        </div>
       </div>
 
-      {fontanaVista === "dashboard" && (
+      {/* Tabs módulo Fontana */}
+      <div className="flex flex-wrap gap-1 p-1 rounded-2xl bg-[#0C1327] border border-white/5 w-full">
+        {(
+          [
+            ["croquis", "Croquis"],
+            ["propiedades", "Propiedades"],
+            ["hospedaje", "Hospedaje"],
+            ["finanzas", "Finanzas"],
+            ["personal", "Personal"],
+            ["reportes", "Reportes"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setFontanaVista(id)}
+            className={`flex-1 sm:flex-none px-3 sm:px-4 py-2.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-wider min-h-11 touch-manipulation transition-colors ${
+              fontanaVista === id
+                ? "bg-amber-500 text-slate-950"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {fontanaVista === "croquis" && (
+        <FontanaCroquisDashboard
+          habitaciones={habitaciones}
+          reservas={reservas}
+          onAbrirHabitacion={(h) => {
+            setSelectedId(h.habitacionId);
+            setFontanaVista("hospedaje");
+          }}
+          onCrearDesdeSlot={openCreateDesdeSlot}
+        />
+      )}
+
+      {fontanaVista === "propiedades" && (
         <FontanaPropiedadesDashboard
           lugares={lugares}
           habitaciones={habitaciones}
@@ -1223,6 +1395,30 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
             setSelectedId(h.habitacionId);
             setFontanaVista("hospedaje");
           }}
+        />
+      )}
+
+      {fontanaVista === "finanzas" && (
+        <FontanaFinanzasPage
+          empresaId={empresaId}
+          habitaciones={habitaciones}
+          reservas={reservas}
+        />
+      )}
+
+      {fontanaVista === "personal" && (
+        <FontanaPersonalPage
+          empresaId={empresaId}
+          onFinanzasChanged={() => setFinanzasTick((t) => t + 1)}
+        />
+      )}
+
+      {fontanaVista === "reportes" && (
+        <FontanaReportesPage
+          empresaId={empresaId}
+          habitaciones={habitaciones}
+          reservas={reservas}
+          refreshKey={finanzasTick}
         />
       )}
 
@@ -1237,7 +1433,7 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
             Fontana
           </h2>
           <p className="text-xs text-slate-400 font-medium mt-1 leading-snug">
-            Hostel · cupos por lugar · dúplex Agus ocasional · en móvil: mantener pulsado la tarjeta
+            Módulo Fontana (Agus) · cupos · dúplex Agus ocasional · en móvil: mantener pulsado la tarjeta
           </p>
         </div>
         <div className="flex flex-col xs:flex-row sm:flex-row flex-wrap gap-2 w-full sm:w-auto">
@@ -2178,12 +2374,76 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
                 </p>
               )}
             </Field>
-            <Field label="Cant. habitaciones a alquilar">
+            <Field label="Capacidad (plazas / camas)">
               <Input
                 type="number"
                 min={1}
                 value={form.cantidadHabitaciones || 1}
                 onChange={(e) => setForm((f) => ({ ...f, cantidadHabitaciones: Number(e.target.value) }))}
+                className="bg-white/5 border-white/10"
+              />
+            </Field>
+            <Field label="Nº croquis">
+              <Input
+                type="number"
+                min={1}
+                max={11}
+                value={form.numeroHabitacion || ""}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    numeroHabitacion: e.target.value ? Number(e.target.value) : undefined,
+                  }))
+                }
+                placeholder="1..11"
+                className="bg-white/5 border-white/10"
+              />
+            </Field>
+            <Field label="Planta">
+              <select
+                value={form.planta || ""}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    planta: (e.target.value || undefined) as FontanaDetalles["planta"],
+                  }))
+                }
+                className="w-full h-10 rounded-md bg-white/5 border border-white/10 px-3 text-sm text-white"
+              >
+                <option value="">Sin planta</option>
+                <option value="PB">Planta Baja (PB)</option>
+                <option value="PA">Planta Alta (PA)</option>
+              </select>
+            </Field>
+            <Field label="Modalidad mapa">
+              <select
+                value={form.modalidad || ""}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    modalidad: (e.target.value || undefined) as FontanaDetalles["modalidad"],
+                  }))
+                }
+                className="w-full h-10 rounded-md bg-white/5 border border-white/10 px-3 text-sm text-white"
+              >
+                <option value="">Según tipo alquiler</option>
+                <option value="DIARIA">DIARIA</option>
+                <option value="MENSUAL">MENSUAL</option>
+              </select>
+            </Field>
+            <Field label="Plazas ocupadas">
+              <Input
+                type="number"
+                min={0}
+                max={Math.max(1, Number(form.cantidadHabitaciones) || 1)}
+                value={form.plazasOcupadas ?? ""}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    plazasOcupadas: e.target.value === "" ? undefined : Number(e.target.value),
+                  }))
+                }
+                placeholder="ej. 2 de 4"
                 className="bg-white/5 border-white/10"
               />
             </Field>
@@ -2514,7 +2774,7 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
             </DialogTitle>
           </DialogHeader>
           <p className="text-[10px] text-slate-400 uppercase tracking-wider">
-            Fontana 1–3: hasta 3 · Ña Carmen / Quinta / Quincho 2: hasta 1 (ampliable). No se puede bajar el cupo bajo plazas ocupadas.
+            Fontana 1: 16 · Fontana 2: 22 · Fontana 3: 16 · Quinta / Quincho / Ña Carmen: 1 (ampliable). No se puede bajar el cupo bajo habitaciones ya cargadas.
           </p>
           <div className="space-y-2 mt-3">
             {lugares.map((l) => {
@@ -2717,6 +2977,36 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
             }),
           });
           if (res.ok) await cargar();
+
+          // Automatización: factura alojamiento → ingreso Finanzas
+          if (res.ok && kind === "alojamiento") {
+            const propFin = resolveFontanaPropiedadPlano(next.nombreLugar);
+            const montoFactura =
+              Number(comprobantePagoData?.montoPagado) ||
+              (Number(next.monto) || Number(next.precioAcordado) || 0) +
+                (next.serviciosExtras || []).reduce((a, s) => a + (Number(s.monto) || 0), 0);
+            if (propFin && montoFactura > 0) {
+              const cat = String(next.tipoAlquiler || "")
+                .toLowerCase()
+                .includes("mensual")
+                ? "Mensualidades"
+                : "Hospedaje diario";
+              addFontanaMovimiento(empresaId, {
+                tipo: "ingreso",
+                propiedad: propFin,
+                categoria: cat,
+                concepto: `Alojamiento · ${(h || selected)?.nombre || next.nombreLugar}`,
+                monto: montoFactura,
+                fecha: new Date().toISOString().slice(0, 10),
+                metodoPago: "Efectivo",
+                origen: `alojamiento:hab:${comprobanteHabitacionId}`,
+              })
+                .then(() => setFinanzasTick((t) => t + 1))
+                .catch(() => {
+                  /* ignore */
+                });
+            }
+          }
 
           setPendingDesocuparAfterFactura(false);
           setComprobanteKind(null);
