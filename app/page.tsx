@@ -469,7 +469,7 @@ export default function OimaDashboard() {
                 : vistaActual === "condominio"
                   ? "Gestión de unidades"
                   : vistaActual === "fontana"
-                    ? "Fontana · Hospedaje"
+                    ? "Fontana · Condominio Agus"
                     : vistaActual.replace(/_/g, " ")}
             </h2>
           </div>

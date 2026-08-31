@@ -85,7 +85,7 @@ export function FontanaPropiedadesDashboard({
               Propiedades
             </h2>
             <p className="text-xs text-slate-400 font-medium mt-1">
-              Gestioná todas tus propiedades y sus habitaciones desde un solo lugar.
+              Lista por lugar (Fontana 1/2/3, Quinta…). El croquis operativo está en la pestaña Croquis.
             </p>
           </div>
           <Button

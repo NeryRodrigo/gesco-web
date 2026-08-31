@@ -48,9 +48,22 @@ export interface FontanaServicioExtra {
   fecha: string;
 }
 
+/** Planta física en croquis Fontana 1/2/3 */
+export type FontanaPlantaCodigo = "PB" | "PA";
+/** Modalidad operativa del croquis (diaria vs mensual) */
+export type FontanaModalidadCodigo = "DIARIA" | "MENSUAL";
+
 /** Campos extendidos guardados en Habitacion.detallesJson */
 export interface FontanaDetalles {
   nombreLugar?: string;
+  /** Número fijo en croquis (1..11 por planta) */
+  numeroHabitacion?: number;
+  /** Planta Baja / Planta Alta */
+  planta?: FontanaPlantaCodigo;
+  /** Modalidad del mapa: DIARIA | MENSUAL */
+  modalidad?: FontanaModalidadCodigo;
+  /** Plazas/camas ocupadas (permite parcial 2/4) */
+  plazasOcupadas?: number;
   cantidadHabitaciones?: number;
   precioAcordado?: number;
   nombreApellido?: string;

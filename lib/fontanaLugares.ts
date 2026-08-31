@@ -9,11 +9,11 @@ export const LUGARES_FONTANA_DEFAULT = [
   "Ña Carmen",
 ] as const;
 
-/** Cupo máximo por defecto (plazas / habitaciones habilitadas por lugar) */
+/** Cupo máximo por defecto (habitaciones físicas habilitadas por lugar) */
 export const CUPOS_LUGAR_DEFAULT: Record<string, number> = {
-  "Fontana 1": 3,
-  "Fontana 2": 3,
-  "Fontana 3": 3,
+  "Fontana 1": 16, // 8 PB + 8 PA
+  "Fontana 2": 22, // 11 PB + 11 PA (mensual)
+  "Fontana 3": 16, // 8 PB + 8 PA
   Quinta: 1,
   "Quincho 2": 1,
   "Ña Carmen": 1,
@@ -108,8 +108,11 @@ export function loadFontanaCupos(empresaId: number): Record<string, FontanaCupoL
     if (!parsed || typeof parsed !== "object") return base;
     for (const [nombre, cfg] of Object.entries(parsed)) {
       if (!nombre) continue;
+      const def = cupoDefaultParaLugar(nombre);
+      const stored = Math.max(0, Number(cfg?.cupo) || def);
+      // Migración croquis: no quedarse con cupos viejos (3) debajo del inventario físico
       base[nombre] = {
-        cupo: Math.max(0, Number(cfg?.cupo) || cupoDefaultParaLugar(nombre)),
+        cupo: Math.max(stored, def),
         habilitado: cfg?.habilitado !== false,
       };
     }
