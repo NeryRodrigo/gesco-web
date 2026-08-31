@@ -21,6 +21,7 @@ import {
   removeFontanaEmpleado,
   upsertFontanaEmpleado,
   type FontanaEmpleado,
+  type FontanaEmpleadoEstadoPago,
 } from "@/lib/fontanaPersonal";
 
 type Props = { empresaId: number; onFinanzasChanged?: () => void };
@@ -33,7 +34,7 @@ const emptyForm = () => ({
   propiedades: ["Fontana 1"] as FontanaPropiedadPlano[],
   salario: 0,
   fechaPago: new Date().toISOString().slice(0, 10),
-  estadoPago: "PENDIENTE" as const,
+  estadoPago: "PENDIENTE" as FontanaEmpleadoEstadoPago,
 });
 
 export function FontanaPersonalPage({ empresaId, onFinanzasChanged }: Props) {
