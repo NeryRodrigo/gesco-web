@@ -51,13 +51,18 @@ import { VordiaRoadmapPage } from "./vordia/VordiaRoadmapPage";
 import AuthScreen from "./login/Registro";
 import { RegistroUsuarioModal } from "./login/RegistroUsuarioModal";
 import { EditarUsuarioModal } from "./login/EditarUsuarioModal";
-import { verificarPermisoGranular, ModalAccesoRestringido, PermisosGranularesMatriz } from "./login/PermisosGranularesMatriz";
+import { verificarPermisoGranular, ModalAccesoRestringido, PermisosGranularesMatriz, LISTA_PERMISOS } from "./login/PermisosGranularesMatriz";
 import {
   saveVordiaSession,
   loadVordiaSession,
   clearVordiaSession,
   isAdminFontana,
 } from "@/lib/utils";
+import {
+  cachePermisosLocal,
+  isRolAdministrador,
+  puedeVerVistaSidebar,
+} from "@/lib/permisosAcceso";
 
 type Vista =
   | "inicio"
@@ -132,7 +137,8 @@ export default function OimaDashboard() {
   const empresaId = usuarioActivo?.empresaId || 7;
   const isUsuarioVordia = String(usuarioActivo?.rubro || "").toUpperCase() === "VORDIA";
   const isUsuarioCondominio = !isUsuarioVordia; // Fontana/Agus vs Vordia Interno
-  const canManagePasswords = isAdminFontana(usuarioActivo) || isUsuarioVordia;
+  const canManagePasswords = isAdminFontana(usuarioActivo) || isUsuarioVordia || isRolAdministrador(usuarioActivo);
+  const esAdminSistema = isRolAdministrador(usuarioActivo);
 
   // Restaurar sesión al montar (Chrome device mode / resize no debe cerrar sesión)
   useEffect(() => {
@@ -177,7 +183,69 @@ export default function OimaDashboard() {
     if (vistasAgus.has(vistaActual)) setVistaActual("inicio");
   }, [isUsuarioVordia, vistaActual]);
 
+  // Solo ADMIN ve Usuarios/Roles; empleados solo módulos asignados
+  useEffect(() => {
+    if (!usuarioActivo) return;
+    if (vistaActual === "usuarios" && !esAdminSistema) {
+      setVistaActual("inicio");
+      toast.error("Solo administradores pueden acceder a Usuarios / Roles");
+      return;
+    }
+    if (
+      !isUsuarioVordia &&
+      vistaActual !== "inicio" &&
+      !puedeVerVistaSidebar(vistaActual, usuarioActivo, modulosUsuario)
+    ) {
+      setVistaActual("inicio");
+    }
+  }, [usuarioActivo, vistaActual, modulosUsuario, esAdminSistema, isUsuarioVordia]);
+
+  const sincronizarPermisosSesion = async (user: any) => {
+    if (!user?.id && !user?.Id) return;
+    const uid = user.id ?? user.Id;
+    const email = String(user.email || user.Email || "").toLowerCase().trim();
+    try {
+      const fromLogin: string[] | undefined = user.permisosIds || user.PermisosIds;
+      if (Array.isArray(fromLogin) && fromLogin.length > 0 && email) {
+        cachePermisosLocal(email, fromLogin);
+        return;
+      }
+      const r = await fetch(`${API_BASE}/api/Usuario/${uid}/permisos`);
+      if (r.ok) {
+        const data = await r.json();
+        const perms: string[] = Array.isArray(data?.permisosIds) ? data.permisosIds : [];
+        if (email) {
+          if (perms.length > 0) cachePermisosLocal(email, perms);
+          else if (isRolAdministrador(user)) cachePermisosLocal(email, LISTA_PERMISOS.map((p) => p.id));
+        }
+      } else if (email && isRolAdministrador(user)) {
+        cachePermisosLocal(email, LISTA_PERMISOS.map((p) => p.id));
+      }
+    } catch {
+      if (email && isRolAdministrador(user)) {
+        cachePermisosLocal(email, LISTA_PERMISOS.map((p) => p.id));
+      }
+    }
+  };
+
   const navegarConPermiso = (nuevaVista: Vista) => {
+    if (nuevaVista === "usuarios" && !esAdminSistema) {
+      setAlertaRestriccion({
+        visible: true,
+        mensaje: "Solo usuarios con rol Administrador pueden ver Usuarios / Roles.",
+        permisoNombre: "Gestión de Colaboradores y Roles",
+      });
+      return;
+    }
+    if (!puedeVerVistaSidebar(nuevaVista, usuarioActivo, modulosUsuario)) {
+      setAlertaRestriccion({
+        visible: true,
+        mensaje: "No tenés este módulo asignado. Pedile al administrador que te habilite el acceso.",
+        permisoNombre: String(nuevaVista),
+      });
+      return;
+    }
+
     const mapaPermisos: Record<string, string> = {
       condominio: "condo_ver_panel",
       fontana: "fontana_ver",
@@ -212,9 +280,10 @@ export default function OimaDashboard() {
   useEffect(() => {
     if (isAuthenticated && usuarioActivo) {
       cargarDatos();
+      void sincronizarPermisosSesion(usuarioActivo);
       fetch(`${API_BASE}/api/Auth/modulos/${usuarioActivo.id}`)
         .then(res => res.json())
-        .then(data => setModulosUsuario(data))
+        .then(data => setModulosUsuario(Array.isArray(data) ? data : []))
         .catch(console.error);
         
       if (vistaActual === "usuarios") cargarListaUsuariosAdmin();
@@ -276,6 +345,7 @@ export default function OimaDashboard() {
           setUsuarioActivo(user);
           setIsAuthenticated(true);
           saveVordiaSession({ user, vista: "inicio" });
+          void sincronizarPermisosSesion(user);
         }}
       />
     );
@@ -345,75 +415,102 @@ export default function OimaDashboard() {
               {isUsuarioVordia ? (
                 <VordiaHqSidebarNav
                   vistaActual={vistaActual}
+                  showUsuariosRoles={esAdminSistema}
                   onNavigate={(v) => {
+                    if (v === "usuarios" && !esAdminSistema) {
+                      setAlertaRestriccion({
+                        visible: true,
+                        mensaje: "Solo administradores pueden ver Usuarios / Roles.",
+                        permisoNombre: "Usuarios / Roles",
+                      });
+                      return;
+                    }
                     setVistaActual(v as Vista);
                     setIsMobileMenuOpen(false);
                   }}
                 />
               ) : (
                 <>
+              {puedeVerVistaSidebar("condominio", usuarioActivo, modulosUsuario) && (
               <SidebarItem 
                 icon={<LayoutDashboard size={18}/>} 
                 label="Condominio Agus" 
                 active={vistaActual === "condominio"} 
                 onClick={() => navegarConPermiso("condominio")} 
               />
+              )}
 
+              {puedeVerVistaSidebar("fontana", usuarioActivo, modulosUsuario) && (
               <SidebarItem 
                 icon={<Bed size={18}/>} 
                 label="Fontana" 
                 active={vistaActual === "fontana"} 
                 onClick={() => navegarConPermiso("fontana")} 
               />
+              )}
 
+              {puedeVerVistaSidebar("actividades", usuarioActivo, modulosUsuario) && (
               <SidebarItem 
                 icon={<Activity size={18}/>} 
                 label="Actividades" 
                 active={vistaActual === "actividades"} 
                 onClick={() => navegarConPermiso("actividades")} 
               />
+              )}
 
+              {puedeVerVistaSidebar("facturacion", usuarioActivo, modulosUsuario) && (
               <SidebarItem 
                 icon={<Wallet size={18}/>} 
                 label="Facturación" 
                 active={vistaActual === "facturacion"} 
                 onClick={() => navegarConPermiso("facturacion")} 
               />
+              )}
 
+              {puedeVerVistaSidebar("administracion", usuarioActivo, modulosUsuario) && (
               <SidebarItem 
                 icon={<FileText size={18}/>} 
                 label="Administración" 
                 active={vistaActual === "administracion"} 
                 onClick={() => navegarConPermiso("administracion")} 
               />
+              )}
 
+              {puedeVerVistaSidebar("configuracion", usuarioActivo, modulosUsuario) && (
               <SidebarItem 
                 icon={<ShieldCheck size={18}/>} 
                 label="Configuración" 
                 active={vistaActual === "configuracion"} 
                 onClick={() => navegarConPermiso("configuracion")} 
               />
+              )}
 
+              {puedeVerVistaSidebar("gastos", usuarioActivo, modulosUsuario) && (
               <SidebarItem 
                 icon={<DollarSign size={18}/>} 
                 label="Gastos del condominio" 
                 active={vistaActual === "gastos"} 
                 onClick={() => navegarConPermiso("gastos")} 
               />
+              )}
 
+              {puedeVerVistaSidebar("historico_contratos", usuarioActivo, modulosUsuario) && (
               <SidebarItem 
                 icon={<History size={18}/>} 
                 label="Histórico de contratos" 
                 active={vistaActual === "historico_contratos"} 
                 onClick={() => navegarConPermiso("historico_contratos")} 
               />
+              )}
 
+              {esAdminSistema && (
               <SidebarItem 
                 icon={<Users size={18}/>} 
                 label="Usuarios / Roles" 
                 active={vistaActual === "usuarios"} 
                 onClick={() => navegarConPermiso("usuarios")} 
               />
+              )}
                 </>
               )}
             </div>
@@ -671,7 +768,7 @@ export default function OimaDashboard() {
           {vistaActual === "configuracion" && !isUsuarioVordia && <ConfiguracionPage empresaId={empresaId} />}
           {vistaActual === "gastos" && !isUsuarioVordia && <GastosPage empresaId={empresaId} />}
           {vistaActual === "historico_contratos" && !isUsuarioVordia && <HistoricoContratosPage empresaId={empresaId} />}
-          {vistaActual === "usuarios" && (
+          {vistaActual === "usuarios" && esAdminSistema && (
             <div className="space-y-4 sm:space-y-6 w-full max-w-full min-w-0 overflow-x-hidden">
                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 bg-[#0C1327] p-5 sm:p-8 rounded-[1.75rem] sm:rounded-[2rem] border border-white/5">
                  <h2 className="text-xl sm:text-2xl font-bold italic uppercase tracking-tighter">Usuarios y roles</h2>

@@ -104,9 +104,11 @@ function HqItem({ icon, label, active, onClick, nested }: ItemProps) {
 export function VordiaHqSidebarNav({
   vistaActual,
   onNavigate,
+  showUsuariosRoles = true,
 }: {
   vistaActual: string;
   onNavigate: NavClick;
+  showUsuariosRoles?: boolean;
 }) {
   const finanzasOpen =
     vistaActual.startsWith("vordia_ingresos") ||
@@ -230,12 +232,14 @@ export function VordiaHqSidebarNav({
         active={vistaActual === "configuracion"}
         onClick={() => go("configuracion")}
       />
+      {showUsuariosRoles && (
       <HqItem
         icon={<ShieldCheck size={16} />}
         label="Usuarios / Roles"
         active={vistaActual === "usuarios"}
         onClick={() => go("usuarios")}
       />
+      )}
     </div>
   );
 }
