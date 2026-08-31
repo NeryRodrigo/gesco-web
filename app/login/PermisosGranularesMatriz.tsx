@@ -15,6 +15,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { API_BASE } from "@/lib/api";
+import {
+  cachePermisosLocal,
+  isRolAdministrador,
+  permisoCoincideConModulosAsignados,
+  type NombreModuloMatriz,
+} from "@/lib/permisosAcceso";
 
 export interface UsuarioAdmin {
   usuarioId: number;
@@ -25,6 +32,7 @@ export interface UsuarioAdmin {
   requiereCambioPass: boolean;
   iniciales: string;
   modulosIds: number[];
+  permisosIds?: string[];
 }
 
 export interface PermisoGranular {
@@ -78,8 +86,7 @@ export const LISTA_PERMISOS: PermisoGranular[] = [
 ];
 
 export function verificarPermisoGranular(permisoId: string, email?: string): { permitido: boolean; mensaje?: string; permisoNombre?: string } {
-  let targetEmail = (email || (typeof window !== "undefined" ? (localStorage.getItem("VORDIA_active_user_email") || localStorage.getItem("VORDIA_last_tested_email")) : "") || "rody.moran.py@gmail.com").toLowerCase().trim();
-  if (!targetEmail) targetEmail = "rody.moran.py@gmail.com";
+  let targetEmail = (email || (typeof window !== "undefined" ? (localStorage.getItem("VORDIA_active_user_email") || localStorage.getItem("VORDIA_last_tested_email")) : "") || "").toLowerCase().trim();
 
   const permObj = LISTA_PERMISOS.find(p => p.id === permisoId);
   const moduloName = permObj ? permObj.modulo : "Sistema";
@@ -89,6 +96,35 @@ export function verificarPermisoGranular(permisoId: string, email?: string): { p
     return { permitido: true };
   }
 
+  // Sesión actual: ADMIN siempre puede (excepto que probemos otro email en la matriz)
+  try {
+    const rawSession = localStorage.getItem("VORDIA_auth_session");
+    if (rawSession) {
+      const session = JSON.parse(rawSession);
+      const sessionUser = session?.user;
+      const sessionEmail = String(sessionUser?.email || "").toLowerCase().trim();
+      if ((!targetEmail || targetEmail === sessionEmail) && isRolAdministrador(sessionUser)) {
+        return { permitido: true };
+      }
+    }
+  } catch { /* ignore */ }
+
+  // Gestión de usuarios: solo administradores
+  if (permisoId === "conf_usuarios") {
+    try {
+      const rawSession = localStorage.getItem("VORDIA_auth_session");
+      const session = rawSession ? JSON.parse(rawSession) : null;
+      if (isRolAdministrador(session?.user)) return { permitido: true };
+    } catch { /* ignore */ }
+    return {
+      permitido: false,
+      mensaje: `🚫 Acceso Restringido en ${moduloName}: Solo usuarios con rol Administrador pueden gestionar Usuarios / Roles.`,
+      permisoNombre: accionName
+    };
+  }
+
+  if (!targetEmail) targetEmail = "rody.moran.py@gmail.com";
+
   const key = `VORDIA_permisos_${targetEmail}`;
   let saved = localStorage.getItem(key);
   if (!saved) {
@@ -96,6 +132,7 @@ export function verificarPermisoGranular(permisoId: string, email?: string): { p
   }
 
   if (!saved) {
+    // Sin matriz: permitir (compat), salvo conf_usuarios ya bloqueado arriba
     return { permitido: true };
   }
 
@@ -215,6 +252,8 @@ export function PermisosGranularesMatriz({
   const [permisosActivos, setPermisosActivos] = useState<string[]>([]);
   const [moduloFiltro, setModuloFiltro] = useState<string>("TODOS");
   const [permisoAProbar, setPermisoAProbar] = useState<PermisoGranular | null>(null);
+  const [catalogoModulos, setCatalogoModulos] = useState<any[]>([]);
+  const [guardando, setGuardando] = useState(false);
 
   useEffect(() => {
     if (usuarioSeleccionadoId && usuarios.some(u => u.usuarioId === usuarioSeleccionadoId)) {
@@ -228,63 +267,153 @@ export function PermisosGranularesMatriz({
 
   useEffect(() => {
     if (!usuarioActual) return;
-    const key = `VORDIA_permisos_${usuarioActual.email.toLowerCase().trim()}`;
-    const saved = localStorage.getItem(key);
-    
-    if (saved) {
+    let cancelled = false;
+    (async () => {
       try {
-        setPermisosActivos(JSON.parse(saved));
-      } catch {
-        setPermisosActivos(LISTA_PERMISOS.map(p => p.id));
+        // Catálogo de módulos de la empresa (para cruzar comportamientos ↔ módulos asignados)
+        const empId =
+          (typeof window !== "undefined" &&
+            (() => {
+              try {
+                return JSON.parse(localStorage.getItem("VORDIA_auth_session") || "{}")?.user?.empresaId;
+              } catch {
+                return null;
+              }
+            })()) ||
+          7;
+        const rMod = await fetch(`${API_BASE}/api/Usuario/modulos-por-empresa/${empId}`);
+        if (rMod.ok) {
+          const mods = await rMod.json();
+          if (!cancelled) setCatalogoModulos(Array.isArray(mods) ? mods : []);
+        }
+      } catch { /* ignore */ }
+
+      try {
+        const r = await fetch(`${API_BASE}/api/Usuario/${usuarioActual.usuarioId}/permisos`);
+        if (r.ok) {
+          const data = await r.json();
+          const fromApi: string[] = Array.isArray(data?.permisosIds) ? data.permisosIds : [];
+          if (fromApi.length > 0) {
+            if (!cancelled) {
+              setPermisosActivos(fromApi);
+              cachePermisosLocal(usuarioActual.email, fromApi);
+            }
+            return;
+          }
+        }
+      } catch { /* fallback local */ }
+
+      if (cancelled) return;
+      // Fallback: API vacía / localStorage / default
+      if (Array.isArray(usuarioActual.permisosIds) && usuarioActual.permisosIds.length > 0) {
+        setPermisosActivos(usuarioActual.permisosIds);
+        cachePermisosLocal(usuarioActual.email, usuarioActual.permisosIds);
+        return;
       }
-    } else {
+      const key = `VORDIA_permisos_${usuarioActual.email.toLowerCase().trim()}`;
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        try {
+          setPermisosActivos(JSON.parse(saved));
+          return;
+        } catch { /* ignore */ }
+      }
       const todos = LISTA_PERMISOS.map(p => p.id);
       setPermisosActivos(todos);
-      localStorage.setItem(key, JSON.stringify(todos));
-    }
+      cachePermisosLocal(usuarioActual.email, todos);
+      // Persistimos default en API para que el empleado lo herede
+      void fetch(`${API_BASE}/api/Usuario/${usuarioActual.usuarioId}/permisos`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ permisosIds: todos }),
+      }).catch(() => {});
+    })();
+    return () => { cancelled = true; };
   }, [usuarioActual?.usuarioId]);
 
   const esSuperAdminEmail = usuarioActual?.email?.toLowerCase() === "rody.moran.py@gmail.com" || usuarioActual?.email?.toLowerCase() === "adminagus@oima.com.py";
 
+  const persistirPermisos = async (nuevos: string[]) => {
+    if (!usuarioActual) return;
+    setPermisosActivos(nuevos);
+    cachePermisosLocal(usuarioActual.email, nuevos);
+    localStorage.setItem("VORDIA_last_tested_email", usuarioActual.email.toLowerCase().trim());
+    setGuardando(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/Usuario/${usuarioActual.usuarioId}/permisos`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ permisosIds: nuevos }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+    } catch (e: any) {
+      toast.error("No se pudo guardar en servidor", { description: e?.message || "Revisá la API / columna PermisosJson" });
+    } finally {
+      setGuardando(false);
+    }
+  };
+
   const togglePermiso = (id: string) => {
     if (!usuarioActual) return;
+
+    const permObj = LISTA_PERMISOS.find(p => p.id === id);
+    if (permObj && (usuarioActual.modulosIds?.length ?? 0) > 0 && catalogoModulos.length > 0) {
+      const okModulo = permisoCoincideConModulosAsignados(
+        permObj.modulo as NombreModuloMatriz,
+        usuarioActual.modulosIds || [],
+        catalogoModulos
+      );
+      if (!okModulo && !permisosActivos.includes(id)) {
+        toast.error("Módulo no asignado", {
+          description: `Primero asigná el módulo «${permObj.modulo}» al usuario (Editar / Contraseña → Módulos) para habilitar este comportamiento.`,
+        });
+        return;
+      }
+    }
 
     const nuevos = permisosActivos.includes(id)
       ? permisosActivos.filter(p => p !== id)
       : [...permisosActivos, id];
-    
-    setPermisosActivos(nuevos);
-    const key = `VORDIA_permisos_${usuarioActual.email.toLowerCase().trim()}`;
-    localStorage.setItem(key, JSON.stringify(nuevos));
-    localStorage.setItem("VORDIA_active_user_email", usuarioActual.email.toLowerCase().trim());
-    localStorage.setItem("VORDIA_last_tested_email", usuarioActual.email.toLowerCase().trim());
-    localStorage.setItem("VORDIA_permisos_current", JSON.stringify(nuevos));
-    
-    const permObj = LISTA_PERMISOS.find(p => p.id === id);
-    toast.success("Permiso Actualizado en Matriz", {
-      description: `Se ha ${nuevos.includes(id) ? "habilitado ✅" : "restringido 🚫"} '${permObj?.nombre || id}' para ${usuarioActual.nombre}.`
+
+    void persistirPermisos(nuevos).then(() => {
+      toast.success("Permiso Actualizado en Matriz", {
+        description: `Se ha ${nuevos.includes(id) ? "habilitado ✅" : "restringido 🚫"} '${permObj?.nombre || id}' para ${usuarioActual.nombre}.`
+      });
     });
   };
 
   const habilitarTodos = () => {
     if (!usuarioActual) return;
-    const todos = LISTA_PERMISOS.map(p => p.id);
-    setPermisosActivos(todos);
-    const key = `VORDIA_permisos_${usuarioActual.email.toLowerCase().trim()}`;
-    localStorage.setItem(key, JSON.stringify(todos));
-    toast.success("Acceso Total Asignado", {
-      description: `Se han habilitado los ${todos.length} comportamientos para ${usuarioActual.nombre}.`
+    let todos = LISTA_PERMISOS.map(p => p.id);
+    if ((usuarioActual.modulosIds?.length ?? 0) > 0 && catalogoModulos.length > 0) {
+      todos = LISTA_PERMISOS
+        .filter(p =>
+          permisoCoincideConModulosAsignados(
+            p.modulo as NombreModuloMatriz,
+            usuarioActual.modulosIds || [],
+            catalogoModulos
+          )
+        )
+        .map(p => p.id);
+    }
+    void persistirPermisos(todos).then(() => {
+      toast.success("Acceso Total Asignado", {
+        description: `Se han habilitado ${todos.length} comportamientos (según módulos asignados) para ${usuarioActual.nombre}.`
+      });
+    });
+  };
+
+  const revocarTodos = () => {
+    if (!usuarioActual) return;
+    void persistirPermisos([]).then(() => {
+      toast.success("Accesos Revocados", {
+        description: `Se revocaron todos los comportamientos de ${usuarioActual.nombre}.`
+      });
     });
   };
 
   const restringirTodos = () => {
-    if (!usuarioActual) return;
-    setPermisosActivos([]);
-    const key = `VORDIA_permisos_${usuarioActual.email.toLowerCase().trim()}`;
-    localStorage.setItem(key, JSON.stringify([]));
-    toast.warning("Acceso Total Restringido", {
-      description: `Se han revocado todos los permisos operativos para ${usuarioActual.nombre}.`
-    });
+    revocarTodos();
   };
 
   const simularIntercepcion = (permiso: PermisoGranular) => {
@@ -376,6 +505,10 @@ export function PermisosGranularesMatriz({
               )}
             </div>
             <p className="text-xs text-muted-foreground font-mono mt-0.5">{usuarioActual.email} • <span className="text-amber-400 font-bold uppercase">Rol en Sistema: {usuarioActual.rol}</span></p>
+            <p className="text-[10px] text-slate-400 mt-1 max-w-xl">
+              Módulos asignados: {(usuarioActual.modulosIds || []).length}. Los comportamientos solo se habilitan si el usuario tiene el módulo correspondiente.
+              {guardando ? " · Guardando en servidor…" : ""}
+            </p>
           </div>
         </div>
 
