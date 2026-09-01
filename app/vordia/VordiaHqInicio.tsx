@@ -3,7 +3,7 @@
 import { API_BASE } from "@/lib/api";
 import { useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, ArrowUpRight, CalendarClock, CheckCircle2,
+  AlertTriangle, CalendarClock, CheckCircle2,
   CircleDollarSign, Clock, FileWarning, TrendingUp, Wallet,
 } from "lucide-react";
 import { formatFecha, formatGs } from "./VordiaClientesPage";
@@ -57,6 +57,10 @@ export function VordiaHqInicio({ empresaId, nombreUsuario, onNavigate }: Props) 
   const [tareas, setTareas] = useState<Tarea[]>([]);
   const [contratos, setContratos] = useState<Contrato[]>([]);
   const [clientesCount, setClientesCount] = useState(0);
+  const [capitalSaldo, setCapitalSaldo] = useState(0);
+  const [nomina, setNomina] = useState(0);
+  const [empleadosActivos, setEmpleadosActivos] = useState(0);
+  const [objetivosAbiertos, setObjetivosAbiertos] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -65,12 +69,15 @@ export function VordiaHqInicio({ empresaId, nombreUsuario, onNavigate }: Props) 
     (async () => {
       try {
         setLoading(true);
-        const [p, f, t, c, cl] = await Promise.all([
+        const [p, f, t, c, cl, cap, emp, obj] = await Promise.all([
           fetch(`${API_BASE}/api/Crm/pipeline?empresaId=${empresaId}`),
           fetch(`${API_BASE}/api/Crm/flujo-caja?empresaId=${empresaId}`),
           fetch(`${API_BASE}/api/Crm/tareas?empresaId=${empresaId}`),
           fetch(`${API_BASE}/api/Crm/contratos?empresaId=${empresaId}`),
           fetch(`${API_BASE}/api/Crm/clientes?empresaId=${empresaId}`),
+          fetch(`${API_BASE}/api/Crm/capital?empresaId=${empresaId}`),
+          fetch(`${API_BASE}/api/Crm/empleados-hq?empresaId=${empresaId}`),
+          fetch(`${API_BASE}/api/Crm/objetivos?empresaId=${empresaId}`),
         ]);
         if (cancelled) return;
         if (p.ok) setPipeline(await p.json());
@@ -80,6 +87,21 @@ export function VordiaHqInicio({ empresaId, nombreUsuario, onNavigate }: Props) 
         if (cl.ok) {
           const list = await cl.json();
           setClientesCount(Array.isArray(list) ? list.length : 0);
+        }
+        if (cap.ok) {
+          const capJson = await cap.json();
+          setCapitalSaldo(Number(capJson.saldoCapitalGs) || 0);
+        }
+        if (emp.ok) {
+          const empJson = await emp.json();
+          setNomina(Number(empJson.nominaMensualGs) || 0);
+          setEmpleadosActivos(Number(empJson.cantidadActivos) || 0);
+        }
+        if (obj.ok) {
+          const list = await obj.json();
+          setObjetivosAbiertos(
+            (list || []).filter((o: { estado?: string }) => o.estado === "Pendiente" || o.estado === "En curso").length
+          );
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -139,6 +161,8 @@ export function VordiaHqInicio({ empresaId, nombreUsuario, onNavigate }: Props) 
     stats.propuestas > 0 && { nivel: "ALERTA", texto: `${stats.propuestas} propuesta(s) enviada(s) en seguimiento`, vista: "vordia_pipeline" },
     (flujo?.pendienteCobro || 0) > 0 && { nivel: "ALERTA", texto: `Pendiente de cobro: ${formatGs(flujo?.pendienteCobro)}`, vista: "vordia_ingresos" },
     stats.negociacion > 0 && { nivel: "ATENCION", texto: `${stats.negociacion} negociación(es) abiertas`, vista: "vordia_pipeline" },
+    capitalSaldo <= 0 && { nivel: "ATENCION", texto: "Capital empresa sin registrar — documentá aportes", vista: "vordia_capital" },
+    objetivosAbiertos > 0 && { nivel: "ATENCION", texto: `${objetivosAbiertos} objetivo(s) abierto(s) para reunión con socia`, vista: "vordia_objetivos" },
   ].filter(Boolean) as { nivel: string; texto: string; vista: string }[];
 
   if (loading && !flujo) {
@@ -154,7 +178,7 @@ export function VordiaHqInicio({ empresaId, nombreUsuario, onNavigate }: Props) 
             ¡{saludo()}, {firstName}!
           </h2>
           <p className="text-sm text-[#94a3b8] mt-1">
-            Centro ejecutivo Vordia HQ · fuente única de verdad operativa y financiera.
+            Centro ejecutivo Vordia HQ · {clientesCount} clientes · fuente única de verdad operativa y financiera.
           </p>
         </div>
         <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500 shrink-0">
@@ -162,22 +186,50 @@ export function VordiaHqInicio({ empresaId, nombreUsuario, onNavigate }: Props) 
         </p>
       </div>
 
-      {/* KPIs MTD */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 lg:gap-3">
+      {/* Accesos rápidos */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
         {[
-          { l: "Ingresos cobrados (mes)", v: formatGs(flujo?.cobradoMesActual), c: "text-[#5eb0ff]", icon: <CircleDollarSign size={16} /> },
-          { l: "MRR activo", v: formatGs(flujo?.mrrActivo), c: "text-emerald-400", icon: <TrendingUp size={16} /> },
-          { l: "Pendiente cobro", v: formatGs(flujo?.pendienteCobro), c: "text-amber-300", icon: <Wallet size={16} /> },
-          { l: "ARR proyectado", v: formatGs(flujo?.arrProyectado), c: "text-violet-300", icon: <ArrowUpRight size={16} /> },
-          { l: "Clientes CRM", v: String(clientesCount), c: "text-white", icon: <CheckCircle2 size={16} /> },
+          { l: "CRM", v: "vordia_pipeline" },
+          { l: "Productos", v: "vordia_productos" },
+          { l: "Proyectos", v: "vordia_proyectos" },
+          { l: "Objetivos", v: "vordia_objetivos" },
+          { l: "Capital", v: "vordia_capital" },
+          { l: "Proveedores", v: "vordia_proveedores" },
+        ].map((a) => (
+          <button
+            key={a.v}
+            type="button"
+            onClick={() => onNavigate?.(a.v)}
+            className="rounded-xl border border-white/10 bg-[#0C1327] px-3 py-2.5 text-[11px] font-bold uppercase tracking-wide text-slate-300 hover:border-[#007bff]/50 hover:text-white transition"
+          >
+            {a.l}
+          </button>
+        ))}
+      </div>
+
+      {/* KPIs MTD */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-2.5 lg:gap-3">
+        {[
+          { l: "Ingresos cobrados (mes)", v: formatGs(flujo?.cobradoMesActual), c: "text-[#5eb0ff]", icon: <CircleDollarSign size={16} />, go: "vordia_ingresos" },
+          { l: "MRR activo", v: formatGs(flujo?.mrrActivo), c: "text-emerald-400", icon: <TrendingUp size={16} />, go: "vordia_caja" },
+          { l: "Pendiente cobro", v: formatGs(flujo?.pendienteCobro), c: "text-amber-300", icon: <Wallet size={16} />, go: "vordia_cxc" },
+          { l: "Capital empresa", v: formatGs(capitalSaldo), c: "text-sky-300", icon: <CircleDollarSign size={16} />, go: "vordia_capital" },
+          { l: "Nómina / mes", v: formatGs(nomina), c: "text-violet-300", icon: <Wallet size={16} />, go: "vordia_gastos" },
+          { l: "Empleados", v: String(empleadosActivos), c: "text-white", icon: <CheckCircle2 size={16} />, go: "vordia_gastos" },
+          { l: "Objetivos abiertos", v: String(objetivosAbiertos), c: "text-amber-200", icon: <AlertTriangle size={16} />, go: "vordia_objetivos" },
         ].map((k) => (
-          <div key={k.l} className="rounded-2xl border border-white/5 bg-[#0C1327] p-3.5 lg:p-4 min-w-0 overflow-hidden">
+          <button
+            key={k.l}
+            type="button"
+            onClick={() => onNavigate?.(k.go)}
+            className="text-left rounded-2xl border border-white/5 bg-[#0C1327] p-3.5 lg:p-4 min-w-0 overflow-hidden hover:border-[#007bff]/40 transition"
+          >
             <div className="flex items-center justify-between gap-2 mb-2">
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8] truncate">{k.l}</p>
               <span className={`${k.c} shrink-0 opacity-80`}>{k.icon}</span>
             </div>
-            <p className={`metric-amount text-base lg:text-xl font-semibold ${k.c}`}>{k.v}</p>
-          </div>
+            <p className={`metric-amount text-base lg:text-lg font-semibold ${k.c}`}>{k.v}</p>
+          </button>
         ))}
       </div>
 
@@ -350,7 +402,12 @@ export function VordiaHqInicio({ empresaId, nombreUsuario, onNavigate }: Props) 
               .filter((t) => t.estado === "Pendiente" || t.estado === "En curso")
               .slice(0, 6)
               .map((t) => (
-                <div key={t.tareaId} className="flex gap-3 rounded-xl border border-white/5 bg-[#050B18]/60 px-3 py-2.5">
+                <button
+                  key={t.tareaId}
+                  type="button"
+                  onClick={() => onNavigate?.("vordia_tareas")}
+                  className="w-full text-left flex gap-3 rounded-xl border border-white/5 bg-[#050B18]/60 px-3 py-2.5 hover:border-[#007bff]/40"
+                >
                   <div className="w-16 shrink-0 text-[10px] font-bold text-slate-500 pt-0.5">
                     {formatFecha(t.fechaVencimiento)}
                   </div>
@@ -362,7 +419,7 @@ export function VordiaHqInicio({ empresaId, nombreUsuario, onNavigate }: Props) 
                       {t.vencida ? " · VENCIDA" : ""}
                     </p>
                   </div>
-                </div>
+                </button>
               ))}
             {tareas.filter((t) => t.estado === "Pendiente" || t.estado === "En curso").length === 0 && (
               <p className="text-xs text-slate-500 py-6 text-center">Sin tareas abiertas.</p>

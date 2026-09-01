@@ -1,6 +1,7 @@
 "use client";
 
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
+import { API_BASE } from "@/lib/api";
 import {
   LayoutDashboard,
   Users,
@@ -24,6 +25,8 @@ import {
   CreditCard,
   PiggyBank,
   LineChart,
+  Target,
+  UserCog,
 } from "lucide-react";
 
 export type VordiaHqVista =
@@ -39,7 +42,9 @@ export type VordiaHqVista =
   | "vordia_gastos"
   | "vordia_cxp"
   | "vordia_caja"
+  | "vordia_capital"
   | "vordia_proyecciones"
+  | "vordia_objetivos"
   | "vordia_contratos"
   | "vordia_proveedores"
   | "vordia_documentos"
@@ -56,12 +61,14 @@ export const VORDIA_HQ_TITULOS: Record<string, string> = {
   vordia_productos: "Productos",
   vordia_proyectos: "Proyectos",
   vordia_tareas: "Tareas",
+  vordia_objetivos: "CRM · Objetivos & reuniones",
   vordia_finanzas_resumen: "Finanzas · Resumen",
   vordia_ingresos: "Finanzas · Ingresos",
   vordia_cxc: "Finanzas · Cuentas por cobrar",
-  vordia_gastos: "Finanzas · Gastos",
+  vordia_gastos: "Finanzas · Empleados / nómina",
   vordia_cxp: "Finanzas · Cuentas por pagar",
   vordia_caja: "Finanzas · Flujo de caja",
+  vordia_capital: "Finanzas · Capital empresa",
   vordia_proyecciones: "Finanzas · Proyecciones",
   vordia_contratos: "Contratos",
   vordia_proveedores: "Proveedores",
@@ -113,6 +120,7 @@ export function VordiaHqSidebarNav({
   const finanzasOpen =
     vistaActual.startsWith("vordia_ingresos") ||
     vistaActual.startsWith("vordia_caja") ||
+    vistaActual.startsWith("vordia_capital") ||
     vistaActual.startsWith("vordia_cxc") ||
     vistaActual.startsWith("vordia_cxp") ||
     vistaActual.startsWith("vordia_gastos") ||
@@ -161,6 +169,12 @@ export function VordiaHqSidebarNav({
         active={vistaActual === "vordia_tareas"}
         onClick={() => go("vordia_tareas")}
       />
+      <HqItem
+        icon={<Target size={16} />}
+        label="Objetivos & reuniones"
+        active={vistaActual === "vordia_objetivos"}
+        onClick={() => go("vordia_objetivos")}
+      />
 
       <button
         type="button"
@@ -183,9 +197,10 @@ export function VordiaHqSidebarNav({
           <HqItem nested icon={<TrendingUp size={14} />} label="Resumen" active={vistaActual === "vordia_finanzas_resumen"} onClick={() => go("vordia_finanzas_resumen")} />
           <HqItem nested icon={<Receipt size={14} />} label="Ingresos" active={vistaActual === "vordia_ingresos"} onClick={() => go("vordia_ingresos")} />
           <HqItem nested icon={<CreditCard size={14} />} label="Cuentas por cobrar" active={vistaActual === "vordia_cxc"} onClick={() => go("vordia_cxc")} />
-          <HqItem nested icon={<Wallet size={14} />} label="Gastos" active={vistaActual === "vordia_gastos"} onClick={() => go("vordia_gastos")} />
-          <HqItem nested icon={<PiggyBank size={14} />} label="Cuentas por pagar" active={vistaActual === "vordia_cxp"} onClick={() => go("vordia_cxp")} />
           <HqItem nested icon={<Wallet size={14} />} label="Flujo de caja" active={vistaActual === "vordia_caja"} onClick={() => go("vordia_caja")} />
+          <HqItem nested icon={<PiggyBank size={14} />} label="Capital empresa" active={vistaActual === "vordia_capital"} onClick={() => go("vordia_capital")} />
+          <HqItem nested icon={<UserCog size={14} />} label="Empleados / nómina" active={vistaActual === "vordia_gastos"} onClick={() => go("vordia_gastos")} />
+          <HqItem nested icon={<CreditCard size={14} />} label="Cuentas por pagar" active={vistaActual === "vordia_cxp"} onClick={() => go("vordia_cxp")} />
           <HqItem nested icon={<LineChart size={14} />} label="Proyecciones" active={vistaActual === "vordia_proyecciones"} onClick={() => go("vordia_proyecciones")} />
         </div>
       )}
@@ -244,8 +259,57 @@ export function VordiaHqSidebarNav({
   );
 }
 
-export function VordiaHqHealthWidget({ score = 87 }: { score?: number }) {
-  const label = score >= 80 ? "Muy saludable" : score >= 60 ? "Estable" : "Requiere atención";
+export function VordiaHqHealthWidget({
+  score = 70,
+  empresaId,
+}: {
+  score?: number;
+  empresaId?: number;
+}) {
+  const [live, setLive] = useState(score);
+
+  useEffect(() => {
+    if (!empresaId) {
+      setLive(score);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const [t, f, c] = await Promise.all([
+          fetch(`${API_BASE}/api/Crm/tareas?empresaId=${empresaId}`),
+          fetch(`${API_BASE}/api/Crm/flujo-caja?empresaId=${empresaId}`),
+          fetch(`${API_BASE}/api/Crm/contratos?empresaId=${empresaId}`),
+        ]);
+        const tareas = t.ok ? await t.json() : [];
+        const flujo = f.ok ? await f.json() : null;
+        const contratos = c.ok ? await c.json() : [];
+        const vencidas = (tareas as { vencida?: boolean }[]).filter((x) => x.vencida).length;
+        const pendPago = (
+          contratos as { estadoContrato?: string; estadoPago?: string }[]
+        ).filter(
+          (x) =>
+            x.estadoContrato === "Activo" &&
+            (x.estadoPago === "Pendiente" || x.estadoPago === "Vencido")
+        ).length;
+        const health = Math.min(
+          100,
+          Math.max(
+            40,
+            70 + (flujo?.mrrActivo ? 10 : 0) - Math.min(20, vencidas * 4) - Math.min(15, pendPago * 3)
+          )
+        );
+        if (!cancelled) setLive(health);
+      } catch {
+        if (!cancelled) setLive(score);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [empresaId, score]);
+
+  const label = live >= 80 ? "Muy saludable" : live >= 60 ? "Estable" : "Requiere atención";
   return (
     <div className="rounded-2xl border border-white/5 bg-[#050B18]/80 p-3.5">
       <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#94a3b8] mb-2">
@@ -254,11 +318,17 @@ export function VordiaHqHealthWidget({ score = 87 }: { score?: number }) {
       <div className="flex items-center gap-3">
         <div className="relative h-12 w-12 rounded-full border-[5px] border-[#1e3a5f] flex items-center justify-center shrink-0">
           <div className="absolute inset-[-5px] rounded-full border-[5px] border-transparent border-t-emerald-400 border-r-emerald-400/70 rotate-45" aria-hidden />
-          <span className="text-sm font-bold text-white">{score}</span>
+          <span className="text-sm font-bold text-white">{live}</span>
         </div>
         <div>
-          <p className="text-xs font-semibold text-emerald-300">{label}</p>
-          <p className="text-[10px] text-slate-500">/100</p>
+          <p
+            className={`text-xs font-semibold ${
+              live >= 80 ? "text-emerald-300" : live >= 60 ? "text-amber-300" : "text-rose-300"
+            }`}
+          >
+            {label}
+          </p>
+          <p className="text-[10px] text-slate-500">/100 · vivo</p>
         </div>
       </div>
     </div>

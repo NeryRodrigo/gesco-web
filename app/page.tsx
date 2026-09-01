@@ -45,7 +45,12 @@ import { VordiaPipelinePage } from "./vordia/VordiaPipelinePage";
 import { VordiaContratosPage } from "./vordia/VordiaContratosPage";
 import { VordiaIngresosPage } from "./vordia/VordiaIngresosPage";
 import { VordiaTareasPage } from "./vordia/VordiaTareasPage";
-import { VordiaFlujoCajaPage } from "./vordia/VordiaFlujoCajaPage";
+import { VordiaFinanzasHqPage } from "./vordia/VordiaFinanzasHqPage";
+import { VordiaObjetivosPage } from "./vordia/VordiaObjetivosPage";
+import { VordiaReportesHqPage } from "./vordia/VordiaReportesHqPage";
+import { VordiaProductosPage } from "./vordia/VordiaProductosPage";
+import { VordiaProveedoresPage } from "./vordia/VordiaProveedoresPage";
+import { VordiaProyectosPage } from "./vordia/VordiaProyectosPage";
 import { VordiaConfiguracionPage } from "./vordia/VordiaConfiguracionPage";
 import { VordiaRoadmapPage } from "./vordia/VordiaRoadmapPage";
 import AuthScreen from "./login/Registro";
@@ -94,6 +99,8 @@ type Vista =
   | "vordia_ingresos"
   | "vordia_tareas"
   | "vordia_caja"
+  | "vordia_capital"
+  | "vordia_objetivos"
   | "vordia_productos"
   | "vordia_proyectos"
   | "vordia_finanzas_resumen"
@@ -518,7 +525,7 @@ export default function OimaDashboard() {
         </div>
 
         <div className="mt-auto p-5 lg:p-6 bg-[#0B1222]/50 border-t border-white/5 space-y-3">
-          {isUsuarioVordia && <VordiaHqHealthWidget score={87} />}
+          {isUsuarioVordia && <VordiaHqHealthWidget empresaId={empresaId} />}
           <div className="flex items-center gap-3 min-w-0">
             <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-xs shadow-lg shadow-blue-600/20 shrink-0">
               {usuarioActivo?.nombre?.charAt(0).toUpperCase()}
@@ -650,69 +657,61 @@ export default function OimaDashboard() {
           )}
 
           {vistaActual === "vordia_caja" && isUsuarioVordia && (
-            <VordiaFlujoCajaPage empresaId={empresaId} />
+            <VordiaFinanzasHqPage empresaId={empresaId} usuarioNombre={usuarioActivo?.nombre} tabInicial="flujo" />
+          )}
+
+          {vistaActual === "vordia_capital" && isUsuarioVordia && (
+            <VordiaFinanzasHqPage empresaId={empresaId} usuarioNombre={usuarioActivo?.nombre} tabInicial="capital" />
           )}
 
           {vistaActual === "vordia_tareas" && isUsuarioVordia && (
             <VordiaTareasPage empresaId={empresaId} usuario={usuarioActivo} />
           )}
 
+          {vistaActual === "vordia_objetivos" && isUsuarioVordia && (
+            <VordiaObjetivosPage empresaId={empresaId} usuarioNombre={usuarioActivo?.nombre} />
+          )}
+
           {vistaActual === "vordia_finanzas_resumen" && isUsuarioVordia && (
-            <VordiaHqInicio
-              nombreUsuario={usuarioActivo?.nombre}
+            <VordiaReportesHqPage
               empresaId={empresaId}
               onNavigate={(v) => setVistaActual(v as Vista)}
             />
           )}
 
           {vistaActual === "vordia_productos" && isUsuarioVordia && (
-            <VordiaModuloVacio
-              titulo="Productos"
-              descripcion="Portafolio Vordia: Condominios, Hostel, HQ y productos en desarrollo. Estado, margen y facturación por línea (P0 hoja de ruta)."
-              icon={<Package size={22} />}
+            <VordiaProductosPage
+              empresaId={empresaId}
+              onNavigate={(v) => setVistaActual(v as Vista)}
             />
           )}
           {vistaActual === "vordia_proyectos" && isUsuarioVordia && (
-            <VordiaModuloVacio
-              titulo="Proyectos"
-              descripcion="Implementaciones e iniciativas internas vinculadas a clientes, contratos y tareas."
-              icon={<FolderKanban size={22} />}
-            />
+            <VordiaProyectosPage empresaId={empresaId} usuario={usuarioActivo} />
           )}
           {vistaActual === "vordia_cxc" && isUsuarioVordia && (
-            <VordiaModuloVacio
-              titulo="Cuentas por cobrar"
-              descripcion="Fees y facturas pendientes, vencidas y próximas a cobro. Por ahora usá Contratos e Ingresos."
-              icon={<CreditCard size={22} />}
-            />
+            <div className="space-y-3">
+              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-100/90">
+                Cuentas por cobrar = contratos activos con pago pendiente o vencido. Gestioná cobros desde aquí o desde Ingresos.
+              </div>
+              <VordiaContratosPage empresaId={empresaId} usuario={usuarioActivo} />
+            </div>
           )}
           {vistaActual === "vordia_gastos" && isUsuarioVordia && (
-            <VordiaModuloVacio
-              titulo="Gastos"
-              descripcion="Gastos operativos de Vordia HQ: registro, categoría, aprobación y vínculo a flujo de caja."
-              icon={<Wallet size={22} />}
-            />
+            <VordiaFinanzasHqPage empresaId={empresaId} usuarioNombre={usuarioActivo?.nombre} tabInicial="empleados" />
           )}
           {vistaActual === "vordia_cxp" && isUsuarioVordia && (
-            <VordiaModuloVacio
-              titulo="Cuentas por pagar"
-              descripcion="Obligaciones con proveedores y vencimientos. Se conectará al módulo Proveedores."
-              icon={<CreditCard size={22} />}
-            />
+            <div className="space-y-3">
+              <div className="rounded-2xl border border-sky-500/20 bg-sky-500/5 px-4 py-3 text-sm text-sky-100/90">
+                CxP se apoya en Proveedores. Registrá proveedores activos y usá notas/vencimientos ahí hasta el módulo de facturas.
+              </div>
+              <VordiaProveedoresPage empresaId={empresaId} />
+            </div>
           )}
           {vistaActual === "vordia_proyecciones" && isUsuarioVordia && (
-            <VordiaModuloVacio
-              titulo="Proyecciones"
-              descripcion="Flujo proyectado a 30/90 días, ARR y escenarios. El núcleo actual está en Flujo de caja."
-              icon={<LineChart size={22} />}
-            />
+            <VordiaFinanzasHqPage empresaId={empresaId} usuarioNombre={usuarioActivo?.nombre} tabInicial="flujo" />
           )}
           {vistaActual === "vordia_proveedores" && isUsuarioVordia && (
-            <VordiaModuloVacio
-              titulo="Proveedores"
-              descripcion="Proveedores y servicios contratados por Vordia, con contratos y pagos asociados."
-              icon={<Truck size={22} />}
-            />
+            <VordiaProveedoresPage empresaId={empresaId} />
           )}
           {vistaActual === "vordia_documentos" && isUsuarioVordia && (
             <VordiaModuloVacio
@@ -729,10 +728,9 @@ export default function OimaDashboard() {
             />
           )}
           {vistaActual === "vordia_reportes" && isUsuarioVordia && (
-            <VordiaModuloVacio
-              titulo="Reportes"
-              descripcion="Business Intelligence: rentabilidad por producto, conversión comercial y cumplimiento operativo."
-              icon={<BarChart3 size={22} />}
+            <VordiaReportesHqPage
+              empresaId={empresaId}
+              onNavigate={(v) => setVistaActual(v as Vista)}
             />
           )}
           {vistaActual === "vordia_roadmap" && isUsuarioVordia && (

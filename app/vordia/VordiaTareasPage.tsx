@@ -146,6 +146,71 @@ export function VordiaTareasPage({ empresaId, usuario }: Props) {
     }
   };
 
+  const [detalle, setDetalle] = useState<Tarea | null>(null);
+  const [objsTarea, setObjsTarea] = useState<any[]>([]);
+  const [nuevoObj, setNuevoObj] = useState({ titulo: "", notasReunion: "" });
+
+  const abrirDetalle = async (t: Tarea) => {
+    setDetalle(t);
+    setNuevoObj({ titulo: "", notasReunion: "" });
+    try {
+      const r = await fetch(`${API_BASE}/api/Crm/objetivos?empresaId=${empresaId}&tareaId=${t.tareaId}`);
+      if (r.ok) setObjsTarea(await r.json());
+      else setObjsTarea([]);
+    } catch {
+      setObjsTarea([]);
+    }
+  };
+
+  const guardarObjTarea = async () => {
+    if (!detalle || !nuevoObj.titulo.trim()) {
+      toast.error("Título del objetivo obligatorio");
+      return;
+    }
+    const r = await fetch(`${API_BASE}/api/Crm/objetivos`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        empresaId,
+        ambito: "Tarea",
+        titulo: nuevoObj.titulo,
+        notasReunion: nuevoObj.notasReunion || null,
+        tareaId: detalle.tareaId,
+        estado: "Pendiente",
+        prioridad: "Media",
+        creadoPor: usuario?.nombre,
+      }),
+    });
+    if (r.ok) {
+      toast.success("Objetivo de tarea añadido");
+      setNuevoObj({ titulo: "", notasReunion: "" });
+      abrirDetalle(detalle);
+    } else toast.error("No se pudo añadir objetivo");
+  };
+
+  const guardarEdicionDetalle = async () => {
+    if (!detalle) return;
+    const r = await fetch(`${API_BASE}/api/Crm/tareas/${detalle.tareaId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        empresaId,
+        titulo: detalle.titulo,
+        descripcion: detalle.descripcion,
+        fechaVencimiento: detalle.fechaVencimiento,
+        estado: detalle.estado,
+        prioridad: detalle.prioridad,
+        clienteId: detalle.clienteId,
+        asignadoNombre: detalle.asignadoNombre,
+      }),
+    });
+    if (r.ok) {
+      toast.success("Tarea actualizada");
+      setDetalle(null);
+      cargar();
+    } else toast.error("No se pudo guardar");
+  };
+
   return (
     <div className="vordia-hq-page animate-in fade-in duration-300 space-y-4">
       <div className="vordia-toolbar flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between rounded-[1.5rem] border border-white/5 bg-[#0C1327] p-4 lg:p-5">
@@ -177,13 +242,24 @@ export function VordiaTareasPage({ empresaId, usuario }: Props) {
                 {col.items.map((t) => (
                   <div
                     key={t.tareaId}
-                    className={`rounded-xl border p-3 space-y-2 ${
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => void abrirDetalle(t)}
+                    onKeyDown={(e) => e.key === "Enter" && void abrirDetalle(t)}
+                    className={`rounded-xl border p-3 space-y-2 cursor-pointer hover:border-[#007bff]/50 transition ${
                       t.vencida ? "border-red-500/40 bg-red-500/5" : "border-white/5 bg-[#0C1327]"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-semibold text-white leading-snug">{t.titulo}</p>
-                      <button type="button" onClick={() => eliminar(t)} className="vordia-icon-btn p-2 rounded-lg text-slate-600 hover:text-red-400">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void eliminar(t);
+                        }}
+                        className="vordia-icon-btn p-2 rounded-lg text-slate-600 hover:text-red-400"
+                      >
                         <Trash2 size={12} />
                       </button>
                     </div>
@@ -203,13 +279,18 @@ export function VordiaTareasPage({ empresaId, usuario }: Props) {
                     </p>
                     <select
                       value={t.estado}
-                      onChange={(e) => cambiarEstado(t, e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        void cambiarEstado(t, e.target.value);
+                      }}
                       className="w-full bg-[#050B18] border border-white/10 text-[10px] text-slate-300 rounded-lg px-1.5 py-1.5"
                     >
                       {ESTADOS.map((e) => (
                         <option key={e} value={e}>{e}</option>
                       ))}
                     </select>
+                    <p className="text-[9px] text-[#007bff] font-bold uppercase tracking-wide">Clic · ver detalle</p>
                   </div>
                 ))}
               </div>
@@ -250,6 +331,109 @@ export function VordiaTareasPage({ empresaId, usuario }: Props) {
             <div className="vordia-modal-actions flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setModalOpen(false)} className="rounded-xl text-slate-400">Cancelar</Button>
               <Button onClick={guardar} className="bg-[#007bff] hover:bg-[#0069d9] rounded-xl font-bold">Crear</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {detalle && (
+        <div className="vordia-modal fixed inset-0 z-[80] bg-black/60 flex items-center justify-center p-4" onClick={() => setDetalle(null)}>
+          <div
+            className="vordia-modal-panel w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 bg-[#0C1327] p-5 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-start gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[#5eb0ff]">Detalle de tarea</p>
+                <h3 className="text-lg font-semibold text-white mt-1">Editar y objetivos</h3>
+              </div>
+              <button type="button" onClick={() => setDetalle(null)} className="text-slate-500 hover:text-white"><X size={18} /></button>
+            </div>
+
+            <div className="space-y-3">
+              <Input
+                value={detalle.titulo}
+                onChange={(e) => setDetalle({ ...detalle, titulo: e.target.value })}
+                className="bg-[#050B18] border-white/10 text-white rounded-xl font-semibold"
+              />
+              <textarea
+                value={detalle.descripcion || ""}
+                onChange={(e) => setDetalle({ ...detalle, descripcion: e.target.value })}
+                placeholder="Descripción / contexto"
+                rows={3}
+                className="w-full bg-[#050B18] border border-white/10 text-white rounded-xl px-3 py-2 text-sm resize-y"
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  type="date"
+                  value={detalle.fechaVencimiento ? String(detalle.fechaVencimiento).slice(0, 10) : ""}
+                  onChange={(e) => setDetalle({ ...detalle, fechaVencimiento: e.target.value })}
+                  className="bg-[#050B18] border-white/10 text-white rounded-xl"
+                />
+                <select
+                  value={detalle.prioridad}
+                  onChange={(e) => setDetalle({ ...detalle, prioridad: e.target.value })}
+                  className="bg-[#050B18] border border-white/10 text-white rounded-xl px-3 py-2 text-sm"
+                >
+                  {PRIORIDADES.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+                <select
+                  value={detalle.estado}
+                  onChange={(e) => setDetalle({ ...detalle, estado: e.target.value })}
+                  className="bg-[#050B18] border border-white/10 text-white rounded-xl px-3 py-2 text-sm"
+                >
+                  {ESTADOS.map((e) => <option key={e} value={e}>{e}</option>)}
+                </select>
+                <Input
+                  value={detalle.asignadoNombre || ""}
+                  onChange={(e) => setDetalle({ ...detalle, asignadoNombre: e.target.value })}
+                  placeholder="Asignado a"
+                  className="bg-[#050B18] border-white/10 text-white rounded-xl"
+                />
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Cliente: {detalle.clienteNombre || "Sin vincular"}
+                {detalle.vencida ? " · VENCIDA" : ""}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-[#050B18]/80 p-4 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-white">Objetivos generales de esta tarea</p>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {objsTarea.length === 0 && (
+                  <p className="text-[11px] text-slate-600 py-2">Sin objetivos aún. Agregá lo que quieren lograr Eli y Nery con esta tarjeta.</p>
+                )}
+                {objsTarea.map((o: any) => (
+                  <div key={o.objetivoId} className="rounded-lg border border-white/5 bg-[#0C1327] px-3 py-2">
+                    <p className="text-xs font-semibold text-white">{o.titulo}</p>
+                    <p className="text-[10px] text-slate-500">{o.estado} · {o.prioridad}</p>
+                    {o.notasReunion && (
+                      <p className="text-[11px] text-slate-400 mt-1 whitespace-pre-wrap">{o.notasReunion}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <Input
+                value={nuevoObj.titulo}
+                onChange={(e) => setNuevoObj({ ...nuevoObj, titulo: e.target.value })}
+                placeholder="Nuevo objetivo *"
+                className="bg-[#0C1327] border-white/10 text-white rounded-xl"
+              />
+              <textarea
+                value={nuevoObj.notasReunion}
+                onChange={(e) => setNuevoObj({ ...nuevoObj, notasReunion: e.target.value })}
+                placeholder="Nota de reunión / acuerdo con socia (opcional)"
+                rows={2}
+                className="w-full bg-[#0C1327] border border-white/10 text-white rounded-xl px-3 py-2 text-sm"
+              />
+              <Button type="button" onClick={() => void guardarObjTarea()} variant="outline" className="rounded-xl border-white/15 text-slate-200 gap-2">
+                <Plus size={14} /> Añadir objetivo
+              </Button>
+            </div>
+
+            <div className="vordia-modal-actions flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setDetalle(null)} className="rounded-xl text-slate-400">Cerrar</Button>
+              <Button onClick={() => void guardarEdicionDetalle()} className="bg-[#007bff] hover:bg-[#0069d9] rounded-xl font-bold">Guardar tarea</Button>
             </div>
           </div>
         </div>
