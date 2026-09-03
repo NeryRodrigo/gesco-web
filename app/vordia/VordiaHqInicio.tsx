@@ -194,12 +194,18 @@ export function VordiaHqInicio({ empresaId, nombreUsuario, onNavigate }: Props) 
           { l: "Proyectos", v: "vordia_proyectos" },
           { l: "Objetivos", v: "vordia_objetivos" },
           { l: "Capital", v: "vordia_capital" },
-          { l: "Proveedores", v: "vordia_proveedores" },
+          { l: "Agrofield", v: "__agro__" },
         ].map((a) => (
           <button
             key={a.v}
             type="button"
-            onClick={() => onNavigate?.(a.v)}
+            onClick={() => {
+              if (a.v === "__agro__") {
+                window.location.href = "/agro";
+                return;
+              }
+              onNavigate?.(a.v);
+            }}
             className="rounded-xl border border-white/10 bg-[#0C1327] px-3 py-2.5 text-[11px] font-bold uppercase tracking-wide text-slate-300 hover:border-[#007bff]/50 hover:text-white transition"
           >
             {a.l}

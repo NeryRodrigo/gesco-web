@@ -248,8 +248,13 @@ export function VordiaProductosPage({ empresaId, onNavigate }: Props) {
                 </Button>
               )}
               {detalle.codigo === "STAY" && (
-                <Button variant="outline" onClick={() => onNavigate?.("vordia_proyectos")} className="rounded-xl border-white/15 text-slate-200">
-                  Ver proyectos Stay
+                <Button variant="outline" onClick={() => { window.location.href = "/stay"; }} className="rounded-xl border-white/15 text-slate-200">
+                  Abrir prototipo Stay
+                </Button>
+              )}
+              {detalle.codigo === "AGRO" && (
+                <Button variant="outline" onClick={() => { window.location.href = "/agro"; }} className="rounded-xl border-emerald-500/40 text-emerald-200">
+                  Abrir Agrofield / Agro
                 </Button>
               )}
               <Button variant="outline" onClick={() => onNavigate?.("vordia_proyectos")} className="rounded-xl border-white/15 text-slate-200">

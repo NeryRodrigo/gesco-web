@@ -7,7 +7,7 @@ import {
   ExternalLink, Save, X, DollarSign, Ruler, ShieldCheck, XCircle, 
   Search, Filter, Sparkles, User, Building2, Wallet, LogOut, 
   Activity, Users, FileText, Cpu, Lock, History, Settings, List, CheckSquare, Menu, Bed,
-  Package, FolderKanban, Truck, FolderOpen, Zap, BarChart3, CreditCard, LineChart
+  Package, FolderKanban, Truck, FolderOpen, Zap, BarChart3, CreditCard, LineChart, Sprout
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,6 +53,7 @@ import { VordiaProveedoresPage } from "./vordia/VordiaProveedoresPage";
 import { VordiaProyectosPage } from "./vordia/VordiaProyectosPage";
 import { VordiaConfiguracionPage } from "./vordia/VordiaConfiguracionPage";
 import { VordiaRoadmapPage } from "./vordia/VordiaRoadmapPage";
+import AgroPage from "./agro/page";
 import AuthScreen from "./login/Registro";
 import { RegistroUsuarioModal } from "./login/RegistroUsuarioModal";
 import { EditarUsuarioModal } from "./login/EditarUsuarioModal";
@@ -142,9 +143,11 @@ export default function OimaDashboard() {
   const [fichasIncKey, setFichasIncKey] = useState(0);
 
   const empresaId = usuarioActivo?.empresaId || 7;
-  const isUsuarioVordia = String(usuarioActivo?.rubro || "").toUpperCase() === "VORDIA";
-  const isUsuarioCondominio = !isUsuarioVordia; // Fontana/Agus vs Vordia Interno
-  const canManagePasswords = isAdminFontana(usuarioActivo) || isUsuarioVordia || isRolAdministrador(usuarioActivo);
+  const rubroUpper = String(usuarioActivo?.rubro || "").toUpperCase();
+  const isUsuarioVordia = rubroUpper === "VORDIA";
+  const isUsuarioAgro = rubroUpper === "AGRO";
+  const isUsuarioCondominio = !isUsuarioVordia && !isUsuarioAgro; // Fontana/Agus
+  const canManagePasswords = isAdminFontana(usuarioActivo) || isUsuarioVordia || isUsuarioAgro || isRolAdministrador(usuarioActivo);
   const esAdminSistema = isRolAdministrador(usuarioActivo);
 
   // Restaurar sesión al montar (Chrome device mode / resize no debe cerrar sesión)
@@ -190,6 +193,14 @@ export default function OimaDashboard() {
     if (vistasAgus.has(vistaActual)) setVistaActual("inicio");
   }, [isUsuarioVordia, vistaActual]);
 
+  // Agrofield: solo entorno AGRO (sin Habitat ni HQ)
+  useEffect(() => {
+    if (!isUsuarioAgro) return;
+    if (vistaActual !== "inicio" && vistaActual !== "configuracion" && vistaActual !== "usuarios") {
+      setVistaActual("inicio");
+    }
+  }, [isUsuarioAgro, vistaActual]);
+
   // Solo ADMIN ve Usuarios/Roles; empleados solo módulos asignados
   useEffect(() => {
     if (!usuarioActivo) return;
@@ -200,12 +211,13 @@ export default function OimaDashboard() {
     }
     if (
       !isUsuarioVordia &&
+      !isUsuarioAgro &&
       vistaActual !== "inicio" &&
       !puedeVerVistaSidebar(vistaActual, usuarioActivo, modulosUsuario)
     ) {
       setVistaActual("inicio");
     }
-  }, [usuarioActivo, vistaActual, modulosUsuario, esAdminSistema, isUsuarioVordia]);
+  }, [usuarioActivo, vistaActual, modulosUsuario, esAdminSistema, isUsuarioVordia, isUsuarioAgro]);
 
   const sincronizarPermisosSesion = async (user: any) => {
     if (!user?.id && !user?.Id) return;
@@ -277,7 +289,7 @@ export default function OimaDashboard() {
   };
 
   const cargarDatos = async () => {
-    if (!usuarioActivo || isUsuarioVordia) return;
+    if (!usuarioActivo || isUsuarioVordia || isUsuarioAgro) return;
     try {
       const resC = await fetch(`${API_BASE}/api/Dashboard/condominio/${empresaId}`);
       if (resC.ok) setCondoDashboardData(await resC.json());
@@ -398,6 +410,16 @@ export default function OimaDashboard() {
                   <p className="text-sm font-bold tracking-[0.12em] text-white uppercase">HQ Headquarters</p>
                 </div>
               </div>
+            ) : isUsuarioAgro ? (
+              <div className="flex items-center gap-3 w-full justify-start">
+                <div className="h-9 w-9 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                  <Sprout size={18} />
+                </div>
+                <div className="leading-tight">
+                  <p className="text-[10px] font-black tracking-[0.28em] text-emerald-400 uppercase">Vordia Agro</p>
+                  <p className="text-sm font-bold tracking-[0.08em] text-white uppercase">Agrofield</p>
+                </div>
+              </div>
             ) : isUsuarioCondominio ? (
               <img
                 src="/fontanas.png"
@@ -415,7 +437,7 @@ export default function OimaDashboard() {
 
           <nav className="w-full space-y-1 overflow-y-auto max-h-[calc(100dvh-280px)] lg:max-h-[calc(100vh-320px)] custom-scrollbar overscroll-contain">
             <p className="text-[10px] font-black uppercase text-[#007bff] tracking-[0.2em] mb-4 lg:mb-6 ml-2">
-              {isUsuarioVordia ? "Vordia HQ" : "Módulo de gestión"}
+              {isUsuarioVordia ? "Vordia HQ" : isUsuarioAgro ? "Agrofield" : "Módulo de gestión"}
             </p>
             
             <div className="space-y-1.5">
@@ -436,6 +458,29 @@ export default function OimaDashboard() {
                     setIsMobileMenuOpen(false);
                   }}
                 />
+              ) : isUsuarioAgro ? (
+                <>
+                  <SidebarItem
+                    icon={<Sprout size={18} />}
+                    label="Confinamiento"
+                    active={vistaActual === "inicio"}
+                    onClick={() => { setVistaActual("inicio"); setIsMobileMenuOpen(false); }}
+                  />
+                  <SidebarItem
+                    icon={<Settings size={18} />}
+                    label="Configuración"
+                    active={vistaActual === "configuracion"}
+                    onClick={() => { setVistaActual("configuracion"); setIsMobileMenuOpen(false); }}
+                  />
+                  {esAdminSistema && (
+                    <SidebarItem
+                      icon={<Users size={18} />}
+                      label="Usuarios / Roles"
+                      active={vistaActual === "usuarios"}
+                      onClick={() => { setVistaActual("usuarios"); setIsMobileMenuOpen(false); }}
+                    />
+                  )}
+                </>
               ) : (
                 <>
               {puedeVerVistaSidebar("condominio", usuarioActivo, modulosUsuario) && (
@@ -568,13 +613,15 @@ export default function OimaDashboard() {
             <h2 className={`mobile-title lg:text-2xl font-semibold text-white tracking-tight truncate capitalize lg:normal-case ${isUsuarioVordia ? "max-lg:text-[1.05rem]" : ""}`}>
               {isUsuarioVordia && VORDIA_HQ_TITULOS[vistaActual]
                 ? VORDIA_HQ_TITULOS[vistaActual]
-                : vistaActual === "inicio"
-                ? "Resumen operativo"
-                : vistaActual === "condominio"
-                  ? "Gestión de unidades"
-                  : vistaActual === "fontana"
-                    ? "Fontana · Condominio Agus"
-                    : vistaActual.replace(/_/g, " ")}
+                : isUsuarioAgro
+                  ? (vistaActual === "inicio" ? "Agrofield · Confinamiento" : vistaActual === "configuracion" ? "Configuración" : vistaActual)
+                  : vistaActual === "inicio"
+                    ? "Resumen operativo"
+                    : vistaActual === "condominio"
+                      ? "Gestión de unidades"
+                      : vistaActual === "fontana"
+                        ? "Fontana · Condominio Agus"
+                        : vistaActual.replace(/_/g, " ")}
             </h2>
           </div>
 
@@ -609,7 +656,13 @@ export default function OimaDashboard() {
             />
           )}
 
-          {vistaActual === "inicio" && !isUsuarioVordia && condoDashboardData && (
+          {vistaActual === "inicio" && isUsuarioAgro && (
+            <div className="-m-3 sm:-m-4 lg:-m-6">
+              <AgroPage />
+            </div>
+          )}
+
+          {vistaActual === "inicio" && !isUsuarioVordia && !isUsuarioAgro && condoDashboardData && (
             <div className="flex flex-col animate-in fade-in duration-300">
               {/* Saludo arriba (móvil y PC): sin logo Vordia */}
               <div className="mb-2.5 bg-[#0C1327] px-5 py-9 min-h-[8rem] rounded-[1.75rem] border border-white/5 shadow-2xl flex items-center">
