@@ -194,7 +194,7 @@ export const VORDIA_MODULO_META: Record<
   vordia_contratos: {
     titulo: "Contratos y fees",
     descripcion:
-      "Registrá fee acordado, mensual, anual, fecha de inicio, próximo vencimiento y estado del pago por cliente.",
+      "Registrá monto acordado, cuota mensual, anual, fecha de inicio, próximo vencimiento y estado del pago por cliente.",
     icon: <FileText size={22} />,
   },
   vordia_ingresos: {

@@ -112,8 +112,8 @@ export function VordiaFlujoCajaPage({ empresaId }: Props) {
         {[
           { l: "Cobrado mes", v: formatGs(flujo?.cobradoMesActual) },
           { l: "Cobrado total", v: formatGs(flujo?.cobradoTotal) },
-          { l: "MRR activo", v: formatGs(flujo?.mrrActivo) },
-          { l: "ARR proyectado", v: formatGs(flujo?.arrProyectado) },
+          { l: "Ingreso total mensual", v: formatGs(flujo?.mrrActivo) },
+          { l: "Venta anual estimada", v: formatGs(flujo?.arrProyectado) },
           { l: "Pendiente cobro", v: formatGs(flujo?.pendienteCobro) },
         ].map((k) => (
           <div key={k.l} className="rounded-[1.25rem] border border-white/5 bg-[#0C1327] p-4">
