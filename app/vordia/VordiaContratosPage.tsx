@@ -295,7 +295,7 @@ export function VordiaContratosPage({ empresaId, usuario }: Props) {
                 <Input value={form.sistemaServicio} onChange={(e) => setForm({ ...form, sistemaServicio: e.target.value })} className="mt-1 bg-[#050B18] border-white/10 text-white rounded-xl" />
               </div>
               <div>
-                <label className="text-[10px] font-bold uppercase text-slate-500">Fee mensual (Gs.)</label>
+                <label className="text-[10px] font-bold uppercase text-slate-500">Cuota mensual (Gs.)</label>
                 <Input type="number" value={form.feeMensual} onChange={(e) => onFeeMensualChange(e.target.value)} className="mt-1 bg-[#050B18] border-white/10 text-white rounded-xl" />
               </div>
               <div>
@@ -303,7 +303,7 @@ export function VordiaContratosPage({ empresaId, usuario }: Props) {
                 <Input type="number" value={form.feeAnual} onChange={(e) => setForm({ ...form, feeAnual: e.target.value })} className="mt-1 bg-[#050B18] border-white/10 text-white rounded-xl" />
               </div>
               <div>
-                <label className="text-[10px] font-bold uppercase text-slate-500">Fee acordado (Gs.)</label>
+                <label className="text-[10px] font-bold uppercase text-slate-500">Monto acordado (Gs.)</label>
                 <Input type="number" value={form.feeAcordado} onChange={(e) => setForm({ ...form, feeAcordado: e.target.value })} className="mt-1 bg-[#050B18] border-white/10 text-white rounded-xl" />
               </div>
               <div>

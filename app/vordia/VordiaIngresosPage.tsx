@@ -47,7 +47,7 @@ export function VordiaIngresosPage({ empresaId, usuario }: Props) {
     fechaPago: new Date().toISOString().slice(0, 10),
     periodo: new Date().toISOString().slice(0, 7),
     metodoPago: "Transferencia",
-    concepto: "Fee mensual",
+    concepto: "Cuota mensual",
     notas: "",
     marcarContratoAlDia: true,
   });
@@ -81,7 +81,7 @@ export function VordiaIngresosPage({ empresaId, usuario }: Props) {
       fechaPago: new Date().toISOString().slice(0, 10),
       periodo: new Date().toISOString().slice(0, 7),
       metodoPago: "Transferencia",
-      concepto: "Fee mensual",
+      concepto: "Cuota mensual",
       notas: "",
       marcarContratoAlDia: true,
     });
@@ -137,8 +137,8 @@ export function VordiaIngresosPage({ empresaId, usuario }: Props) {
   }
 
   const kpis = [
-    { label: "MRR activo", value: formatGs(resumen?.mrrActivo) },
-    { label: "ARR proyectado", value: formatGs(resumen?.arrProyectado) },
+    { label: "Ingreso total mensual", value: formatGs(resumen?.mrrActivo) },
+    { label: "Venta anual estimada", value: formatGs(resumen?.arrProyectado) },
     { label: "Cobrado este mes", value: formatGs(resumen?.cobradoMesActual) },
     { label: "Cobrado total", value: formatGs(resumen?.cobradoTotal) },
   ];

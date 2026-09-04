@@ -71,7 +71,7 @@ export function VordiaReportesHqPage({ empresaId, onNavigate }: Props) {
   }
 
   const cards = [
-    { l: "MRR activo", v: formatGs(data.mrr), go: "vordia_caja" },
+    { l: "Ingreso total mensual", v: formatGs(data.mrr), go: "vordia_caja" },
     { l: "Cobrado del mes", v: formatGs(data.cobradoMes), go: "vordia_ingresos" },
     { l: "Pendiente cobro", v: formatGs(data.pendiente), go: "vordia_cxc" },
     { l: "Saldo capital", v: formatGs(data.capital), go: "vordia_capital" },

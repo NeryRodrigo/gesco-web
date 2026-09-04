@@ -217,7 +217,7 @@ export function VordiaHqInicio({ empresaId, nombreUsuario, onNavigate }: Props) 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-2.5 lg:gap-3">
         {[
           { l: "Ingresos cobrados (mes)", v: formatGs(flujo?.cobradoMesActual), c: "text-[#5eb0ff]", icon: <CircleDollarSign size={16} />, go: "vordia_ingresos" },
-          { l: "MRR activo", v: formatGs(flujo?.mrrActivo), c: "text-emerald-400", icon: <TrendingUp size={16} />, go: "vordia_caja" },
+          { l: "Ingreso total mensual", v: formatGs(flujo?.mrrActivo), c: "text-emerald-400", icon: <TrendingUp size={16} />, go: "vordia_caja" },
           { l: "Pendiente cobro", v: formatGs(flujo?.pendienteCobro), c: "text-amber-300", icon: <Wallet size={16} />, go: "vordia_cxc" },
           { l: "Capital empresa", v: formatGs(capitalSaldo), c: "text-sky-300", icon: <CircleDollarSign size={16} />, go: "vordia_capital" },
           { l: "Nómina / mes", v: formatGs(nomina), c: "text-violet-300", icon: <Wallet size={16} />, go: "vordia_gastos" },
