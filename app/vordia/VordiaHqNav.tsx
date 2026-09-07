@@ -55,7 +55,7 @@ export type VordiaHqVista =
   | "usuarios";
 
 export const VORDIA_HQ_TITULOS: Record<string, string> = {
-  inicio: "Inicio · Centro ejecutivo",
+  inicio: "Dashboard ejecutivo",
   vordia_pipeline: "CRM Comercial",
   vordia_clientes: "Clientes",
   vordia_productos: "Productos",

@@ -25,6 +25,7 @@ type ClienteOpt = { clienteId: number; razonSocial: string };
 
 const ESTADOS = ["Pendiente", "En curso", "Hecha", "Cancelada"] as const;
 const PRIORIDADES = ["Baja", "Media", "Alta"] as const;
+const RESPONSABLES = ["Eli Ortigoza", "Nery Chavez"] as const;
 
 function priColor(p: string) {
   if (p === "Alta") return "text-red-300";
@@ -80,6 +81,14 @@ export function VordiaTareasPage({ empresaId, usuario }: Props) {
     }));
   }, [tareas]);
 
+  const defaultResponsable = () => {
+    const n = (usuario?.nombre || "").trim();
+    if (RESPONSABLES.some((r) => r === n)) return n;
+    if (/nery/i.test(n)) return "Nery Chavez";
+    if (/eli/i.test(n)) return "Eli Ortigoza";
+    return "Nery Chavez";
+  };
+
   const abrirNueva = () => {
     setForm({
       titulo: "",
@@ -88,7 +97,7 @@ export function VordiaTareasPage({ empresaId, usuario }: Props) {
       estado: "Pendiente",
       prioridad: "Media",
       clienteId: "",
-      asignadoNombre: usuario?.nombre || "",
+      asignadoNombre: defaultResponsable(),
     });
     setModalOpen(true);
   };
@@ -96,6 +105,10 @@ export function VordiaTareasPage({ empresaId, usuario }: Props) {
   const guardar = async () => {
     if (!form.titulo.trim()) {
       toast.error("El título es obligatorio");
+      return;
+    }
+    if (!form.asignadoNombre.trim()) {
+      toast.error("Seleccioná responsable (Eli o Nery)");
       return;
     }
     const res = await fetch(`${API_BASE}/api/Crm/tareas`, {
@@ -109,8 +122,8 @@ export function VordiaTareasPage({ empresaId, usuario }: Props) {
         estado: form.estado,
         prioridad: form.prioridad,
         clienteId: form.clienteId ? Number(form.clienteId) : null,
-        asignadoUsuarioId: usuario?.id,
-        asignadoNombre: form.asignadoNombre || usuario?.nombre,
+        asignadoUsuarioId: null,
+        asignadoNombre: form.asignadoNombre,
       }),
     });
     if (res.ok) {
@@ -319,7 +332,15 @@ export function VordiaTareasPage({ empresaId, usuario }: Props) {
                 <select value={form.estado} onChange={(e) => setForm({ ...form, estado: e.target.value })} className="bg-[#050B18] border border-white/10 text-white rounded-xl px-3 py-2 text-sm">
                   {ESTADOS.map((e) => <option key={e} value={e}>{e}</option>)}
                 </select>
-                <Input value={form.asignadoNombre} onChange={(e) => setForm({ ...form, asignadoNombre: e.target.value })} placeholder="Asignado a" className="bg-[#050B18] border-white/10 text-white rounded-xl" />
+                <select
+                  value={form.asignadoNombre}
+                  onChange={(e) => setForm({ ...form, asignadoNombre: e.target.value })}
+                  className="bg-[#050B18] border border-white/10 text-white rounded-xl px-3 py-2 text-sm"
+                >
+                  {RESPONSABLES.map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
               </div>
               <select value={form.clienteId} onChange={(e) => setForm({ ...form, clienteId: e.target.value })} className="w-full bg-[#050B18] border border-white/10 text-white rounded-xl px-3 py-2 text-sm">
                 <option value="">Sin cliente vinculado</option>
@@ -384,12 +405,28 @@ export function VordiaTareasPage({ empresaId, usuario }: Props) {
                 >
                   {ESTADOS.map((e) => <option key={e} value={e}>{e}</option>)}
                 </select>
-                <Input
-                  value={detalle.asignadoNombre || ""}
-                  onChange={(e) => setDetalle({ ...detalle, asignadoNombre: e.target.value })}
-                  placeholder="Asignado a"
-                  className="bg-[#050B18] border-white/10 text-white rounded-xl"
-                />
+                <select
+                  value={
+                    RESPONSABLES.includes((detalle.asignadoNombre || "") as (typeof RESPONSABLES)[number])
+                      ? detalle.asignadoNombre || ""
+                      : detalle.asignadoNombre
+                        ? "__otro__"
+                        : "Nery Chavez"
+                  }
+                  onChange={(e) => {
+                    if (e.target.value === "__otro__") return;
+                    setDetalle({ ...detalle, asignadoNombre: e.target.value });
+                  }}
+                  className="bg-[#050B18] border border-white/10 text-white rounded-xl px-3 py-2 text-sm"
+                >
+                  {RESPONSABLES.map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                  {detalle.asignadoNombre &&
+                    !RESPONSABLES.includes(detalle.asignadoNombre as (typeof RESPONSABLES)[number]) && (
+                      <option value="__otro__">{detalle.asignadoNombre}</option>
+                    )}
+                </select>
               </div>
               <p className="text-[11px] text-slate-500">
                 Cliente: {detalle.clienteNombre || "Sin vincular"}
