@@ -96,13 +96,20 @@ const emptyForm = {
   notas: "",
 };
 
+type ProductoOpt = { productoId: number; codigo: string; nombre: string; feeEstimadoGs?: number };
+
 type Props = {
   empresaId: number;
   usuario: { id?: number; nombre?: string } | null;
 };
 
+function labelProducto(p: ProductoOpt) {
+  return `${p.codigo} — ${p.nombre}`;
+}
+
 export function VordiaClientesPage({ empresaId, usuario }: Props) {
   const [clientes, setClientes] = useState<CrmCliente[]>([]);
+  const [productos, setProductos] = useState<ProductoOpt[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("");
@@ -131,10 +138,49 @@ export function VordiaClientesPage({ empresaId, usuario }: Props) {
     }
   };
 
+  const cargarProductos = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/Crm/productos?empresaId=${empresaId}`);
+      if (!res.ok) return;
+      const list = await res.json();
+      setProductos(
+        (list || []).map((p: any) => ({
+          productoId: p.productoId,
+          codigo: p.codigo,
+          nombre: p.nombre,
+          feeEstimadoGs: p.feeEstimadoGs,
+        }))
+      );
+    } catch {
+      /* sin productos aún */
+    }
+  };
+
   useEffect(() => {
-    if (empresaId) cargar();
+    if (empresaId) {
+      cargar();
+      cargarProductos();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empresaId, filtroEstado]);
+
+  const onProductoChange = (valor: string) => {
+    if (!valor) {
+      setForm({ ...form, sistemaServicio: "" });
+      return;
+    }
+    const p = productos.find((x) => labelProducto(x) === valor || x.codigo === valor || x.nombre === valor);
+    if (!p) {
+      setForm({ ...form, sistemaServicio: valor });
+      return;
+    }
+    setForm({
+      ...form,
+      sistemaServicio: labelProducto(p),
+      feeEstimadoMensual:
+        form.feeEstimadoMensual || (p.feeEstimadoGs ? String(p.feeEstimadoGs) : form.feeEstimadoMensual),
+    });
+  };
 
   const abrirNuevo = () => {
     setEditId(null);
@@ -438,11 +484,10 @@ export function VordiaClientesPage({ empresaId, usuario }: Props) {
                   ["contactoCargo", "Cargo contacto"],
                   ["contactoEmail", "Email contacto"],
                   ["contactoTelefono", "Tel. contacto"],
-                  ["sistemaServicio", "Sistema / servicio ofrecido"],
                   ["proximosPasos", "Próximos pasos"],
                 ] as const
               ).map(([key, label]) => (
-                <div key={key} className={key === "sistemaServicio" || key === "proximosPasos" ? "sm:col-span-2" : ""}>
+                <div key={key} className={key === "proximosPasos" ? "sm:col-span-2" : ""}>
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</label>
                   <Input
                     value={(form as any)[key]}
@@ -451,6 +496,41 @@ export function VordiaClientesPage({ empresaId, usuario }: Props) {
                   />
                 </div>
               ))}
+              <div className="sm:col-span-2">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Sistema / servicio ofrecido
+                </label>
+                <select
+                  value={
+                    productos.some((p) => labelProducto(p) === form.sistemaServicio)
+                      ? form.sistemaServicio
+                      : form.sistemaServicio
+                        ? "__custom__"
+                        : ""
+                  }
+                  onChange={(e) => {
+                    if (e.target.value === "__custom__") return;
+                    onProductoChange(e.target.value);
+                  }}
+                  className="mt-1 w-full bg-[#050B18] border border-white/10 text-white rounded-xl px-3 py-2 text-sm"
+                >
+                  <option value="">Seleccionar producto Vordia…</option>
+                  {productos.map((p) => (
+                    <option key={p.productoId} value={labelProducto(p)}>
+                      {labelProducto(p)}
+                    </option>
+                  ))}
+                  {form.sistemaServicio &&
+                    !productos.some((p) => labelProducto(p) === form.sistemaServicio) && (
+                      <option value="__custom__">{form.sistemaServicio} (actual)</option>
+                    )}
+                </select>
+                {productos.length === 0 && (
+                  <p className="text-[10px] text-amber-400/80 mt-1">
+                    No hay productos cargados. Agregá el portafolio en Productos.
+                  </p>
+                )}
+              </div>
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Estado pipeline</label>
                 <select
