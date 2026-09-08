@@ -50,6 +50,8 @@ import { VordiaObjetivosPage } from "./vordia/VordiaObjetivosPage";
 import { VordiaReportesHqPage } from "./vordia/VordiaReportesHqPage";
 import { VordiaProductosPage } from "./vordia/VordiaProductosPage";
 import { VordiaProveedoresPage } from "./vordia/VordiaProveedoresPage";
+import { VordiaPropuestasPage } from "./vordia/VordiaPropuestasPage";
+import { VordiaCuentasPagarPage } from "./vordia/VordiaCuentasPagarPage";
 import { VordiaProyectosPage } from "./vordia/VordiaProyectosPage";
 import { VordiaConfiguracionPage } from "./vordia/VordiaConfiguracionPage";
 import { VordiaRoadmapPage } from "./vordia/VordiaRoadmapPage";
@@ -95,6 +97,7 @@ type Vista =
   | "migrador"
   | "actividades"
   | "vordia_clientes"
+  | "vordia_propuestas"
   | "vordia_pipeline"
   | "vordia_contratos"
   | "vordia_ingresos"
@@ -697,6 +700,10 @@ export default function OimaDashboard() {
             <VordiaClientesPage empresaId={empresaId} usuario={usuarioActivo} />
           )}
 
+          {vistaActual === "vordia_propuestas" && isUsuarioVordia && (
+            <VordiaPropuestasPage empresaId={empresaId} usuarioNombre={usuarioActivo?.nombre} />
+          )}
+
           {vistaActual === "vordia_pipeline" && isUsuarioVordia && (
             <VordiaPipelinePage empresaId={empresaId} usuario={usuarioActivo} />
           )}
@@ -753,12 +760,7 @@ export default function OimaDashboard() {
             <VordiaFinanzasHqPage empresaId={empresaId} usuarioNombre={usuarioActivo?.nombre} tabInicial="empleados" />
           )}
           {vistaActual === "vordia_cxp" && isUsuarioVordia && (
-            <div className="space-y-3">
-              <div className="rounded-2xl border border-sky-500/20 bg-sky-500/5 px-4 py-3 text-sm text-sky-100/90">
-                CxP se apoya en Proveedores. Registrá proveedores activos y usá notas/vencimientos ahí hasta el módulo de facturas.
-              </div>
-              <VordiaProveedoresPage empresaId={empresaId} />
-            </div>
+            <VordiaCuentasPagarPage empresaId={empresaId} usuarioNombre={usuarioActivo?.nombre} />
           )}
           {vistaActual === "vordia_proyecciones" && isUsuarioVordia && (
             <VordiaFinanzasHqPage empresaId={empresaId} usuarioNombre={usuarioActivo?.nombre} tabInicial="flujo" />
