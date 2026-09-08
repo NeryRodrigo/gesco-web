@@ -33,6 +33,7 @@ export type VordiaHqVista =
   | "inicio"
   | "vordia_pipeline"
   | "vordia_clientes"
+  | "vordia_propuestas"
   | "vordia_productos"
   | "vordia_proyectos"
   | "vordia_tareas"
@@ -58,6 +59,7 @@ export const VORDIA_HQ_TITULOS: Record<string, string> = {
   inicio: "Dashboard ejecutivo",
   vordia_pipeline: "CRM Comercial",
   vordia_clientes: "Clientes",
+  vordia_propuestas: "Clientes · Propuestas comerciales",
   vordia_productos: "Productos",
   vordia_proyectos: "Proyectos",
   vordia_tareas: "Tareas",
@@ -129,6 +131,9 @@ export function VordiaHqSidebarNav({
 
   const [finanzasExpanded, setFinanzasExpanded] = useState(finanzasOpen);
 
+  const clientesOpen = vistaActual === "vordia_clientes" || vistaActual === "vordia_propuestas";
+  const [clientesExpanded, setClientesExpanded] = useState(clientesOpen);
+
   const go = (v: string) => onNavigate(v);
 
   return (
@@ -145,12 +150,44 @@ export function VordiaHqSidebarNav({
         active={vistaActual === "vordia_pipeline"}
         onClick={() => go("vordia_pipeline")}
       />
-      <HqItem
-        icon={<Users size={16} />}
-        label="Clientes"
-        active={vistaActual === "vordia_clientes"}
-        onClick={() => go("vordia_clientes")}
-      />
+      <button
+        type="button"
+        onClick={() => {
+          setClientesExpanded(true);
+          go("vordia_clientes");
+        }}
+        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200
+          ${vistaActual === "vordia_clientes"
+            ? "bg-[#007bff]/15 text-white border border-[#007bff]/35 shadow-[0_0_20px_rgba(0,123,255,0.12)]"
+            : clientesOpen
+              ? "text-white bg-white/[0.03] border border-transparent"
+              : "text-slate-400 hover:text-white hover:bg-white/[0.04] border border-transparent"
+          }`}
+      >
+        <Users size={16} className={clientesOpen ? "text-[#5eb0ff]" : "text-slate-500"} />
+        <span className="text-xs font-semibold tracking-wide flex-1">Clientes</span>
+        <ChevronDown
+          size={14}
+          role="button"
+          aria-label="Mostrar u ocultar submenú de clientes"
+          onClick={(e) => {
+            e.stopPropagation();
+            setClientesExpanded((v) => !v);
+          }}
+          className={`text-slate-500 transition-transform hover:text-white ${clientesExpanded ? "rotate-180" : ""}`}
+        />
+      </button>
+      {clientesExpanded && (
+        <div className="space-y-0.5 pb-1">
+          <HqItem
+            nested
+            icon={<FileText size={14} />}
+            label="Propuestas comerciales"
+            active={vistaActual === "vordia_propuestas"}
+            onClick={() => go("vordia_propuestas")}
+          />
+        </div>
+      )}
       <HqItem
         icon={<Package size={16} />}
         label="Productos"
