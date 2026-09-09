@@ -85,18 +85,27 @@ const emptyForm = {
   notas: "",
 };
 
-type Props = { empresaId: number; usuario: { id?: number; nombre?: string } | null };
+type Props = {
+  empresaId: number;
+  usuario: { id?: number; nombre?: string } | null;
+  /** Arranca la pantalla filtrada por tipo. La vista de Alianzas usa "Alianza". */
+  tipoInicial?: string;
+};
 
-export function VordiaRoadmapPage({ empresaId, usuario }: Props) {
+export function VordiaRoadmapPage({ empresaId, usuario, tipoInicial = "" }: Props) {
   const [items, setItems] = useState<RoadmapItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filtroTipo, setFiltroTipo] = useState("");
+  const [filtroTipo, setFiltroTipo] = useState(tipoInicial);
   const [filtroEstado, setFiltroEstado] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState({ ...emptyForm });
   const [detalle, setDetalle] = useState<RoadmapItem | null>(null);
   const [notaTitulo, setNotaTitulo] = useState("");
+
+  useEffect(() => {
+    setFiltroTipo(tipoInicial);
+  }, [tipoInicial]);
   const [notaDetalle, setNotaDetalle] = useState("");
 
   const cargar = async () => {

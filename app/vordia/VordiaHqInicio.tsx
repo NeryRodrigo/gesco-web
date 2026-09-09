@@ -77,6 +77,14 @@ type Gasto = {
   vencido: boolean;
   diasParaVencer?: number | null;
 };
+type VendedorHq = {
+  vendedorId: number;
+  nombre: string;
+  estado: string;
+  ventasMesGs: number;
+  cumplimientoMetaPct?: number | null;
+};
+type EquipoResumen = { vendedores: VendedorHq[] };
 type GastosResumen = {
   pagadoMesActual: number;
   pagadoTotal: number;
@@ -489,6 +497,7 @@ export function VordiaHqInicio({ empresaId, nombreUsuario, onNavigate }: Props) 
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [ingresos, setIngresos] = useState<IngresosResumen | null>(null);
   const [gastos, setGastos] = useState<GastosResumen | null>(null);
+  const [equipo, setEquipo] = useState<EquipoResumen | null>(null);
   const [loading, setLoading] = useState(true);
 
   const go = (vista: string) => onNavigate?.(vista);
@@ -501,7 +510,7 @@ export function VordiaHqInicio({ empresaId, nombreUsuario, onNavigate }: Props) 
     (async () => {
       try {
         setLoading(true);
-        const [p, f, t, cl, prod, proy, road, obj, cap, emp, pag, ing, gas] = await Promise.all([
+        const [p, f, t, cl, prod, proy, road, obj, cap, emp, pag, ing, gas, ven] = await Promise.all([
           fetch(`${API_BASE}/api/Crm/pipeline?empresaId=${empresaId}`),
           fetch(`${API_BASE}/api/Crm/flujo-caja?empresaId=${empresaId}`),
           fetch(`${API_BASE}/api/Crm/tareas?empresaId=${empresaId}`),
@@ -515,6 +524,7 @@ export function VordiaHqInicio({ empresaId, nombreUsuario, onNavigate }: Props) 
           fetch(`${API_BASE}/api/Crm/pagos?empresaId=${empresaId}`),
           fetch(`${API_BASE}/api/Crm/ingresos?empresaId=${empresaId}`),
           fetch(`${API_BASE}/api/Crm/gastos?empresaId=${empresaId}`),
+          fetch(`${API_BASE}/api/Crm/vendedores?empresaId=${empresaId}`),
         ]);
         if (cancelled) return;
         if (p.ok) setPipeline(await p.json());
@@ -530,6 +540,7 @@ export function VordiaHqInicio({ empresaId, nombreUsuario, onNavigate }: Props) 
         if (pag.ok) setPagos(await pag.json());
         if (ing.ok) setIngresos(await ing.json());
         if (gas.ok) setGastos(await gas.json());
+        if (ven.ok) setEquipo(await ven.json());
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -589,11 +600,17 @@ export function VordiaHqInicio({ empresaId, nombreUsuario, onNavigate }: Props) 
       .filter((o) => o.estado === "Pendiente" || o.estado === "En curso" || o.estado === "Logrado")
       .slice(0, 3);
 
-    const vendedores = (flujo?.reparto || []).map((r) => ({
-      nombre: r.nombre,
-      ventas: r.montoTotal ?? r.montoMes,
-      meta: Math.round(r.porcentaje),
-    }));
+    // Ventas reales del mes por vendedor y su avance contra la meta.
+    const vendedores = (equipo?.vendedores || [])
+      .filter((v) => v.estado === "Activo")
+      .map((v) => ({
+        vendedorId: v.vendedorId,
+        nombre: v.nombre,
+        ventas: v.ventasMesGs,
+        meta: v.cumplimientoMetaPct,
+      }))
+      .sort((a, b) => b.ventas - a.ventas)
+      .slice(0, 4);
 
     return {
       stages,
@@ -611,7 +628,7 @@ export function VordiaHqInicio({ empresaId, nombreUsuario, onNavigate }: Props) 
       objs,
       vendedores,
     };
-  }, [pipeline, clientes, tareas, roadmap, objetivos, flujo]);
+  }, [pipeline, clientes, tareas, roadmap, objetivos, flujo, equipo]);
 
   // Bloque financiero del encabezado. Todo sale de la API; lo que no tiene
   // origen de datos se marca como no disponible en vez de mostrar un cero.
@@ -760,8 +777,8 @@ export function VordiaHqInicio({ empresaId, nombreUsuario, onNavigate }: Props) 
           { label: "Proyectos", icon: FileText, vista: "vordia_proyectos" },
           { label: "Objetivos", icon: Target, vista: "vordia_objetivos" },
           { label: "Capital", icon: BarChart3, vista: "vordia_capital" },
-          { label: "Vendedores", icon: Users, vista: "vordia_clientes" },
-          { label: "Alianzas estratégicas", icon: Link2, vista: "vordia_roadmap" },
+          { label: "Vendedores", icon: Users, vista: "vordia_vendedores" },
+          { label: "Alianzas estratégicas", icon: Link2, vista: "vordia_alianzas" },
         ].map(({ label, icon: Icon, vista }) => (
           <button
             key={label}
@@ -1106,7 +1123,7 @@ export function VordiaHqInicio({ empresaId, nombreUsuario, onNavigate }: Props) 
           <Card
             icon={Users}
             title="Vendedores"
-            footer={<LinkFooter label="Ver vendedores" onClick={() => go("vordia_caja")} />}
+            footer={<LinkFooter label="Ver vendedores" onClick={() => go("vordia_vendedores")} />}
           >
             <div className="overflow-x-auto">
               <table className="w-full text-left">
@@ -1121,16 +1138,18 @@ export function VordiaHqInicio({ empresaId, nombreUsuario, onNavigate }: Props) 
                   {data.vendedores.length === 0 && (
                     <tr>
                       <td colSpan={3} className="py-6 text-center text-xs text-slate-500">
-                        Sin socios / reparto aún
+                        Sin vendedores cargados aún
                       </td>
                     </tr>
                   )}
                   {data.vendedores.map((v) => (
-                    <tr key={v.nombre} className="border-t border-white/5">
+                    <tr key={v.vendedorId} className="border-t border-white/5">
                       <td className="py-2.5 text-[13px] text-white font-medium">{v.nombre}</td>
-                      <td className="py-2.5 text-[13px] text-slate-300 text-right">{formatCompact(v.ventas)}</td>
+                      <td className="py-2.5 text-[13px] text-slate-300 text-right">
+                        {formatCompact(v.ventas)}
+                      </td>
                       <td className="py-2.5 text-[13px] text-right font-semibold text-amber-300">
-                        {v.meta}%
+                        {v.meta == null ? "—" : `${v.meta}%`}
                       </td>
                     </tr>
                   ))}
@@ -1371,7 +1390,7 @@ export function VordiaHqInicio({ empresaId, nombreUsuario, onNavigate }: Props) 
           <Card
             icon={Link2}
             title="Alianzas estratégicas"
-            footer={<LinkFooter label="Ver alianzas" onClick={() => go("vordia_roadmap")} />}
+            footer={<LinkFooter label="Ver alianzas" onClick={() => go("vordia_alianzas")} />}
           >
             <div className="overflow-x-auto -mx-1">
               <table className="w-full text-left min-w-[300px]">
@@ -1394,7 +1413,7 @@ export function VordiaHqInicio({ empresaId, nombreUsuario, onNavigate }: Props) 
                     <tr
                       key={r.roadmapId}
                       className="border-t border-white/5 cursor-pointer hover:bg-white/[0.02]"
-                      onClick={() => go("vordia_roadmap")}
+                      onClick={() => go("vordia_alianzas")}
                     >
                       <td className="py-2.5 text-[13px] text-white font-medium truncate max-w-[120px]">
                         {r.titulo}

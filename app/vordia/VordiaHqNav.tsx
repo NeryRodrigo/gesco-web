@@ -20,6 +20,7 @@ import {
   Map,
   BarChart3,
   ChevronDown,
+  Handshake,
   TrendingUp,
   Receipt,
   CreditCard,
@@ -34,6 +35,8 @@ export type VordiaHqVista =
   | "vordia_pipeline"
   | "vordia_clientes"
   | "vordia_propuestas"
+  | "vordia_vendedores"
+  | "vordia_alianzas"
   | "vordia_productos"
   | "vordia_proyectos"
   | "vordia_tareas"
@@ -60,6 +63,8 @@ export const VORDIA_HQ_TITULOS: Record<string, string> = {
   vordia_pipeline: "CRM Comercial",
   vordia_clientes: "Clientes",
   vordia_propuestas: "Clientes · Propuestas comerciales",
+  vordia_vendedores: "Vendedores",
+  vordia_alianzas: "Alianzas estratégicas",
   vordia_productos: "Productos",
   vordia_proyectos: "Proyectos",
   vordia_tareas: "Tareas",
@@ -188,6 +193,18 @@ export function VordiaHqSidebarNav({
           />
         </div>
       )}
+      <HqItem
+        icon={<TrendingUp size={16} />}
+        label="Vendedores"
+        active={vistaActual === "vordia_vendedores"}
+        onClick={() => go("vordia_vendedores")}
+      />
+      <HqItem
+        icon={<Handshake size={16} />}
+        label="Alianzas estratégicas"
+        active={vistaActual === "vordia_alianzas"}
+        onClick={() => go("vordia_alianzas")}
+      />
       <HqItem
         icon={<Package size={16} />}
         label="Productos"
