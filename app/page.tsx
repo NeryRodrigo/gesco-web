@@ -51,6 +51,7 @@ import { VordiaReportesHqPage } from "./vordia/VordiaReportesHqPage";
 import { VordiaProductosPage } from "./vordia/VordiaProductosPage";
 import { VordiaProveedoresPage } from "./vordia/VordiaProveedoresPage";
 import { VordiaPropuestasPage } from "./vordia/VordiaPropuestasPage";
+import { VordiaVendedoresPage } from "./vordia/VordiaVendedoresPage";
 import { VordiaCuentasPagarPage } from "./vordia/VordiaCuentasPagarPage";
 import { VordiaProyectosPage } from "./vordia/VordiaProyectosPage";
 import { VordiaConfiguracionPage } from "./vordia/VordiaConfiguracionPage";
@@ -98,6 +99,8 @@ type Vista =
   | "actividades"
   | "vordia_clientes"
   | "vordia_propuestas"
+  | "vordia_vendedores"
+  | "vordia_alianzas"
   | "vordia_pipeline"
   | "vordia_contratos"
   | "vordia_ingresos"
@@ -122,6 +125,9 @@ export default function OimaDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [usuarioActivo, setUsuarioActivo] = useState<any>(null);
   const [vistaActual, setVistaActual] = useState<Vista>("inicio"); // Por defecto al Dashboard de 8 tarjetas
+  // Pila de pantallas visitadas para el botón "Volver". Solo se apila la
+  // navegación que hace el usuario, no las redirecciones por permisos.
+  const [historialVistas, setHistorialVistas] = useState<Vista[]>([]);
   const [sessionReady, setSessionReady] = useState(false);
   const [modulosUsuario, setModulosUsuario] = useState<any[]>([]);
   const [usuariosAdmin, setUsuariosAdmin] = useState<any[]>([]);
@@ -287,8 +293,28 @@ export default function OimaDashboard() {
         return;
       }
     }
-    setVistaActual(nuevaVista);
+    irA(nuevaVista);
     setIsMobileMenuOpen(false);
+  };
+
+  const irA = (nueva: Vista) => {
+    if (nueva === vistaActual) return;
+    setHistorialVistas((h) => [...h, vistaActual].slice(-25));
+    setVistaActual(nueva);
+  };
+
+  const volver = () => {
+    if (!historialVistas.length) return;
+    setVistaActual(historialVistas[historialVistas.length - 1]);
+    setHistorialVistas((h) => h.slice(0, -1));
+  };
+
+  const tituloDeVista = (v: string) => {
+    if (isUsuarioVordia && VORDIA_HQ_TITULOS[v]) return VORDIA_HQ_TITULOS[v];
+    if (v === "inicio") return isUsuarioAgro ? "Agrofield · Confinamiento" : "Inicio";
+    if (v === "condominio") return "Gestión de unidades";
+    if (v === "fontana") return "Fontana · Condominio Agus";
+    return v.replace(/_/g, " ");
   };
 
   const cargarDatos = async () => {
@@ -342,6 +368,7 @@ export default function OimaDashboard() {
           setIsAuthenticated(false);
           setUsuarioActivo(null);
           setVistaActual("inicio");
+          setHistorialVistas([]);
           toast.success("Sesión finalizada correctamente");
         },
       },
@@ -400,18 +427,28 @@ export default function OimaDashboard() {
 
         <div className="p-6 lg:p-8 flex flex-col items-center">
           
-          <div className="mb-6 lg:mb-12 w-full flex justify-start lg:justify-center cursor-pointer" onClick={() => { setVistaActual("inicio"); setIsMobileMenuOpen(false); }}>
+          <div className={`${isUsuarioVordia ? "mb-6 lg:mb-9" : "mb-6 lg:mb-12"} w-full flex justify-start lg:justify-center cursor-pointer`} onClick={() => { irA("inicio"); setIsMobileMenuOpen(false); }}>
             {isUsuarioVordia ? (
-              <div className="flex items-center gap-3 w-full justify-start">
+              <div
+                role="img"
+                aria-label="Vordia HQ"
+                className="w-[188px] lg:w-[204px] mx-auto flex flex-col items-center transition-transform duration-500 hover:scale-[1.03]"
+              >
                 <img
-                  src="/images/ISOTIPO.png"
-                  alt="Vordia HQ"
-                  className="h-9 w-9 object-contain drop-shadow-[0_0_20px_rgba(0,123,255,0.35)]"
+                  src="/images/vordia-hq-isotipo.png"
+                  alt=""
+                  className="w-[62%] h-auto object-contain drop-shadow-[0_0_28px_rgba(0,123,255,0.4)]"
                 />
-                <div className="leading-tight">
-                  <p className="text-[10px] font-black tracking-[0.28em] text-[#5eb0ff] uppercase">Vordia</p>
-                  <p className="text-sm font-bold tracking-[0.12em] text-white uppercase">HQ Headquarters</p>
-                </div>
+                <img
+                  src="/images/vordia-hq-vordia.png"
+                  alt=""
+                  className="w-full h-auto object-contain mt-[6%]"
+                />
+                <img
+                  src="/images/vordia-hq-hq.png"
+                  alt=""
+                  className="w-[22%] h-auto object-contain mt-[5%]"
+                />
               </div>
             ) : isUsuarioAgro ? (
               <div className="flex items-center gap-3 w-full justify-start">
@@ -439,9 +476,11 @@ export default function OimaDashboard() {
           </div>
 
           <nav className="w-full space-y-1 overflow-y-auto max-h-[calc(100dvh-280px)] lg:max-h-[calc(100vh-320px)] custom-scrollbar overscroll-contain">
-            <p className="text-[10px] font-black uppercase text-[#007bff] tracking-[0.2em] mb-4 lg:mb-6 ml-2">
-              {isUsuarioVordia ? "Vordia HQ" : isUsuarioAgro ? "Agrofield" : "Módulo de gestión"}
-            </p>
+            {!isUsuarioVordia && (
+              <p className="text-[10px] font-black uppercase text-[#007bff] tracking-[0.2em] mb-4 lg:mb-6 ml-2">
+                {isUsuarioAgro ? "Agrofield" : "Módulo de gestión"}
+              </p>
+            )}
             
             <div className="space-y-1.5">
               {isUsuarioVordia ? (
@@ -457,7 +496,7 @@ export default function OimaDashboard() {
                       });
                       return;
                     }
-                    setVistaActual(v as Vista);
+                    irA(v as Vista);
                     setIsMobileMenuOpen(false);
                   }}
                 />
@@ -467,20 +506,20 @@ export default function OimaDashboard() {
                     icon={<Sprout size={18} />}
                     label="Confinamiento"
                     active={vistaActual === "inicio"}
-                    onClick={() => { setVistaActual("inicio"); setIsMobileMenuOpen(false); }}
+                    onClick={() => { irA("inicio"); setIsMobileMenuOpen(false); }}
                   />
                   <SidebarItem
                     icon={<Settings size={18} />}
                     label="Configuración"
                     active={vistaActual === "configuracion"}
-                    onClick={() => { setVistaActual("configuracion"); setIsMobileMenuOpen(false); }}
+                    onClick={() => { irA("configuracion"); setIsMobileMenuOpen(false); }}
                   />
                   {esAdminSistema && (
                     <SidebarItem
                       icon={<Users size={18} />}
                       label="Usuarios / Roles"
                       active={vistaActual === "usuarios"}
-                      onClick={() => { setVistaActual("usuarios"); setIsMobileMenuOpen(false); }}
+                      onClick={() => { irA("usuarios"); setIsMobileMenuOpen(false); }}
                     />
                   )}
                 </>
@@ -611,7 +650,22 @@ export default function OimaDashboard() {
               aria-label="Abrir menú"
             >
               <Menu size={28} strokeWidth={2.5} />
-            </button>   
+            </button>
+
+            {historialVistas.length > 0 && (
+              <button
+                type="button"
+                onClick={volver}
+                title={`Volver a ${tituloDeVista(historialVistas[historialVistas.length - 1])}`}
+                aria-label={`Volver a ${tituloDeVista(historialVistas[historialVistas.length - 1])}`}
+                className="shrink-0 flex items-center gap-2 h-10 rounded-xl border border-white/10 bg-white/5 px-2.5 lg:px-3 text-slate-300 hover:text-white hover:border-white/25 transition"
+              >
+                <ArrowLeft size={17} />
+                <span className="hidden lg:block text-xs font-semibold max-w-[11rem] truncate">
+                  {tituloDeVista(historialVistas[historialVistas.length - 1])}
+                </span>
+              </button>
+            )}
 
             <h2 className={`mobile-title lg:text-2xl font-semibold text-white tracking-tight truncate capitalize lg:normal-case ${isUsuarioVordia ? "max-lg:text-[1.05rem]" : ""}`}>
               {isUsuarioVordia && VORDIA_HQ_TITULOS[vistaActual]
@@ -655,7 +709,7 @@ export default function OimaDashboard() {
             <VordiaHqInicio
               nombreUsuario={usuarioActivo?.nombre}
               empresaId={empresaId}
-              onNavigate={(v) => setVistaActual(v as Vista)}
+              onNavigate={(v) => irA(v as Vista)}
             />
           )}
 
@@ -704,6 +758,14 @@ export default function OimaDashboard() {
             <VordiaPropuestasPage empresaId={empresaId} usuarioNombre={usuarioActivo?.nombre} />
           )}
 
+          {vistaActual === "vordia_vendedores" && isUsuarioVordia && (
+            <VordiaVendedoresPage empresaId={empresaId} usuarioNombre={usuarioActivo?.nombre} />
+          )}
+
+          {vistaActual === "vordia_alianzas" && isUsuarioVordia && (
+            <VordiaRoadmapPage empresaId={empresaId} usuario={usuarioActivo} tipoInicial="Alianza" />
+          )}
+
           {vistaActual === "vordia_pipeline" && isUsuarioVordia && (
             <VordiaPipelinePage empresaId={empresaId} usuario={usuarioActivo} />
           )}
@@ -735,14 +797,14 @@ export default function OimaDashboard() {
           {vistaActual === "vordia_finanzas_resumen" && isUsuarioVordia && (
             <VordiaReportesHqPage
               empresaId={empresaId}
-              onNavigate={(v) => setVistaActual(v as Vista)}
+              onNavigate={(v) => irA(v as Vista)}
             />
           )}
 
           {vistaActual === "vordia_productos" && isUsuarioVordia && (
             <VordiaProductosPage
               empresaId={empresaId}
-              onNavigate={(v) => setVistaActual(v as Vista)}
+              onNavigate={(v) => irA(v as Vista)}
             />
           )}
           {vistaActual === "vordia_proyectos" && isUsuarioVordia && (
@@ -785,7 +847,7 @@ export default function OimaDashboard() {
           {vistaActual === "vordia_reportes" && isUsuarioVordia && (
             <VordiaReportesHqPage
               empresaId={empresaId}
-              onNavigate={(v) => setVistaActual(v as Vista)}
+              onNavigate={(v) => irA(v as Vista)}
             />
           )}
           {vistaActual === "vordia_roadmap" && isUsuarioVordia && (
@@ -815,7 +877,7 @@ export default function OimaDashboard() {
             <VordiaConfiguracionPage
               empresaId={empresaId}
               usuario={usuarioActivo}
-              onNavigate={(vista) => setVistaActual(vista as Vista)}
+              onNavigate={(vista) => irA(vista as Vista)}
             />
           )}
           {vistaActual === "configuracion" && !isUsuarioVordia && <ConfiguracionPage empresaId={empresaId} />}

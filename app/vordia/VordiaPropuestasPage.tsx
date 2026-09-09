@@ -12,6 +12,8 @@ type Propuesta = {
   propuestaId: number;
   clienteId: number;
   clienteNombre: string;
+  vendedorId?: number | null;
+  vendedorNombre?: string | null;
   descripcion: string;
   montoGs: number;
   estado: string;
@@ -32,6 +34,7 @@ type Resumen = {
 };
 
 type ClienteOpcion = { clienteId: number; razonSocial: string; estadoPipeline: string };
+type VendedorOpcion = { vendedorId: number; nombre: string; estado: string };
 
 type Props = { empresaId: number; usuarioNombre?: string };
 
@@ -39,6 +42,7 @@ const FILTROS = ["TODOS", "Enviada", "Ganada", "Perdida"] as const;
 
 const FORM_INICIAL = {
   clienteId: "",
+  vendedorId: "",
   descripcion: "",
   montoGs: "",
   cerrada: false,
@@ -54,6 +58,7 @@ const ESTADO_TONO: Record<string, string> = {
 export function VordiaPropuestasPage({ empresaId, usuarioNombre }: Props) {
   const [data, setData] = useState<Resumen | null>(null);
   const [clientes, setClientes] = useState<ClienteOpcion[]>([]);
+  const [vendedores, setVendedores] = useState<VendedorOpcion[]>([]);
   const [filtro, setFiltro] = useState<(typeof FILTROS)[number]>("TODOS");
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -64,13 +69,15 @@ export function VordiaPropuestasPage({ empresaId, usuarioNombre }: Props) {
   const cargar = async () => {
     try {
       setLoading(true);
-      const [p, c] = await Promise.all([
+      const [p, c, v] = await Promise.all([
         fetch(`${API_BASE}/api/Crm/propuestas?empresaId=${empresaId}`),
         fetch(`${API_BASE}/api/Crm/clientes?empresaId=${empresaId}`),
+        fetch(`${API_BASE}/api/Crm/vendedores?empresaId=${empresaId}&soloActivos=true`),
       ]);
       if (!p.ok) throw new Error();
       setData(await p.json());
       if (c.ok) setClientes(await c.json());
+      if (v.ok) setVendedores((await v.json())?.vendedores || []);
     } catch {
       toast.error("No se pudieron cargar las propuestas (¿corriste Create_Crm_Propuestas.sql?)");
     } finally {
@@ -93,6 +100,7 @@ export function VordiaPropuestasPage({ empresaId, usuarioNombre }: Props) {
     setEditId(p.propuestaId);
     setForm({
       clienteId: String(p.clienteId),
+      vendedorId: p.vendedorId ? String(p.vendedorId) : "",
       descripcion: p.descripcion,
       montoGs: String(p.montoGs),
       cerrada: p.estado !== "Enviada",
@@ -122,6 +130,7 @@ export function VordiaPropuestasPage({ empresaId, usuarioNombre }: Props) {
       const body = {
         empresaId,
         clienteId: Number(form.clienteId),
+        vendedorId: form.vendedorId ? Number(form.vendedorId) : null,
         descripcion: form.descripcion.trim(),
         montoGs: monto,
         estado,
@@ -249,7 +258,8 @@ export function VordiaPropuestasPage({ empresaId, usuarioNombre }: Props) {
               >
                 <p className="text-sm font-semibold text-white truncate">{p.clienteNombre}</p>
                 <p className="text-[11px] text-slate-400 truncate">
-                  {p.descripcion} · enviada {formatFecha(p.fechaEnvio)}
+                  {p.descripcion} · {p.vendedorNombre || "sin vendedor"} · enviada{" "}
+                  {formatFecha(p.fechaEnvio)}
                   {p.fechaCierre ? ` · cerrada ${formatFecha(p.fechaCierre)}` : ""}
                 </p>
               </button>
@@ -332,6 +342,25 @@ export function VordiaPropuestasPage({ empresaId, usuarioNombre }: Props) {
                   </span>
                 </p>
               )}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-slate-400 uppercase">Vendedor</label>
+              <select
+                value={form.vendedorId}
+                onChange={(e) => setForm({ ...form, vendedorId: e.target.value })}
+                className="w-full h-10 rounded-xl bg-[#050B18] border border-white/10 px-3 text-sm text-white"
+              >
+                <option value="">La llevamos nosotros (sin vendedor)</option>
+                {vendedores.map((v) => (
+                  <option key={v.vendedorId} value={v.vendedorId}>
+                    {v.nombre}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-slate-500">
+                Si la gana, el monto se le acredita como venta y le genera comisión.
+              </p>
             </div>
 
             <div className="space-y-1.5">
