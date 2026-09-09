@@ -29,9 +29,14 @@ export type CrmContrato = {
 };
 
 type ClienteOpt = { clienteId: number; razonSocial: string };
+type ProductoOpt = { productoId: number; codigo: string; nombre: string; feeEstimadoGs?: number };
 
 const ESTADOS_PAGO = ["Al dia", "Pendiente", "Vencido", "Pagado"];
 const ESTADOS_CONTRATO = ["Borrador", "Activo", "Suspendido", "Finalizado"];
+
+function labelProducto(p: ProductoOpt) {
+  return `${p.codigo} — ${p.nombre}`;
+}
 
 function badgePago(e: string) {
   if (e === "Al dia" || e === "Pagado") return "bg-emerald-500/20 text-emerald-300 border-emerald-500/30";
@@ -51,6 +56,7 @@ type Props = { empresaId: number; usuario: { id?: number; nombre?: string } | nu
 export function VordiaContratosPage({ empresaId, usuario }: Props) {
   const [contratos, setContratos] = useState<CrmContrato[]>([]);
   const [clientes, setClientes] = useState<ClienteOpt[]>([]);
+  const [productos, setProductos] = useState<ProductoOpt[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -75,15 +81,27 @@ export function VordiaContratosPage({ empresaId, usuario }: Props) {
       setLoading(true);
       const params = new URLSearchParams({ empresaId: String(empresaId) });
       if (filtro) params.set("estado", filtro);
-      const [cRes, clRes] = await Promise.all([
+      const [cRes, clRes, pRes] = await Promise.all([
         fetch(`${API_BASE}/api/Crm/contratos?${params}`),
         fetch(`${API_BASE}/api/Crm/clientes?empresaId=${empresaId}`),
+        fetch(`${API_BASE}/api/Crm/productos?empresaId=${empresaId}`),
       ]);
       if (!cRes.ok) throw new Error();
       setContratos(await cRes.json());
       if (clRes.ok) {
         const list = await clRes.json();
         setClientes(list.map((c: any) => ({ clienteId: c.clienteId, razonSocial: c.razonSocial })));
+      }
+      if (pRes.ok) {
+        const list = await pRes.json();
+        setProductos(
+          (list || []).map((p: any) => ({
+            productoId: p.productoId,
+            codigo: p.codigo,
+            nombre: p.nombre,
+            feeEstimadoGs: p.feeEstimadoGs,
+          }))
+        );
       }
     } catch {
       toast.error("No se pudieron cargar los contratos");
@@ -133,6 +151,33 @@ export function VordiaContratosPage({ empresaId, usuario }: Props) {
       notas: c.notas || "",
     });
     setModalOpen(true);
+  };
+
+  const productoSeleccionado = productos.find(
+    (p) =>
+      labelProducto(p) === form.sistemaServicio ||
+      p.codigo === form.sistemaServicio ||
+      p.nombre === form.sistemaServicio
+  );
+
+  const onProductoChange = (valor: string) => {
+    if (!valor) {
+      setForm((f) => ({ ...f, sistemaServicio: "" }));
+      return;
+    }
+    const p = productos.find((x) => labelProducto(x) === valor || x.codigo === valor || x.nombre === valor);
+    if (!p) {
+      setForm((f) => ({ ...f, sistemaServicio: valor }));
+      return;
+    }
+    const fee = Number(p.feeEstimadoGs) || 0;
+    setForm((f) => ({
+      ...f,
+      sistemaServicio: labelProducto(p),
+      feeMensual: f.feeMensual || (fee ? String(fee) : f.feeMensual),
+      feeAcordado: f.feeAcordado || (fee ? String(fee) : f.feeAcordado),
+      feeAnual: f.feeAnual || (fee ? String(fee * 12) : f.feeAnual),
+    }));
   };
 
   const onFeeMensualChange = (v: string) => {
@@ -292,7 +337,35 @@ export function VordiaContratosPage({ empresaId, usuario }: Props) {
               </div>
               <div className="sm:col-span-2">
                 <label className="text-[10px] font-bold uppercase text-slate-500">Sistema / servicio *</label>
-                <Input value={form.sistemaServicio} onChange={(e) => setForm({ ...form, sistemaServicio: e.target.value })} className="mt-1 bg-[#050B18] border-white/10 text-white rounded-xl" />
+                <select
+                  value={
+                    productoSeleccionado
+                      ? labelProducto(productoSeleccionado)
+                      : form.sistemaServicio
+                        ? "__custom__"
+                        : ""
+                  }
+                  onChange={(e) => {
+                    if (e.target.value === "__custom__") return;
+                    onProductoChange(e.target.value);
+                  }}
+                  className="mt-1 w-full bg-[#050B18] border border-white/10 text-white rounded-xl px-3 py-2 text-sm"
+                >
+                  <option value="">Seleccionar producto Vordia…</option>
+                  {productos.map((p) => (
+                    <option key={p.productoId} value={labelProducto(p)}>
+                      {labelProducto(p)}
+                    </option>
+                  ))}
+                  {form.sistemaServicio && !productoSeleccionado && (
+                    <option value="__custom__">{form.sistemaServicio} (actual)</option>
+                  )}
+                </select>
+                {productos.length === 0 && (
+                  <p className="text-[10px] text-amber-400/80 mt-1">
+                    No hay productos cargados. Agregá el portafolio en Productos.
+                  </p>
+                )}
               </div>
               <div>
                 <label className="text-[10px] font-bold uppercase text-slate-500">Cuota mensual (Gs.)</label>
