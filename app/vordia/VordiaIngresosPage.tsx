@@ -4,7 +4,7 @@ import { API_BASE } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, DollarSign, X, TrendingUp } from "lucide-react";
+import { Plus, DollarSign, X, TrendingUp, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatFecha, formatGs } from "./VordiaClientesPage";
 import type { CrmContrato } from "./VordiaContratosPage";
@@ -19,6 +19,7 @@ type CrmPago = {
   periodo?: string | null;
   metodoPago?: string | null;
   concepto?: string | null;
+  notas?: string | null;
   usuarioNombre?: string | null;
 };
 
@@ -39,8 +40,10 @@ type Props = { empresaId: number; usuario: { id?: number; nombre?: string } | nu
 export function VordiaIngresosPage({ empresaId, usuario }: Props) {
   const [resumen, setResumen] = useState<Resumen | null>(null);
   const [contratos, setContratos] = useState<CrmContrato[]>([]);
+  const [pagos, setPagos] = useState<CrmPago[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState({
     contratoId: "",
     monto: "",
@@ -55,13 +58,15 @@ export function VordiaIngresosPage({ empresaId, usuario }: Props) {
   const cargar = async () => {
     try {
       setLoading(true);
-      const [iRes, cRes] = await Promise.all([
+      const [iRes, cRes, pRes] = await Promise.all([
         fetch(`${API_BASE}/api/Crm/ingresos?empresaId=${empresaId}`),
-        fetch(`${API_BASE}/api/Crm/contratos?empresaId=${empresaId}&estado=Activo`),
+        fetch(`${API_BASE}/api/Crm/contratos?empresaId=${empresaId}`),
+        fetch(`${API_BASE}/api/Crm/pagos?empresaId=${empresaId}`),
       ]);
       if (!iRes.ok) throw new Error();
       setResumen(await iRes.json());
       if (cRes.ok) setContratos(await cRes.json());
+      if (pRes.ok) setPagos(await pRes.json());
     } catch {
       toast.error("No se pudieron cargar los ingresos");
     } finally {
@@ -73,8 +78,11 @@ export function VordiaIngresosPage({ empresaId, usuario }: Props) {
     if (empresaId) cargar();
   }, [empresaId]);
 
+  const contratosActivos = contratos.filter((c) => c.estadoContrato === "Activo");
+
   const abrirPago = () => {
-    const first = contratos[0];
+    const first = contratosActivos[0];
+    setEditId(null);
     setForm({
       contratoId: first ? String(first.contratoId) : "",
       monto: first ? String(first.feeMensual) : "",
@@ -88,48 +96,77 @@ export function VordiaIngresosPage({ empresaId, usuario }: Props) {
     setModalOpen(true);
   };
 
+  const abrirEditar = (p: CrmPago) => {
+    setEditId(p.pagoId);
+    setForm({
+      contratoId: String(p.contratoId),
+      monto: String(p.monto),
+      fechaPago: String(p.fechaPago).slice(0, 10),
+      periodo: p.periodo || String(p.fechaPago).slice(0, 7),
+      metodoPago: p.metodoPago || "Transferencia",
+      concepto: p.concepto || "Cuota mensual",
+      notas: p.notas || "",
+      marcarContratoAlDia: false,
+    });
+    setModalOpen(true);
+  };
+
   const onContratoChange = (id: string) => {
     const c = contratos.find((x) => String(x.contratoId) === id);
     setForm((f) => ({
       ...f,
       contratoId: id,
-      monto: c ? String(c.feeMensual) : f.monto,
+      monto: c && !editId ? String(c.feeMensual) : f.monto,
     }));
   };
 
-  const registrar = async () => {
+  const guardar = async () => {
     if (!form.contratoId || !form.monto) {
       toast.error("Contrato y monto son obligatorios");
       return;
     }
     try {
-      const res = await fetch(`${API_BASE}/api/Crm/pagos`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          empresaId,
-          contratoId: Number(form.contratoId),
-          monto: Number(form.monto),
-          fechaPago: form.fechaPago,
-          periodo: form.periodo,
-          metodoPago: form.metodoPago,
-          concepto: form.concepto,
-          notas: form.notas,
-          marcarContratoAlDia: form.marcarContratoAlDia,
-          usuarioId: usuario?.id,
-          usuarioNombre: usuario?.nombre,
-        }),
-      });
+      const res = await fetch(
+        editId ? `${API_BASE}/api/Crm/pagos/${editId}` : `${API_BASE}/api/Crm/pagos`,
+        {
+          method: editId ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            empresaId,
+            contratoId: Number(form.contratoId),
+            monto: Number(form.monto),
+            fechaPago: form.fechaPago,
+            periodo: form.periodo,
+            metodoPago: form.metodoPago,
+            concepto: form.concepto,
+            notas: form.notas,
+            marcarContratoAlDia: form.marcarContratoAlDia,
+            usuarioId: usuario?.id,
+            usuarioNombre: usuario?.nombre,
+          }),
+        }
+      );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.mensaje || "Error");
       }
-      toast.success("Pago registrado");
+      toast.success(editId ? "Pago actualizado" : "Pago registrado");
       setModalOpen(false);
       cargar();
     } catch (e: any) {
-      toast.error(e.message || "No se pudo registrar el pago");
+      toast.error(e.message || "No se pudo guardar el pago");
     }
+  };
+
+  const eliminar = async (p: CrmPago) => {
+    if (!confirm(`¿Eliminar el pago de ${p.clienteNombre} por ${formatGs(p.monto)}?`)) return;
+    const res = await fetch(`${API_BASE}/api/Crm/pagos/${p.pagoId}?empresaId=${empresaId}`, {
+      method: "DELETE",
+    });
+    if (res.ok) {
+      toast.success("Pago eliminado");
+      cargar();
+    } else toast.error("No se pudo eliminar el pago");
   };
 
   if (loading && !resumen) {
@@ -194,10 +231,10 @@ export function VordiaIngresosPage({ empresaId, usuario }: Props) {
             <h4 className="text-sm font-semibold text-white">Historial de pagos</h4>
           </div>
           <div className="divide-y divide-white/5 max-h-[420px] overflow-y-auto">
-            {(resumen?.ultimosPagos || []).length === 0 && (
+            {(pagos || []).length === 0 && (
               <p className="p-6 text-slate-500 text-sm">Aún no hay pagos registrados.</p>
             )}
-            {(resumen?.ultimosPagos || []).map((p) => (
+            {(pagos || []).map((p) => (
               <div key={p.pagoId} className="px-5 py-3 flex justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-white truncate">{p.clienteNombre}</p>
@@ -208,7 +245,15 @@ export function VordiaIngresosPage({ empresaId, usuario }: Props) {
                     {formatFecha(p.fechaPago)} · {p.usuarioNombre || "—"}
                   </p>
                 </div>
-                <p className="text-sm font-semibold text-emerald-300 shrink-0">{formatGs(p.monto)}</p>
+                <div className="flex items-center gap-1 shrink-0">
+                  <p className="text-sm font-semibold text-emerald-300 mr-1">{formatGs(p.monto)}</p>
+                  <button type="button" onClick={() => abrirEditar(p)} className="vordia-icon-btn p-2 rounded-lg text-slate-500 hover:text-white hover:bg-white/5" aria-label="Editar pago">
+                    <Pencil size={14} />
+                  </button>
+                  <button type="button" onClick={() => eliminar(p)} className="vordia-icon-btn p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-white/5" aria-label="Eliminar pago">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -219,7 +264,7 @@ export function VordiaIngresosPage({ empresaId, usuario }: Props) {
         <div className="vordia-modal fixed inset-0 z-[80] bg-black/60 flex items-center justify-center p-4" onClick={() => setModalOpen(false)}>
           <div className="vordia-modal-panel w-full max-w-lg rounded-2xl border border-white/10 bg-[#0C1327] p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-white">Registrar pago</h3>
+              <h3 className="text-lg font-semibold text-white">{editId ? "Editar pago" : "Registrar pago"}</h3>
               <button type="button" onClick={() => setModalOpen(false)} className="text-slate-500 hover:text-white"><X size={18} /></button>
             </div>
             <div className="space-y-3">
@@ -231,7 +276,7 @@ export function VordiaIngresosPage({ empresaId, usuario }: Props) {
                   className="mt-1 w-full bg-[#050B18] border border-white/10 text-white rounded-xl px-3 py-2 text-sm"
                 >
                   <option value="">Seleccionar…</option>
-                  {contratos.map((c) => (
+                  {contratos.filter((c) => c.estadoContrato === "Activo" || String(c.contratoId) === form.contratoId).map((c) => (
                     <option key={c.contratoId} value={c.contratoId}>
                       {c.clienteNombre} — {formatGs(c.feeMensual)}
                     </option>
@@ -260,6 +305,10 @@ export function VordiaIngresosPage({ empresaId, usuario }: Props) {
                 <label className="text-[10px] font-bold uppercase text-slate-500">Concepto</label>
                 <Input value={form.concepto} onChange={(e) => setForm({ ...form, concepto: e.target.value })} className="mt-1 bg-[#050B18] border-white/10 text-white rounded-xl" />
               </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase text-slate-500">Notas</label>
+                <Input value={form.notas} onChange={(e) => setForm({ ...form, notas: e.target.value })} className="mt-1 bg-[#050B18] border-white/10 text-white rounded-xl" />
+              </div>
               <label className="flex items-center gap-2 text-sm text-slate-300">
                 <input type="checkbox" checked={form.marcarContratoAlDia} onChange={(e) => setForm({ ...form, marcarContratoAlDia: e.target.checked })} />
                 Marcar contrato al día y avanzar vencimiento
@@ -267,7 +316,7 @@ export function VordiaIngresosPage({ empresaId, usuario }: Props) {
             </div>
             <div className="vordia-modal-actions flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setModalOpen(false)} className="rounded-xl text-slate-400">Cancelar</Button>
-              <Button onClick={registrar} className="bg-[#007bff] hover:bg-[#0069d9] rounded-xl font-bold">Registrar</Button>
+              <Button onClick={guardar} className="bg-[#007bff] hover:bg-[#0069d9] rounded-xl font-bold">{editId ? "Guardar cambios" : "Registrar"}</Button>
             </div>
           </div>
         </div>
