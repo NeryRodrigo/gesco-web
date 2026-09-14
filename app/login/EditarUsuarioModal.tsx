@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Shield, Mail, User, Activity, CheckCircle2, KeyRound, Eye, EyeOff } from "lucide-react";
+import { Shield, Mail, User, Activity, CheckCircle2, KeyRound, Eye, EyeOff, Building2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 
 export function EditarUsuarioModal({
@@ -20,18 +20,26 @@ export function EditarUsuarioModal({
 }: any) {
   const [loading, setLoading] = useState(false);
   const [modulosDisponibles, setModulosDisponibles] = useState<any[]>([]);
+  const [empresas, setEmpresas] = useState<{ empresaId: number; razonSocial: string; rubro?: string }[]>([]);
   const [showPass, setShowPass] = useState(false);
   const [formData, setFormData] = useState({
     nombre: "",
     email: "",
     rol: "",
     estado: "",
+    empresaId: 0,
     modulosIds: [] as number[],
     nuevaPassword: "",
     confirmarPassword: "",
   });
 
   useEffect(() => {
+    if (isOpen) {
+      fetch(`${API_BASE}/api/Auth/empresas`)
+        .then((res) => (res.ok ? res.json() : []))
+        .then((data) => setEmpresas(Array.isArray(data) ? data : []))
+        .catch(() => setEmpresas([]));
+    }
     if (isOpen && empresaId) {
       fetch(`${API_BASE}/api/Usuario/modulos-por-empresa/${empresaId}`)
         .then((res) => res.json())
@@ -47,13 +55,14 @@ export function EditarUsuarioModal({
         email: usuario.email,
         rol: usuario.rol,
         estado: usuario.estado,
+        empresaId: usuario.empresaId || empresaId || 0,
         modulosIds: usuario.modulosIds || [],
         nuevaPassword: "",
         confirmarPassword: "",
       });
       setShowPass(false);
     }
-  }, [usuario, isOpen]);
+  }, [usuario, isOpen, empresaId]);
 
   const handleToggleModulo = (id: number) => {
     setFormData((prev) => ({
@@ -86,6 +95,7 @@ export function EditarUsuarioModal({
           email: formData.email,
           rol: formData.rol,
           estado: formData.estado,
+          empresaId: formData.empresaId,
           modulosIds: formData.modulosIds,
           usuarioId: usuario.usuarioId,
         }),
@@ -160,6 +170,35 @@ export function EditarUsuarioModal({
                 className="rounded-2xl border-border bg-muted pl-12 h-12 sm:h-14 font-bold"
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1 flex items-center gap-1.5">
+              <Building2 className="h-3.5 w-3.5" /> Entorno de trabajo autorizado
+            </Label>
+            <div className="grid grid-cols-1 gap-2 max-h-44 overflow-y-auto pr-1">
+              {empresas.map((emp) => {
+                const marcado = formData.empresaId === emp.empresaId;
+                return (
+                  <button
+                    key={emp.empresaId}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, empresaId: emp.empresaId })}
+                    className={`flex items-center gap-3 text-left rounded-2xl border p-3 transition-all ${
+                      marcado ? "bg-blue-50 border-blue-200" : "bg-muted border-transparent hover:border-border"
+                    }`}
+                  >
+                    <Checkbox checked={marcado} className="rounded-full border-blue-200 data-[state=checked]:bg-blue-600" />
+                    <span className={`text-xs font-black uppercase italic ${marcado ? "text-blue-700" : "text-muted-foreground"}`}>
+                      {emp.razonSocial}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[10px] text-muted-foreground ml-1">
+              El marcado es el entorno actual. Al guardar queda fijo para el login.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

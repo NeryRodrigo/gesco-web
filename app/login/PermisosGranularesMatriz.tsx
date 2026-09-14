@@ -5,7 +5,7 @@ import React, { useState, useEffect } from "react";
 import { 
   ShieldCheck, Lock, Unlock, CheckCircle2, XCircle, AlertTriangle, 
   User, Mail, Sparkles, Layers, Settings, Check, X, Info, HelpCircle, 
-  Filter, Play, RefreshCw, Send, ShieldAlert, KeyRound 
+  Filter, Play, RefreshCw, Send, ShieldAlert, KeyRound, Building2 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +31,8 @@ export interface UsuarioAdmin {
   estado: string;
   requiereCambioPass: boolean;
   iniciales: string;
+  empresaId?: number;
+  empresaNombre?: string;
   modulosIds: number[];
   permisosIds?: string[];
 }
@@ -239,6 +241,7 @@ interface Props {
   onSelectUsuario?: (id: number) => void;
   canManagePasswords?: boolean;
   onEditUsuario?: (usuario: UsuarioAdmin) => void;
+  onRefresh?: () => void;
 }
 
 export function PermisosGranularesMatriz({
@@ -247,6 +250,7 @@ export function PermisosGranularesMatriz({
   onSelectUsuario,
   canManagePasswords = false,
   onEditUsuario,
+  onRefresh,
 }: Props) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [permisosActivos, setPermisosActivos] = useState<string[]>([]);
@@ -254,6 +258,9 @@ export function PermisosGranularesMatriz({
   const [permisoAProbar, setPermisoAProbar] = useState<PermisoGranular | null>(null);
   const [catalogoModulos, setCatalogoModulos] = useState<any[]>([]);
   const [guardando, setGuardando] = useState(false);
+  const [empresas, setEmpresas] = useState<{ empresaId: number; razonSocial: string; rubro?: string }[]>([]);
+  const [empresaSeleccionada, setEmpresaSeleccionada] = useState<number>(0);
+  const [guardandoEntorno, setGuardandoEntorno] = useState(false);
 
   useEffect(() => {
     if (usuarioSeleccionadoId && usuarios.some(u => u.usuarioId === usuarioSeleccionadoId)) {
@@ -264,6 +271,17 @@ export function PermisosGranularesMatriz({
   }, [usuarioSeleccionadoId, usuarios]);
 
   const usuarioActual = usuarios.find(u => u.usuarioId === selectedId) || (usuarios.length > 0 ? usuarios[0] : null);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/Auth/empresas`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => setEmpresas(Array.isArray(data) ? data : []))
+      .catch(() => setEmpresas([]));
+  }, []);
+
+  useEffect(() => {
+    setEmpresaSeleccionada(usuarioActual?.empresaId || 0);
+  }, [usuarioActual?.usuarioId, usuarioActual?.empresaId]);
 
   useEffect(() => {
     if (!usuarioActual) return;
@@ -416,6 +434,42 @@ export function PermisosGranularesMatriz({
     revocarTodos();
   };
 
+  const guardarEntorno = async () => {
+    if (!usuarioActual || !empresaSeleccionada) {
+      toast.error("Seleccioná un entorno de trabajo");
+      return;
+    }
+    setGuardandoEntorno(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/Usuario/actualizar-completo`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          usuarioId: usuarioActual.usuarioId,
+          nombre: usuarioActual.nombre,
+          email: usuarioActual.email,
+          rol: usuarioActual.rol,
+          estado: usuarioActual.estado,
+          empresaId: empresaSeleccionada,
+          modulosIds: usuarioActual.modulosIds || [],
+        }),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.mensaje || "No se pudo guardar el entorno");
+      }
+      const emp = empresas.find((e) => e.empresaId === empresaSeleccionada);
+      toast.success("Entorno de trabajo fijado", {
+        description: `${usuarioActual.nombre} queda autorizado solo en «${emp?.razonSocial || "la empresa seleccionada"}». Si inicia sesión en otro entorno, el acceso se deniega.`,
+      });
+      onRefresh?.();
+    } catch (e: any) {
+      toast.error(e?.message || "No se pudo guardar el entorno");
+    } finally {
+      setGuardandoEntorno(false);
+    }
+  };
+
   const simularIntercepcion = (permiso: PermisoGranular) => {
     setPermisoAProbar(permiso);
   };
@@ -477,7 +531,7 @@ export function PermisosGranularesMatriz({
           >
             {usuarios.map(u => (
               <option key={u.usuarioId} value={u.usuarioId} className="font-bold py-1">
-                {u.nombre} ({u.email}) - {u.rol}
+                {u.nombre} ({u.email}) — {u.empresaNombre || "Sin entorno"} · {u.rol}
               </option>
             ))}
           </select>
@@ -506,7 +560,7 @@ export function PermisosGranularesMatriz({
             </div>
             <p className="text-xs text-muted-foreground font-mono mt-0.5">{usuarioActual.email} • <span className="text-amber-400 font-bold uppercase">Rol en Sistema: {usuarioActual.rol}</span></p>
             <p className="text-[10px] text-slate-400 mt-1 max-w-xl">
-              Módulos asignados: {(usuarioActual.modulosIds || []).length}. Los comportamientos solo se habilitan si el usuario tiene el módulo correspondiente.
+              Entorno actual: {usuarioActual.empresaNombre || "sin asignar"}. Módulos asignados: {(usuarioActual.modulosIds || []).length}.
               {guardando ? " · Guardando en servidor…" : ""}
             </p>
           </div>
@@ -536,6 +590,59 @@ export function PermisosGranularesMatriz({
           >
             <XCircle className="w-3.5 h-3.5 mr-1.5" /> Revocar Todos
           </Button>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-blue-300 flex items-center gap-2">
+              <Building2 className="w-3.5 h-3.5" /> Entorno de trabajo autorizado
+            </p>
+            <p className="text-xs text-slate-400 mt-1.5 max-w-2xl">
+              Marcá la empresa de este usuario y guardá. Queda fijo: si inicia sesión eligiendo otro entorno, el sistema lo rechaza.
+            </p>
+          </div>
+          <Button
+            onClick={guardarEntorno}
+            disabled={guardandoEntorno || !empresaSeleccionada}
+            size="sm"
+            className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl px-4 shrink-0"
+          >
+            {guardandoEntorno ? "Guardando…" : "Guardar entorno"}
+          </Button>
+        </div>
+        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-2">
+          {empresas.map((emp) => {
+            const marcado = empresaSeleccionada === emp.empresaId;
+            return (
+              <button
+                key={emp.empresaId}
+                type="button"
+                onClick={() => setEmpresaSeleccionada(emp.empresaId)}
+                className={`flex items-center gap-3 text-left rounded-xl border px-3 py-3 transition-colors ${
+                  marcado
+                    ? "bg-blue-600/20 border-blue-400/50 text-white"
+                    : "bg-slate-900/60 border-slate-700/60 text-slate-300 hover:border-slate-500"
+                }`}
+              >
+                <span
+                  className={`h-5 w-5 rounded-md border flex items-center justify-center shrink-0 ${
+                    marcado ? "bg-blue-600 border-blue-400" : "border-slate-500"
+                  }`}
+                >
+                  {marcado && <Check className="w-3.5 h-3.5 text-white" />}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-xs font-bold truncate">{emp.razonSocial}</span>
+                  <span className="block text-[10px] uppercase tracking-wider text-slate-500">{emp.rubro || "Empresa"}</span>
+                </span>
+              </button>
+            );
+          })}
+          {empresas.length === 0 && (
+            <p className="text-xs text-slate-500 col-span-full">No se pudieron cargar las empresas.</p>
+          )}
         </div>
       </div>
 
