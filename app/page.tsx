@@ -339,7 +339,7 @@ export default function OimaDashboard() {
   }, [isAuthenticated, usuarioActivo, vistaActual, isUsuarioVordia]);
 
   const cargarListaUsuariosAdmin = async () => {
-    const res = await fetch(`${API_BASE}/api/Usuario/lista/${empresaId}`);
+    const res = await fetch(`${API_BASE}/api/Usuario/lista-completa`);
     if (res.ok) setUsuariosAdmin(await res.json());
   };
 
@@ -899,6 +899,7 @@ export default function OimaDashboard() {
                       setUsuarioAEditar(u);
                       setIsModalEdicionOpen(true);
                     }}
+                    onRefresh={cargarListaUsuariosAdmin}
                   />
                </div>
             </div>

@@ -41,6 +41,7 @@ export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: 
   const [googleEmail, setGoogleEmail] = useState("rody.moran.py@gmail.com");
   const [googleNombre, setGoogleNombre] = useState("Rody Moran");
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [loginError, setLoginError] = useState("");
 
   const [formData, setFormData] = useState({
     nombre: "",
@@ -78,6 +79,7 @@ export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setLoginError("");
 
     if (isResetting) {
         handleUpdatePassword();
@@ -92,7 +94,7 @@ export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: 
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(isLogin ? 
-                { email: formData.email.trim(), password: formData.password } : 
+                { email: formData.email.trim(), password: formData.password, empresaId: formData.empresaId } : 
                 formData
             ),
         });
@@ -114,8 +116,10 @@ export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: 
                 setIsLogin(true);
             }
         } else {
-            const errorData = await response.json();
-            toast.error(errorData.mensaje || 'Acceso Denegado');
+            const errorData = await response.json().catch(() => ({}));
+            const msg = errorData.mensaje || "Usuario y/o entorno de trabajo no configurado, intente con otro usuario";
+            setLoginError(msg);
+            toast.error(msg);
         }
     } catch (error) { toast.error('Error de Conexión'); } finally { setLoading(false); }
   };
@@ -258,6 +262,12 @@ export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: 
                   </div>
                 </div>
               </>
+            )}
+
+            {loginError && (
+              <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-center">
+                <p className="text-[12px] font-semibold text-red-300 leading-relaxed">{loginError}</p>
+              </div>
             )}
 
             <Button disabled={loading} className="w-full h-15 bg-gradient-to-r from-[#0052FF] to-[#003BCC] hover:opacity-90 text-white rounded-2xl font-bold text-sm tracking-[0.2em] shadow-[0_10px_30px_rgba(0,82,255,0.3)] mt-4 flex items-center justify-center gap-3 transition-all uppercase">
