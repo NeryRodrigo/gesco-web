@@ -7,7 +7,7 @@ import {
   ExternalLink, Save, X, DollarSign, Ruler, ShieldCheck, XCircle, 
   Search, Filter, Sparkles, User, Building2, Wallet, LogOut, 
   Activity, Users, FileText, Cpu, Lock, History, Settings, List, CheckSquare, Menu, Bed,
-  Package, FolderKanban, Truck, FolderOpen, Zap, BarChart3, CreditCard, LineChart, Sprout
+  Package, FolderKanban, Truck, BarChart3, CreditCard, LineChart, Sprout
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,7 +37,6 @@ import { ProduccionPage } from "./produccion/ProduccionPage";
 import { ContabilidadPage } from "./contabilidad/ContabilidadPage";
 import { MigradorPage } from "./configuracion/MigradorPage";
 import { FontanaPage } from "./fontana/FontanaPage";
-import { VordiaModuloVacio } from "./vordia/VordiaInternoShell";
 import { VordiaHqInicio } from "./vordia/VordiaHqInicio";
 import { VordiaHqSidebarNav, VordiaHqHealthWidget, VORDIA_HQ_TITULOS } from "./vordia/VordiaHqNav";
 import { VordiaClientesPage } from "./vordia/VordiaClientesPage";
@@ -50,6 +49,8 @@ import { VordiaObjetivosPage } from "./vordia/VordiaObjetivosPage";
 import { VordiaReportesHqPage } from "./vordia/VordiaReportesHqPage";
 import { VordiaProductosPage } from "./vordia/VordiaProductosPage";
 import { VordiaProveedoresPage } from "./vordia/VordiaProveedoresPage";
+import { VordiaDocumentosPage } from "./vordia/VordiaDocumentosPage";
+import { VordiaAutomatizacionesPage } from "./vordia/VordiaAutomatizacionesPage";
 import { VordiaPropuestasPage } from "./vordia/VordiaPropuestasPage";
 import { VordiaVendedoresPage } from "./vordia/VordiaVendedoresPage";
 import { VordiaCuentasPagarPage } from "./vordia/VordiaCuentasPagarPage";
@@ -831,18 +832,10 @@ export default function OimaDashboard() {
             <VordiaProveedoresPage empresaId={empresaId} />
           )}
           {vistaActual === "vordia_documentos" && isUsuarioVordia && (
-            <VordiaModuloVacio
-              titulo="Documentos"
-              descripcion="Repositorio empresarial: contratos, propuestas, actas y archivos por cliente/proyecto."
-              icon={<FolderOpen size={22} />}
-            />
+            <VordiaDocumentosPage empresaId={empresaId} usuarioNombre={usuarioActivo?.nombre} />
           )}
           {vistaActual === "vordia_automatizaciones" && isUsuarioVordia && (
-            <VordiaModuloVacio
-              titulo="Automatizaciones"
-              descripcion="Reglas Automation First: alertas, recordatorios de cobro y tareas sin intervención manual."
-              icon={<Zap size={22} />}
-            />
+            <VordiaAutomatizacionesPage empresaId={empresaId} usuarioNombre={usuarioActivo?.nombre} />
           )}
           {vistaActual === "vordia_reportes" && isUsuarioVordia && (
             <VordiaReportesHqPage
