@@ -32,6 +32,7 @@ import {
   Printer
 } from "lucide-react";
 import { toast } from "sonner";
+import { avisarCampoFaltante, campoPorId } from "./validacionProceso";
 import { numberToWords } from "@/lib/numberToWords";
 import { API_BASE } from "@/lib/api";
 import { formatConceptoCobro, formatUnidadComprobante } from "@/lib/utils";
@@ -238,29 +239,29 @@ export function RegistrarPagoModal({
 
   const handleSave = () => {
     if (!chkAlquiler && !chkLuz && !chkBasura && !chkAgua) {
-      toast.error("Debe seleccionar al menos un concepto a cobrar");
+      avisarCampoFaltante("Marcá al menos un concepto a cobrar (alquiler, luz, agua o basura).", campoPorId("cobro-concepto-alquiler"));
       return;
     }
 
     if (chkAlquiler && montoAlquiler <= 0) {
-      toast.error("El monto de alquiler debe ser mayor a 0");
+      avisarCampoFaltante("El monto de alquiler tiene que ser mayor a 0.", campoPorId("cobro-monto-alquiler"));
       return;
     }
     if (chkLuz && montoLuz <= 0) {
-      toast.error("El monto de luz debe ser mayor a 0");
+      avisarCampoFaltante("El monto de luz tiene que ser mayor a 0.", campoPorId("cobro-monto-luz"));
       return;
     }
     if (chkBasura && montoBasura <= 0) {
-      toast.error("El monto de basura debe ser mayor a 0");
+      avisarCampoFaltante("El monto de basura tiene que ser mayor a 0.", campoPorId("cobro-monto-basura"));
       return;
     }
     if (chkAgua && montoAgua <= 0) {
-      toast.error("El monto de agua debe ser mayor a 0");
+      avisarCampoFaltante("El monto de agua tiene que ser mayor a 0.", campoPorId("cobro-monto-agua"));
       return;
     }
 
     if (!contrato) {
-      toast.error("No se han cargado los detalles del contrato");
+      toast.error("Todavía no se cargó el contrato. Esperá un momento y volvé a intentar.");
       return;
     }
 
@@ -435,6 +436,7 @@ export function RegistrarPagoModal({
               <label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider block mb-3">Conceptos a Incluir en el Recibo</label>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <button
+                  id="cobro-concepto-alquiler"
                   type="button"
                   onClick={() => setChkAlquiler(!chkAlquiler)}
                   className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-1.5 text-center
@@ -523,6 +525,7 @@ export function RegistrarPagoModal({
                     <div className="space-y-1 md:col-span-1">
                       <Label className="text-[9px] font-black uppercase text-muted-foreground">Importe por mes (Gs.)</Label>
                       <Input 
+                        id="cobro-monto-alquiler"
                         type="number" 
                         className="h-10 rounded-xl border-border bg-card font-black text-foreground"
                         value={montoAlquiler}
@@ -592,6 +595,7 @@ export function RegistrarPagoModal({
                     <div className="space-y-1">
                       <Label className="text-[9px] font-black uppercase text-muted-foreground">Monto ANDE (Gs.)</Label>
                       <Input 
+                        id="cobro-monto-luz"
                         type="number" 
                         className="h-10 rounded-xl border-border bg-card font-black text-foreground"
                         value={montoLuz}
@@ -640,6 +644,7 @@ export function RegistrarPagoModal({
                     <div className="space-y-1">
                       <Label className="text-[9px] font-black uppercase text-muted-foreground">Importe Servicio (Gs.)</Label>
                       <Input 
+                        id="cobro-monto-basura"
                         type="number" 
                         className="h-10 rounded-xl border-border bg-card font-black text-foreground"
                         value={montoBasura}
@@ -688,6 +693,7 @@ export function RegistrarPagoModal({
                     <div className="space-y-1">
                       <Label className="text-[9px] font-black uppercase text-muted-foreground">Monto Consumo (Gs.)</Label>
                       <Input 
+                        id="cobro-monto-agua"
                         type="number" 
                         className="h-10 rounded-xl border-border bg-card font-black text-foreground"
                         value={montoAgua}

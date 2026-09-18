@@ -1,21 +1,22 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Vordia — Mente operativa",
+  title: "VORDIA — Tecnología para la gestión empresarial",
   description:
-    "El sistema operativo con el que empresas paraguayas ven, deciden y cobran. Un ecosistema: HQ, Habitat, Stay, Dine, Retail y Agro.",
-  applicationName: "Vordia",
+    "VORDIA desarrolla plataformas especializadas que conectan procesos, información y decisiones para que cada área de una empresa avance con mayor coordinación y visibilidad.",
+  applicationName: "VORDIA",
   metadataBase: new URL("https://vordia.com.py"),
   openGraph: {
-    title: "Vordia — Mente operativa",
-    description: "Un sistema. Seis negocios. Una sola operación.",
+    title: "Muchas partes. Una sola operación.",
+    description:
+      "Tecnología para la gestión empresarial. Ecosistema B2B: HABITAT, STAY, DINE, RETAIL, BOUTIQUE, OPS y AGRO.",
     url: "https://vordia.com.py",
-    siteName: "Vordia",
+    siteName: "VORDIA",
     locale: "es_PY",
     type: "website",
   },
 };
 
 export default function WebLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return <>{children}</>;
 }

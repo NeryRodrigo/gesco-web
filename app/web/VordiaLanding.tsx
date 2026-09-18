@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ArrowRight, Menu, X } from "lucide-react";
+import { apiUrl } from "@/lib/api";
 
 const FONDO = "#010618";
 const PRINCIPAL = "#022a8c";
@@ -82,9 +83,40 @@ function Kicker({ children }: { children: string }) {
 
 export function VordiaLanding() {
   const [open, setOpen] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [enviado, setEnviado] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const demo =
     "https://wa.me/?text=" +
     encodeURIComponent("Hola. Quiero agendar una conversación sobre Vordia para mi empresa.");
+
+  async function enviarSolicitud(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    setEnviando(true);
+    setError(null);
+    try {
+      const res = await fetch(apiUrl("/api/leads"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: fd.get("nombre"),
+          empresa: fd.get("empresa"),
+          email: fd.get("email"),
+          telefono: fd.get("telefono"),
+          sector: fd.get("sector"),
+          necesidad: fd.get("necesidad"),
+          sitio: fd.get("sitio"),
+        }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      setEnviado(true);
+    } catch {
+      setError("No pudimos enviar la solicitud. Escribinos por WhatsApp y lo resolvemos.");
+    } finally {
+      setEnviando(false);
+    }
+  }
 
   return (
     <div className="min-h-screen overflow-x-hidden font-sans" style={{ background: FONDO, color: CLARO }}>
@@ -116,9 +148,7 @@ export function VordiaLanding() {
               Ingresar
             </a>
             <a
-              href={demo}
-              target="_blank"
-              rel="noreferrer"
+              href="#contacto"
               className="inline-flex items-center rounded-md px-4 py-2 text-[13px] font-semibold text-white"
               style={{ background: SECUNDARIO }}
             >
@@ -143,9 +173,8 @@ export function VordiaLanding() {
             ))}
             <a href="/" className="block py-2.5 text-[15px] text-[#e6edfa]/55">Ingresar</a>
             <a
-              href={demo}
-              target="_blank"
-              rel="noreferrer"
+              href="#contacto"
+              onClick={() => setOpen(false)}
               className="mt-3 inline-flex rounded-md px-4 py-2.5 text-[13px] font-semibold"
               style={{ background: SECUNDARIO }}
             >
@@ -173,9 +202,7 @@ export function VordiaLanding() {
             </p>
             <div className="mt-9 flex flex-col sm:flex-row gap-3">
               <a
-                href={demo}
-                target="_blank"
-                rel="noreferrer"
+                href="#contacto"
                 className="inline-flex items-center justify-center gap-2 rounded-md px-5 py-3 text-[14px] font-semibold text-white"
                 style={{ background: SECUNDARIO }}
               >
@@ -267,20 +294,36 @@ export function VordiaLanding() {
         </div>
       </section>
 
-      <section id="producto" className="relative min-h-[70vh] flex items-end overflow-hidden">
-        <img src="/images/web/edificio.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
-        <div
-          className="absolute inset-0"
-          style={{ background: `linear-gradient(180deg, ${FONDO}30 0%, ${FONDO}e8 78%)` }}
-        />
-        <div className="relative z-10 mx-auto w-full max-w-[1120px] px-5 sm:px-8 pb-16 sm:pb-20">
+      <section id="producto" className="overflow-hidden">
+        <div className="relative h-[min(52vh,520px)] min-h-[260px]">
+          <img
+            src="/images/web/edificio.jpg"
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover object-[center_35%]"
+          />
+          <div
+            className="absolute inset-0"
+            style={{
+              background: `linear-gradient(180deg, ${FONDO}40 0%, ${FONDO}88 55%, ${FONDO} 100%)`,
+            }}
+          />
+        </div>
+        <div className="relative mx-auto max-w-[1120px] px-5 sm:px-8 pt-10 pb-16 sm:pt-12 sm:pb-20" style={{ background: FONDO }}>
           <Kicker>El sistema</Kicker>
           <h2 className="mt-4 max-w-lg text-[clamp(1.7rem,3.4vw,2.4rem)] font-semibold tracking-[-0.03em] text-white leading-snug">
-            Una conversación de 30 minutos. Tu rubro. Tus números.
+            Tu empresa ya funciona. Hagamos que funcione con una visión compartida.
           </h2>
           <p className="mt-4 max-w-md text-[15px] leading-relaxed text-[#e6edfa]/62">
-            No hay presentación genérica. Sentamos el sistema sobre tu operación y ves si vale la pena — antes de comprometerte.
+            Contanos cómo se gestiona hoy tu operación. Conversamos sobre qué información y
+            procesos necesitan estar mejor conectados — sin presentación genérica.
           </p>
+          <a
+            href="#contacto"
+            className="mt-8 inline-flex items-center gap-2 rounded-md px-5 py-3 text-[14px] font-semibold text-white"
+            style={{ background: SECUNDARIO }}
+          >
+            Solicitar una demostración <ArrowRight size={16} />
+          </a>
         </div>
       </section>
 
@@ -291,15 +334,82 @@ export function VordiaLanding() {
             Si te hace sentido, el siguiente paso es simple.
           </h2>
           <p className="mt-4 text-[15px] leading-relaxed text-[#e6edfa]/52">
-            Escribinos. Coordinamos un horario y te mostramos Vordia con el negocio que vos tenés — no con un caso de otro país.
+            Dejanos tus datos. Coordinamos un horario y te mostramos Vordia con el negocio que vos tenés — no con un caso de otro país.
           </p>
+
+          {enviado ? (
+            <p className="mt-10 text-[15px] leading-relaxed text-[#e6edfa]/70">
+              Recibimos tu solicitud. Te vamos a contactar para coordinar la conversación.
+            </p>
+          ) : (
+            <form className="mt-10 space-y-3 text-left" onSubmit={enviarSolicitud}>
+              <input
+                name="nombre"
+                required
+                placeholder="Nombre y apellido"
+                className="w-full rounded-md border border-white/12 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-[#e6edfa]/35 outline-none focus:border-[#0066FF]/50"
+              />
+              <input
+                name="empresa"
+                required
+                placeholder="Empresa"
+                className="w-full rounded-md border border-white/12 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-[#e6edfa]/35 outline-none focus:border-[#0066FF]/50"
+              />
+              <input
+                name="email"
+                type="email"
+                required
+                placeholder="Correo electrónico"
+                className="w-full rounded-md border border-white/12 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-[#e6edfa]/35 outline-none focus:border-[#0066FF]/50"
+              />
+              <input
+                name="telefono"
+                inputMode="tel"
+                placeholder="Teléfono o WhatsApp (opcional)"
+                className="w-full rounded-md border border-white/12 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-[#e6edfa]/35 outline-none focus:border-[#0066FF]/50"
+              />
+              <select
+                name="sector"
+                required
+                defaultValue=""
+                className="w-full rounded-md border border-white/12 px-4 py-3 text-sm text-white outline-none focus:border-[#0066FF]/50"
+                style={{ background: FONDO }}
+              >
+                <option value="" disabled>
+                  ¿Qué parte del negocio querés ordenar?
+                </option>
+                {PRODUCTOS.map((p) => (
+                  <option key={p.codigo} value={p.codigo}>
+                    {p.nombre} — {p.codigo}
+                  </option>
+                ))}
+                <option value="hablar">Todavía no lo tengo claro</option>
+              </select>
+              <textarea
+                name="necesidad"
+                rows={3}
+                placeholder="¿Cómo se gestiona hoy? Contanos la principal dificultad."
+                className="w-full resize-y rounded-md border border-white/12 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-[#e6edfa]/35 outline-none focus:border-[#0066FF]/50"
+              />
+              <input name="sitio" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden="true" />
+              <button
+                type="submit"
+                disabled={enviando}
+                className="w-full rounded-md px-5 py-3 text-[14px] font-semibold text-white disabled:opacity-60"
+                style={{ background: SECUNDARIO }}
+              >
+                {enviando ? "Enviando…" : "Solicitar una conversación"}
+              </button>
+              {error && <p className="text-[13px] text-red-300/80">{error}</p>}
+            </form>
+          )}
+
           <div className="mt-9 flex flex-col sm:flex-row justify-center gap-3">
             <a
               href={demo}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded-md px-5 py-3 text-[14px] font-semibold text-white"
-              style={{ background: SECUNDARIO }}
+              className="inline-flex items-center justify-center gap-2 rounded-md px-5 py-3 text-[14px] font-medium border border-white/12 text-[#e6edfa]/80"
             >
               Escribir por WhatsApp <ArrowRight size={16} />
             </a>

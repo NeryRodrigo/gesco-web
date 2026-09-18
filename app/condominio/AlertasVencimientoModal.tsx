@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Bell, Mail, Send, AlertTriangle, CheckCircle2, RefreshCw, Calendar, MailPlus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDuplex } from "@/lib/utils";
+import { avisarCampoFaltante, campoPorId } from "./validacionProceso";
 
 interface AlertaItem {
   contratoId: number;
@@ -47,7 +48,11 @@ export default function AlertasVencimientoModal({
   // NUEVOS ESTADOS SIN AFECTAR AL DISEÑO
   const [diasFiltro, setDiasFiltro] = useState<number>(5);
   const [fechaProgramada, setFechaProgramada] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [emailBcc, setEmailBcc] = useState<string>("administracion@vordia.com");
+  const [emailBcc, setEmailBcc] = useState<string>("");
+  // Correos tipeados en tarjetas de inquilinos que no tienen email en su ficha
+  const [emailsNuevos, setEmailsNuevos] = useState<Record<number, string>>({});
+  const [diagnostico, setDiagnostico] = useState<string | null>(null);
+  const [diagnosticando, setDiagnosticando] = useState(false);
 
   const formatGs = (n: number) => {
     return new Intl.NumberFormat("es-PY", {
@@ -76,12 +81,8 @@ export default function AlertasVencimientoModal({
     if (isOpen) cargarAlertas(diasFiltro);
   }, [isOpen, diasFiltro]);
 
-  const handleEnviarAlerta = async (alerta: AlertaItem) => {
-    if (!alerta.email?.includes("@")) {
-      toast.error("El inquilino no tiene un correo electrónico válido.");
-      return;
-    }
-    setSendingId(alerta.contratoId);
+  /** Envía una alerta y devuelve el motivo si el backend la rechaza. */
+  const enviarAlerta = async (alerta: AlertaItem): Promise<string | null> => {
     try {
       const resp = await fetch(`${API_BASE}/api/Contratos/enviar-alerta-vencimiento`, {
         method: "POST",
@@ -92,43 +93,166 @@ export default function AlertasVencimientoModal({
           nombreCliente: alerta.inquilinoNombre,
           nombreUnidad: alerta.unidadNombre,
           montoMensual: alerta.montoMensual,
-          fechaVencimiento: fechaProgramada,
+          fechaVencimiento: alerta.fechaVencimiento,
           diasRestantes: alerta.diasRestantes,
         }),
       });
-      if (resp.ok) toast.success(`Alerta enviada a ${alerta.inquilinoNombre}`);
-    } catch (e) {
-      toast.error("Error de conexión");
+      if (resp.ok) return null;
+      if (resp.status === 401) return "Sesión vencida: volvé a iniciar sesión.";
+      const data = await resp.json().catch(() => null);
+      return data?.message || `El servidor respondió ${resp.status}.`;
+    } catch {
+      return "No se pudo contactar al servidor.";
+    }
+  };
+
+  /** Guarda en la ficha del inquilino el correo tipeado en la tarjeta. */
+  const guardarEmailFicha = async (contratoId: number, email: string): Promise<string | null> => {
+    try {
+      const resp = await fetch(`${API_BASE}/api/Contratos/${contratoId}/email-inquilino`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (resp.ok) return null;
+      if (resp.status === 401) return "Sesión vencida: volvé a iniciar sesión.";
+      const data = await resp.json().catch(() => null);
+      return data?.message || `El servidor respondió ${resp.status}.`;
+    } catch {
+      return "No se pudo contactar al servidor.";
+    }
+  };
+
+  const handleEnviarAlerta = async (alerta: AlertaItem) => {
+    const emailTipeado = (emailsNuevos[alerta.contratoId] || "").trim();
+    const emailFicha = alerta.email?.trim() || "";
+
+    if (!emailFicha && !emailTipeado.includes("@")) {
+      avisarCampoFaltante(
+        `Falta el correo de ${alerta.inquilinoNombre}. Cargalo en la tarjeta.`,
+        campoPorId(`alerta-email-${alerta.contratoId}`)
+      );
+      return;
+    }
+
+    setSendingId(alerta.contratoId);
+
+    // Si el inquilino no tenía correo, primero queda guardado en su ficha
+    if (!emailFicha) {
+      const errorGuardado = await guardarEmailFicha(alerta.contratoId, emailTipeado);
+      if (errorGuardado) {
+        setSendingId(null);
+        toast.error(`No se pudo guardar el correo: ${errorGuardado}`, { duration: 8000 });
+        return;
+      }
+      toast.success(`Correo guardado en la ficha de ${alerta.inquilinoNombre}`);
+    }
+
+    const error = await enviarAlerta({ ...alerta, email: emailFicha || emailTipeado });
+    setSendingId(null);
+
+    if (error) {
+      toast.error(error, { duration: 8000 });
+      return;
+    }
+    toast.success(`Alerta enviada a ${alerta.inquilinoNombre}`);
+    if (!emailFicha) {
+      setEmailsNuevos((prev) => {
+        const { [alerta.contratoId]: _, ...resto } = prev;
+        return resto;
+      });
+      cargarAlertas();
+    }
+  };
+
+  const handleSimular = async () => {
+    setSimulando(true);
+    try {
+      const params = new URLSearchParams();
+      if (emailBcc.includes("@")) params.set("emailCopia", emailBcc);
+      const resp = await fetch(
+        `${API_BASE}/api/Contratos/simular-alerta-5-dias?${params.toString()}`,
+        { method: "POST" }
+      );
+      const data = await resp.json().catch(() => null);
+      if (resp.ok && data?.success) {
+        toast.success(`Prueba enviada a ${data?.datosEnviados?.emailDestino ?? "el inquilino"}`);
+      } else {
+        toast.error(data?.message || `El servidor respondió ${resp.status}.`, { duration: 8000 });
+      }
+    } catch {
+      toast.error("No se pudo contactar al servidor.");
     } finally {
-      setSendingId(null);
+      setSimulando(false);
+    }
+  };
+
+  const handleDiagnostico = async () => {
+    setDiagnosticando(true);
+    setDiagnostico(null);
+    try {
+      const resp = await fetch(`${API_BASE}/api/Contratos/diagnostico-smtp`, { method: "POST" });
+      if (resp.status === 401) {
+        setDiagnostico("Sesión vencida: volvé a iniciar sesión.");
+        return;
+      }
+      const d = await resp.json().catch(() => null);
+      if (!d) {
+        setDiagnostico(`El servidor respondió ${resp.status} sin detalle.`);
+        return;
+      }
+      const lineas = [
+        d.resumen,
+        `Servidor: ${d.smtpServer}:${d.smtpPort} · Remitente: ${d.senderEmail}`,
+        `Contraseña configurada: ${d.tienePassword ? `sí (${d.largoPassword} caracteres)` : "NO"}`,
+        `Conexión al puerto: ${d.conexionOk ? "OK" : `FALLA — ${d.conexionError ?? "sin detalle"}`}`,
+        `Envío de prueba: ${d.envioOk ? "OK" : `FALLA — ${d.envioError ?? "no se intentó"}`}`,
+      ];
+      setDiagnostico(lineas.filter(Boolean).join("\n"));
+    } catch {
+      setDiagnostico("No se pudo contactar al servidor.");
+    } finally {
+      setDiagnosticando(false);
     }
   };
 
   const handleEnvioMasivo = async () => {
-    const validos = alertas.filter(a => a.email && a.email.includes("@"));
-    if (validos.length === 0) return toast.error("No hay registros para enviar.");
-    if (!confirm(`¿Desea enviar notificaciones masivas a ${validos.length} inquilinos?`)) return;
+    const emailDe = (a: AlertaItem) => (a.email?.trim() || emailsNuevos[a.contratoId]?.trim() || "");
+    const validos = alertas.filter(a => emailDe(a).includes("@"));
+    const sinCorreo = alertas.length - validos.length;
+
+    if (validos.length === 0) {
+      return toast.error("Ningún inquilino de la lista tiene correo cargado.");
+    }
+    const aviso = sinCorreo > 0 ? ` (${sinCorreo} se omiten por no tener correo)` : "";
+    if (!confirm(`¿Desea enviar notificaciones masivas a ${validos.length} inquilinos?${aviso}`)) return;
 
     setIsBulkSending(true);
+    let enviados = 0;
+    let ultimoError: string | null = null;
     for (const alerta of validos) {
-      try {
-        await fetch(`${API_BASE}/api/Contratos/enviar-alerta-vencimiento`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            emailDestino: alerta.email,
-            emailCopia: emailBcc,
-            nombreCliente: alerta.inquilinoNombre,
-            nombreUnidad: alerta.unidadNombre,
-            montoMensual: alerta.montoMensual,
-            fechaVencimiento: fechaProgramada,
-            diasRestantes: alerta.diasRestantes,
-          }),
-        });
-      } catch (e) { console.error(e); }
+      const emailFicha = alerta.email?.trim() || "";
+      if (!emailFicha) {
+        const errorGuardado = await guardarEmailFicha(alerta.contratoId, emailDe(alerta));
+        if (errorGuardado) {
+          ultimoError = errorGuardado;
+          continue;
+        }
+      }
+      const error = await enviarAlerta({ ...alerta, email: emailDe(alerta) });
+      if (error) ultimoError = error;
+      else enviados++;
     }
     setIsBulkSending(false);
-    toast.success("Envío masivo completado.");
+
+    if (enviados === validos.length) {
+      toast.success(`Envío masivo completado: ${enviados} alertas enviadas.`);
+    } else {
+      toast.error(
+        `Se enviaron ${enviados} de ${validos.length}. Motivo de las fallas: ${ultimoError}`,
+        { duration: 10000 }
+      );
+    }
     cargarAlertas();
   };
 
@@ -146,7 +270,7 @@ export default function AlertasVencimientoModal({
               </div>
               <div>
                 <DialogTitle className="text-xl sm:text-2xl font-heading font-bold uppercase tracking-tight text-foreground leading-snug">
-                  Alertas de Vencimiento de Alquiler (5 Días)
+                  Alertas de Vencimiento de Alquiler ({diasFiltro} Días)
                 </DialogTitle>
                 <p className="text-xs text-muted-foreground font-semibold mt-1">
                   Notificación automática y manual al Inquilino y Administrador antes del vencimiento de la cuota
@@ -154,8 +278,25 @@ export default function AlertasVencimientoModal({
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <Button size="sm" variant="outline" className="rounded-xl border-border font-bold text-xs flex items-center gap-2">
-                <Send className="w-3.5 h-3.5" /> Simular Alerta (Prueba 5 Días)
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleSimular}
+                disabled={simulando}
+                className="rounded-xl border-border font-bold text-xs flex items-center gap-2"
+              >
+                {simulando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                Simular Alerta (Prueba 5 Días)
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleDiagnostico}
+                disabled={diagnosticando}
+                className="rounded-xl border-border font-bold text-xs flex items-center gap-2"
+              >
+                {diagnosticando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MailPlus className="w-3.5 h-3.5" />}
+                Probar Correo del Servidor
               </Button>
               <Button
                 variant="outline"
@@ -188,6 +329,23 @@ export default function AlertasVencimientoModal({
           </div>
         </div>
 
+        {diagnostico && (
+          <div className="bg-blue-500/10 border border-blue-500/25 rounded-2xl p-4 mb-6 flex items-start gap-3">
+            <Mail className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-widest text-blue-400 mb-1">Estado del correo saliente</p>
+              <pre className="text-xs text-foreground/80 whitespace-pre-wrap font-sans leading-relaxed">{diagnostico}</pre>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDiagnostico(null)}
+              className="text-xs text-muted-foreground hover:text-foreground shrink-0"
+            >
+              Ocultar
+            </button>
+          </div>
+        )}
+
         {/* --- NUEVA BARRA DE CONFIGURACIÓN INTEGRADA PULCRAMENTE --- */}
         <div className="bg-white/[0.03] border border-white/[0.08] p-5 rounded-[2rem] mb-8 flex flex-wrap items-center justify-between gap-6">
             <div className="flex flex-wrap items-center gap-8">
@@ -201,11 +359,12 @@ export default function AlertasVencimientoModal({
                     />
                 </div>
                 <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Confirmación con Copia (BCC)</Label>
+                    <Label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Copia a Administración (Opcional)</Label>
                     <Input 
                       type="email" 
                       value={emailBcc} 
                       onChange={(e) => setEmailBcc(e.target.value)} 
+                      placeholder="Dejar vacío: va solo al inquilino"
                       className="bg-background/50 border-border text-foreground text-xs h-10 w-64 rounded-xl focus:ring-1 ring-blue-500" 
                     />
                 </div>
@@ -248,7 +407,23 @@ export default function AlertasVencimientoModal({
                   </div>
                   <div className="text-sm font-bold text-foreground truncate">{alerta.inquilinoNombre}</div>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1.5 font-medium truncate"><Mail className="w-3.5 h-3.5 text-muted-foreground" />{alerta.email || "Sin email"}</span>
+                    {alerta.email ? (
+                      <span className="flex items-center gap-1.5 font-medium truncate"><Mail className="w-3.5 h-3.5 text-muted-foreground" />{alerta.email}</span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 font-medium">
+                        <Mail className="w-3.5 h-3.5 text-amber-500" />
+                        <Input
+                          type="email"
+                          id={`alerta-email-${alerta.contratoId}`}
+                          value={emailsNuevos[alerta.contratoId] ?? ""}
+                          onChange={(e) =>
+                            setEmailsNuevos((prev) => ({ ...prev, [alerta.contratoId]: e.target.value }))
+                          }
+                          placeholder="Sin correo en la ficha: cargalo acá"
+                          className="bg-background/50 border-amber-500/40 text-foreground text-xs h-8 w-60 rounded-lg focus:ring-1 ring-blue-500"
+                        />
+                      </span>
+                    )}
                     <span className="flex items-center gap-1.5 font-medium"><Calendar className="w-3.5 h-3.5 text-muted-foreground" />Vence: <strong className="text-foreground">{alerta.fechaVencimiento}</strong></span>
                   </div>
                 </div>
@@ -260,10 +435,17 @@ export default function AlertasVencimientoModal({
                   </div>
                   <Button
                     onClick={() => handleEnviarAlerta(alerta)}
-                    disabled={sendingId === alerta.contratoId || !alerta.email}
+                    disabled={sendingId === alerta.contratoId}
                     className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold font-sans text-xs px-6 h-12 rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
                   >
-                    {sendingId === alerta.contratoId ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" /> Enviar Alerta Ahora</>}
+                    {sendingId === alerta.contratoId ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        {alerta.email ? "Enviar Alerta Ahora" : "Guardar Correo y Enviar"}
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>

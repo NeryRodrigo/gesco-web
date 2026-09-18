@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2, Zap } from "lucide-react";
 import { toast } from "sonner";
+import { avisarCampoFaltante, campoPorId } from "./validacionProceso";
 
 type Props = {
   isOpen: boolean;
@@ -23,8 +24,12 @@ export function AndeLoginCredencialesModal({ isOpen, onClose, onSuccess, apiBase
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!documento.trim() || !password) {
-      toast.error("Ingresá documento y contraseña de Mi Cuenta ANDE.");
+    if (!documento.trim()) {
+      avisarCampoFaltante("Falta el número de cédula de Mi Cuenta ANDE.", campoPorId("ande-documento"));
+      return;
+    }
+    if (!password) {
+      avisarCampoFaltante("Falta la contraseña de Mi Cuenta ANDE.", campoPorId("ande-password"));
       return;
     }
 
@@ -79,6 +84,7 @@ export function AndeLoginCredencialesModal({ isOpen, onClose, onSuccess, apiBase
               Documento (C.I.)
             </label>
             <Input
+              id="ande-documento"
               value={documento}
               onChange={(e) => setDocumento(e.target.value)}
               placeholder="Nº de cédula"
@@ -92,6 +98,7 @@ export function AndeLoginCredencialesModal({ isOpen, onClose, onSuccess, apiBase
               Contraseña
             </label>
             <Input
+              id="ande-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
