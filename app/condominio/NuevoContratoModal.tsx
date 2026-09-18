@@ -35,6 +35,7 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { avisarCampoFaltante, campoPorId } from "./validacionProceso";
 
 export interface ContratoData {
   unidadId: number;
@@ -117,11 +118,23 @@ export function NuevoContratoModal({
   };
 
   const handleSave = () => {
-    if (!formData.inquilino.nombreCompleto || !formData.inquilino.cedula) {
-      toast.error("Por favor completa los datos básicos del inquilino");
+    if (!formData.inquilino.nombreCompleto.trim()) {
+      avisarCampoFaltante("Falta el nombre del inquilino.", campoPorId("nuevo-contrato-nombre"));
       return;
     }
-    
+    if (!formData.inquilino.cedula.trim()) {
+      avisarCampoFaltante("Falta la cédula o RUC.", campoPorId("nuevo-contrato-cedula"));
+      return;
+    }
+    if (!formData.contrato.fechaInicio) {
+      avisarCampoFaltante("Falta la fecha de inicio del contrato.", campoPorId("nuevo-contrato-inicio"));
+      return;
+    }
+    if (!formData.contrato.montoMensual || formData.contrato.montoMensual <= 0) {
+      avisarCampoFaltante("El alquiler mensual tiene que ser mayor a 0.", campoPorId("nuevo-contrato-monto"));
+      return;
+    }
+
     onSave(formData);
     toast.success("Contrato registrado con éxito");
     onClose();
@@ -202,6 +215,7 @@ export function NuevoContratoModal({
                   <div className="col-span-2 space-y-1.5">
                     <Label className="text-[10px] font-black uppercase text-muted-foreground">Nombre Completo</Label>
                     <Input 
+                      id="nuevo-contrato-nombre"
                       placeholder="Ej: Juan Pérez" 
                       className="rounded-xl border-border bg-muted font-bold focus:bg-card transition-all"
                       value={formData.inquilino.nombreCompleto}
@@ -213,6 +227,7 @@ export function NuevoContratoModal({
                     <div className="relative">
                       <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input 
+                        id="nuevo-contrato-cedula"
                         placeholder="0.000.000" 
                         className="pl-10 rounded-xl border-border bg-muted font-bold"
                         value={formData.inquilino.cedula}
@@ -244,6 +259,7 @@ export function NuevoContratoModal({
                   <div className="space-y-1.5">
                     <Label className="text-[10px] font-black uppercase text-muted-foreground">Inicio Contrato</Label>
                     <Input 
+                      id="nuevo-contrato-inicio"
                       type="date" 
                       className="rounded-xl border-border bg-muted font-bold"
                       value={formData.contrato.fechaInicio}
@@ -264,6 +280,7 @@ export function NuevoContratoModal({
                     <div className="relative">
                       <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500" />
                       <Input 
+                        id="nuevo-contrato-monto"
                         type="number" 
                         className="pl-10 rounded-xl border-border bg-blue-50/30 text-blue-700 font-black text-lg"
                         value={formData.contrato.montoMensual}

@@ -70,6 +70,7 @@ import {
   TableRow
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { avisarCampoFaltante, campoFicha, campoPorId } from "./validacionProceso";
 import { Button } from "@/components/ui/button";
 import { ComprobantePreviewModal } from "./ComprobantePreviewModal";
 import { GenerarEditarContratoModal } from "./GenerarEditarContratoModal";
@@ -1462,6 +1463,32 @@ export function DetalleUnidadModal({
 
   const handleContratar = async () => {
     if (!contractData) return;
+    setActiveTab("ficha");
+    const nombre = String(contractData.inquilino?.razonSocial || "").trim();
+    const doc = String(contractData.inquilino?.documento || "").trim();
+    const inicio = contractData.fechaInicioContrato;
+    const fin = contractData.fechaFinContrato;
+    const monto = Number(contractData.montoMensualAlquiler || 0);
+    if (!nombre) {
+      avisarCampoFaltante("Falta el nombre del inquilino.", campoFicha("nombre"));
+      return;
+    }
+    if (!doc) {
+      avisarCampoFaltante("Falta la cédula o RUC.", campoFicha("documento"));
+      return;
+    }
+    if (!inicio) {
+      avisarCampoFaltante("Falta la fecha de inicio del contrato.", campoFicha("fechaInicioContrato"));
+      return;
+    }
+    if (!fin) {
+      avisarCampoFaltante("Falta la fecha de fin del contrato.", campoFicha("fechaFinContrato"));
+      return;
+    }
+    if (monto <= 0) {
+      avisarCampoFaltante("El alquiler mensual tiene que ser mayor a 0.", campoFicha("montoMensualAlquiler"));
+      return;
+    }
     try {
       if (normalizeNisValue(localNisAnde) !== normalizeNisValue(unidad?.nisAnde) && unidad?.id) {
           const saved = await persistUnidadCampos();
@@ -1591,11 +1618,11 @@ export function DetalleUnidadModal({
         : [{ mes: paymentForm.mes, anio: paymentForm.anio }];
 
     if (periodos.length === 0) {
-      toast.error("Seleccioná al menos un mes a cobrar");
+      avisarCampoFaltante("Seleccioná al menos un mes a cobrar.", campoPorId("ficha-cobro-meses"));
       return;
     }
     if (paymentForm.monto <= 0) {
-      toast.error("El monto a cobrar debe ser mayor a 0");
+      avisarCampoFaltante("El monto a cobrar tiene que ser mayor a 0.", campoPorId("ficha-cobro-monto"));
       return;
     }
 
@@ -2904,6 +2931,7 @@ export function DetalleUnidadModal({
                   </div>
                   {(isEditing || isContratando) ? (
                     <Input 
+                        data-ficha-campo="nombre"
                         value={contractData?.inquilino?.razonSocial || ""}
                         onChange={(e) => setContractData(prev => prev ? { ...prev, inquilino: { ...prev.inquilino, razonSocial: e.target.value } } : null)}
                         placeholder="NOMBRE DEL INQUILINO"
@@ -3138,6 +3166,7 @@ export function DetalleUnidadModal({
                                         {item.icon && <item.icon className="w-3 h-3 text-muted-foreground" />}
                                         {(isEditing || isContratando) ? (
                                             <Input 
+                                                data-ficha-campo={item.key}
                                                 type={item.type || "text"}
                                                 inputMode={(item.label.includes("Monto") || item.label.includes("Garantía")) ? "numeric" : undefined}
                                                 value={
@@ -4203,10 +4232,7 @@ export function DetalleUnidadModal({
             )}
 
             <div className="space-y-4">
-                <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
-                          Meses a cobrar ({paymentForm.mesesSeleccionados.length || 0})
+                <div id="ficha-cobro-meses" className="space-y-2">
                         </label>
                         <button
                           type="button"
@@ -4309,6 +4335,7 @@ export function DetalleUnidadModal({
                     <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-muted-foreground">Gs.</span>
                         <Input 
+                            id="ficha-cobro-monto"
                             type="number"
                             value={paymentForm.monto}
                             onChange={(e) => setPaymentForm(prev => ({ ...prev, monto: Number(e.target.value) }))}

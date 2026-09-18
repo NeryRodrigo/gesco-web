@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { avisarCampoFaltante, campoPorId } from "./validacionProceso";
 
 // Interfaces actualizadas según tus Controllers
 interface UnidadCondominio {
@@ -130,7 +131,26 @@ export default function GastosInversionPage({ empresaId: propEmpresaId }: { empr
 
   const handleCrearGasto = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.unidadId === 0) return toast.error("Seleccione un Dúplex");
+    if (!selectedCondominio) {
+      avisarCampoFaltante("Elegí el condominio.", campoPorId("gasto-condominio"));
+      return;
+    }
+    if (formData.unidadId === 0) {
+      avisarCampoFaltante("Elegí el dúplex.", campoPorId("gasto-unidad"));
+      return;
+    }
+    if (!formData.descripcion.trim()) {
+      avisarCampoFaltante("Escribí de qué es la obra o el gasto.", campoPorId("gasto-descripcion"));
+      return;
+    }
+    if (!formData.monto || formData.monto <= 0) {
+      avisarCampoFaltante("El costo tiene que ser mayor a 0.", campoPorId("gasto-monto"));
+      return;
+    }
+    if (!formData.fecha) {
+      avisarCampoFaltante("Falta la fecha del gasto.", campoPorId("gasto-fecha"));
+      return;
+    }
     
     try {
       const res = await fetch(`${API_BASE}/api/Gastos`, {
@@ -142,10 +162,12 @@ export default function GastosInversionPage({ empresaId: propEmpresaId }: { empr
         toast.success("Gasto registrado");
         setIsModalOpen(false);
         setFormData(prev => ({ ...prev, descripcion: "", monto: 0 }));
-        setSelectedCondominio(""); // Reset del filtro
+        setSelectedCondominio("");
         fetchData();
+      } else {
+        toast.error("No se pudo guardar el gasto. Revisá los datos e intentá de nuevo.");
       }
-    } catch (e) { toast.error("Error al registrar"); }
+    } catch (e) { toast.error("No hay conexión con el servidor."); }
   };
 
   const formatGS = (n: number) => new Intl.NumberFormat("es-PY", { style: "currency", currency: "PYG", maximumFractionDigits: 0 }).format(n);
@@ -351,6 +373,7 @@ export default function GastosInversionPage({ empresaId: propEmpresaId }: { empr
             <div className="space-y-1">
               <label className="text-[10px] font-black uppercase text-slate-500 ml-1">1. Seleccionar Condominio</label>
               <select 
+                id="gasto-condominio"
                 className="w-full h-12 bg-[#161f2e] border-none rounded-xl px-4 text-sm font-bold outline-none focus:ring-2 ring-blue-500 text-white"
                 value={selectedCondominio} 
                 onChange={e => {
@@ -369,6 +392,7 @@ export default function GastosInversionPage({ empresaId: propEmpresaId }: { empr
             <div className="space-y-1">
               <label className="text-[10px] font-black uppercase text-slate-500 ml-1">2. Seleccionar Dúplex / Unidad</label>
               <select 
+                id="gasto-unidad"
                 className={`w-full h-12 border-none rounded-xl px-4 text-sm font-bold outline-none focus:ring-2 ring-red-600 text-white transition-opacity ${!selectedCondominio ? 'opacity-30 bg-slate-900 cursor-not-allowed' : 'bg-[#161f2e]'}`}
                 disabled={!selectedCondominio}
                 value={formData.unidadId} 
@@ -385,21 +409,21 @@ export default function GastosInversionPage({ empresaId: propEmpresaId }: { empr
 
             <div className="space-y-1">
               <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Descripción del Trabajo</label>
-              <Input placeholder="Ej. Pintura, Refacción..." className="bg-[#161f2e] border-none h-12 rounded-xl font-bold" value={formData.descripcion} onChange={e => setFormData({...formData, descripcion: e.target.value})} />
+              <Input id="gasto-descripcion" placeholder="Ej. Pintura, Refacción..." className="bg-[#161f2e] border-none h-12 rounded-xl font-bold" value={formData.descripcion} onChange={e => setFormData({...formData, descripcion: e.target.value})} />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Costo (Gs)</label>
-                <Input type="number" className="bg-[#161f2e] border-none h-12 rounded-xl font-black text-red-500" value={formData.monto || ''} onChange={e => setFormData({...formData, monto: parseInt(e.target.value) || 0})} />
+                <Input id="gasto-monto" type="number" className="bg-[#161f2e] border-none h-12 rounded-xl font-black text-red-500" value={formData.monto || ''} onChange={e => setFormData({...formData, monto: parseInt(e.target.value) || 0})} />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Fecha</label>
-                <Input type="date" className="bg-[#161f2e] border-none h-12 rounded-xl font-bold uppercase text-xs" value={formData.fecha} onChange={e => setFormData({...formData, fecha: e.target.value})} />
+                <Input id="gasto-fecha" type="date" className="bg-[#161f2e] border-none h-12 rounded-xl font-bold uppercase text-xs" value={formData.fecha} onChange={e => setFormData({...formData, fecha: e.target.value})} />
               </div>
             </div>
             
-            <Button type="submit" disabled={!formData.unidadId} className="w-full h-12 bg-red-600 hover:bg-red-700 text-white font-black italic uppercase rounded-xl shadow-xl shadow-red-900/20 disabled:opacity-50 transition-all">
+            <Button type="submit" className="w-full h-12 bg-red-600 hover:bg-red-700 text-white font-black italic uppercase rounded-xl shadow-xl shadow-red-900/20 transition-all">
                 Guardar en Historial
             </Button>
           </form>

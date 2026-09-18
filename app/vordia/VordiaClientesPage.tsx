@@ -29,6 +29,9 @@ export type CrmCliente = {
   fechaEstimadaCierre?: string | null;
   feeEstimadoMensual?: number | null;
   notas?: string | null;
+  origen?: string | null;
+  origenDetalle?: string | null;
+  mensajeInicial?: string | null;
   activo: boolean;
   cantidadHistorial?: number;
 };
@@ -113,6 +116,7 @@ export function VordiaClientesPage({ empresaId, usuario }: Props) {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("");
+  const [filtroOrigen, setFiltroOrigen] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState({ ...emptyForm });
@@ -298,15 +302,19 @@ export function VordiaClientesPage({ empresaId, usuario }: Props) {
   };
 
   const filtrados = useMemo(() => {
-    if (!q.trim()) return clientes;
-    const t = q.toLowerCase();
-    return clientes.filter(
-      (c) =>
+    const t = q.trim().toLowerCase();
+    return clientes.filter((c) => {
+      if (filtroOrigen && (c.origen || "manual") !== filtroOrigen) return false;
+      if (!t) return true;
+      return (
         c.razonSocial.toLowerCase().includes(t) ||
         (c.contactoNombre || "").toLowerCase().includes(t) ||
-        (c.sistemaServicio || "").toLowerCase().includes(t)
-    );
-  }, [clientes, q]);
+        (c.sistemaServicio || "").toLowerCase().includes(t) ||
+        (c.rubro || "").toLowerCase().includes(t) ||
+        (c.mensajeInicial || "").toLowerCase().includes(t)
+      );
+    });
+  }, [clientes, q, filtroOrigen]);
 
   return (
     <div className="vordia-hq-page animate-in fade-in duration-300 space-y-4">
@@ -331,6 +339,15 @@ export function VordiaClientesPage({ empresaId, usuario }: Props) {
             {PIPELINE_ESTADOS.map((e) => (
               <option key={e} value={e}>{e}</option>
             ))}
+          </select>
+          <select
+            value={filtroOrigen}
+            onChange={(e) => setFiltroOrigen(e.target.value)}
+            className="bg-[#050B18] border border-white/10 text-slate-300 rounded-xl px-3 py-2 text-sm w-full sm:w-auto"
+          >
+            <option value="">Todos los orígenes</option>
+            <option value="web">Entraron por la web</option>
+            <option value="manual">Cargados a mano</option>
           </select>
         </div>
         <Button onClick={abrirNuevo} className="bg-[#007bff] hover:bg-[#0069d9] rounded-xl font-bold gap-2 w-full lg:w-auto shrink-0">
@@ -364,6 +381,9 @@ export function VordiaClientesPage({ empresaId, usuario }: Props) {
                       <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-lg border ${estadoColor(c.estadoPipeline)}`}>
                         {c.estadoPipeline}
                       </span>
+                      {c.origen === "web" && (
+                        <span className="text-[10px] font-black uppercase tracking-wide text-[#5eb0ff]">Web</span>
+                      )}
                     </div>
                     <p className="text-xs text-[#94a3b8] mt-1 truncate">
                       {c.sistemaServicio || "Sin sistema definido"} · {c.contactoNombre || "Sin contacto"}
@@ -417,8 +437,15 @@ export function VordiaClientesPage({ empresaId, usuario }: Props) {
               <p className="flex items-center gap-2"><User size={14} /> {detalle.contactoNombre || "—"} {detalle.contactoCargo ? `· ${detalle.contactoCargo}` : ""}</p>
               <p className="flex items-center gap-2"><Mail size={14} /> {detalle.contactoEmail || detalle.email || "—"}</p>
               <p className="flex items-center gap-2"><Phone size={14} /> {detalle.contactoTelefono || detalle.telefono || "—"}</p>
-              <p><span className="text-slate-500">Rubro:</span> {detalle.rubro || "—"}</p>
+              <p><span className="text-slate-500">Rubro / ciudad:</span> {detalle.rubro || "—"}</p>
+              <p><span className="text-slate-500">Origen:</span> {detalle.origen === "web" ? "Formulario web" : detalle.origen || "manual"}</p>
               <p><span className="text-slate-500">Sistema:</span> {detalle.sistemaServicio || "—"}</p>
+              {detalle.mensajeInicial && (
+                <p className="text-xs bg-[#050B18] rounded-xl p-3 border border-white/5">
+                  <span className="text-slate-500">Necesidad inicial: </span>
+                  {detalle.mensajeInicial}
+                </p>
+              )}
               <p><span className="text-slate-500">Próximos pasos:</span> {detalle.proximosPasos || "—"}</p>
               <p><span className="text-slate-500">Cierre estimado:</span> {formatFecha(detalle.fechaEstimadaCierre)}</p>
               <p><span className="text-slate-500">Fee estimado:</span> {formatGs(detalle.feeEstimadoMensual)}</p>

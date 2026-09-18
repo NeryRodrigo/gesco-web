@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ContratoImprimible, descargarContratoDoc, descargarContratoPDF, resolveCodeudor, serializeCodeudorEnObservaciones } from "./ContratoImprimible";
+import { avisarCampoFaltante, campoPorId } from "./validacionProceso";
 import { digitoVerificadorRucPy, formatMilesPy, parseMilesPy } from "@/lib/rucParaguay";
 import { sharePdfViaWhatsApp, prepareWhatsAppShareWindow } from "@/lib/whatsappShare";
 import { formatFechaCorta, toApiDateTime } from "@/lib/utils";
@@ -194,8 +195,24 @@ export function GenerarEditarContratoModal({
       return false;
     }
 
-    if (!nombreCompleto.trim() || !documentoCompleto.trim()) {
-      toast.error("El nombre del inquilino y la cédula/RUC son obligatorios.");
+    if (!nombreCompleto.trim()) {
+      setActiveTab("edit");
+      avisarCampoFaltante("Falta el nombre del inquilino.", campoPorId("editar-contrato-nombre"));
+      return false;
+    }
+    if (!documentoCompleto.trim()) {
+      setActiveTab("edit");
+      avisarCampoFaltante("Falta la cédula o RUC.", campoPorId("editar-contrato-documento"));
+      return false;
+    }
+    if (!fechaInicio) {
+      setActiveTab("edit");
+      avisarCampoFaltante("Falta la fecha de inicio del contrato.", campoPorId("editar-contrato-inicio"));
+      return false;
+    }
+    if (!Number(montoMensual || 0)) {
+      setActiveTab("edit");
+      avisarCampoFaltante("El alquiler mensual tiene que ser mayor a 0.", campoPorId("editar-contrato-monto"));
       return false;
     }
 
@@ -452,6 +469,7 @@ export function GenerarEditarContratoModal({
                   Razón Social / Nombre Completo *
                 </Label>
                 <Input
+                  id="editar-contrato-nombre"
                   type="text"
                   value={nombreCompleto}
                   onChange={(e) => setNombreCompleto(e.target.value.toUpperCase())}
@@ -483,6 +501,7 @@ export function GenerarEditarContratoModal({
                   {tipoDocumento === "RUC" ? "Número de RUC *" : "Número de Cédula *"}
                 </Label>
                 <Input
+                  id="editar-contrato-documento"
                   type="text"
                   inputMode="numeric"
                   value={documentoCompleto}
@@ -554,6 +573,7 @@ export function GenerarEditarContratoModal({
                   Inicio Contrato
                 </Label>
                 <Input
+                  id="editar-contrato-inicio"
                   type="date"
                   value={fechaInicio}
                   onChange={(e) => setFechaInicio(e.target.value)}
@@ -587,6 +607,7 @@ export function GenerarEditarContratoModal({
                     <GsIcon className="text-muted-foreground" />
                   </div>    
                   <Input
+                    id="editar-contrato-monto"
                     type="text"
                     inputMode="numeric"
                     value={formatMilesPy(montoMensual)}

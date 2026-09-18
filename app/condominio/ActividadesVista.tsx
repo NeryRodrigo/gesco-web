@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { API_BASE } from "@/lib/api";
+import { avisarCampoFaltante, campoPorId } from "./validacionProceso";
 
 interface Actividad {
   actividadId: number;
@@ -94,16 +95,16 @@ export function ActividadesVista({ empresaId }: { empresaId: number }) {
     e.preventDefault();
     if (saving) return;
     if (!titulo.trim()) {
-      toast.warning("El título es obligatorio");
+      avisarCampoFaltante("Falta el título de la actividad.", campoPorId("actividad-titulo"));
       return;
     }
     if (!fecha) {
-      toast.warning("La fecha es obligatoria");
+      avisarCampoFaltante("Falta la fecha.", campoPorId("actividad-fecha"));
       return;
     }
     const fechaDate = new Date(`${fecha}T12:00:00`);
     if (Number.isNaN(fechaDate.getTime())) {
-      toast.warning("La fecha no es válida");
+      avisarCampoFaltante("La fecha no es válida.", campoPorId("actividad-fecha"));
       return;
     }
 
@@ -394,11 +395,11 @@ export function ActividadesVista({ empresaId }: { empresaId: number }) {
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Título *</label>
                     <Input
+                      id="actividad-titulo"
                       value={titulo}
                       onChange={(e) => setTitulo(e.target.value)}
                       placeholder="Ej: Mantenimiento de acondicionadores"
                       className="h-12 rounded-xl font-bold border-border bg-muted/40"
-                      required
                       disabled={saving}
                     />
                   </div>
@@ -420,11 +421,11 @@ export function ActividadesVista({ empresaId }: { empresaId: number }) {
                       <div className="relative">
                         <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <Input
+                          id="actividad-fecha"
                           type="date"
                           value={fecha}
                           onChange={(e) => setFecha(e.target.value)}
                           className="h-12 pl-12 rounded-xl font-bold border-border bg-muted/40"
-                          required
                           disabled={saving}
                         />
                       </div>

@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { MorosidadDetalleModal } from "./MorosidadDetalleModal";
 import { ReciboDineroModal } from "./ReciboDineroModal";
+import { avisarCampoFaltante, campoPorId } from "./validacionProceso";
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -92,8 +93,20 @@ export function MorosidadesMainModal({ isOpen, onClose }: { isOpen: boolean, onC
 
   const handleCrearSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inquilinoId || !unidadId || !montoTotal || !cuotas) {
-      toast.error("Complete los campos obligatorios");
+    if (!inquilinoId.trim()) {
+      avisarCampoFaltante("Falta el ID del inquilino.", campoPorId("mora-inquilino"));
+      return;
+    }
+    if (!unidadId.trim()) {
+      avisarCampoFaltante("Falta el ID de la unidad.", campoPorId("mora-unidad"));
+      return;
+    }
+    if (!montoTotal || Number(montoTotal) <= 0) {
+      avisarCampoFaltante("El monto de la deuda tiene que ser mayor a 0.", campoPorId("mora-monto"));
+      return;
+    }
+    if (!cuotas || Number(cuotas) < 1) {
+      avisarCampoFaltante("Indicá en cuántas cuotas se va a recuperar.", campoPorId("mora-cuotas"));
       return;
     }
     
@@ -404,20 +417,20 @@ export function MorosidadesMainModal({ isOpen, onClose }: { isOpen: boolean, onC
               <form onSubmit={handleCrearSubmit} className="space-y-4 mt-4">
                   <div className="space-y-2">
                       <Label className="font-bold text-xs uppercase">ID Inquilino (Ex)</Label>
-                      <Input value={inquilinoId} onChange={e => setInquilinoId(e.target.value)} required placeholder="Ej: 15" className="bg-secondary border-none h-12 rounded-xl" />
+                      <Input id="mora-inquilino" value={inquilinoId} onChange={e => setInquilinoId(e.target.value)} placeholder="Ej: 15" className="bg-secondary border-none h-12 rounded-xl" />
                   </div>
                   <div className="space-y-2">
                       <Label className="font-bold text-xs uppercase">ID Unidad Previa</Label>
-                      <Input value={unidadId} onChange={e => setUnidadId(e.target.value)} required placeholder="Ej: 8" className="bg-secondary border-none h-12 rounded-xl" />
+                      <Input id="mora-unidad" value={unidadId} onChange={e => setUnidadId(e.target.value)} placeholder="Ej: 8" className="bg-secondary border-none h-12 rounded-xl" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                           <Label className="font-bold text-xs uppercase">Monto Deuda (Gs.)</Label>
-                          <Input type="number" value={montoTotal} onChange={e => setMontoTotal(e.target.value)} required placeholder="Ej: 2500000" className="bg-secondary border-none h-12 rounded-xl" />
+                          <Input id="mora-monto" type="number" value={montoTotal} onChange={e => setMontoTotal(e.target.value)} placeholder="Ej: 2500000" className="bg-secondary border-none h-12 rounded-xl" />
                       </div>
                       <div className="space-y-2">
                           <Label className="font-bold text-xs uppercase">Cant. Cuotas</Label>
-                          <Input type="number" value={cuotas} onChange={e => setCuotas(e.target.value)} required placeholder="Ej: 5" className="bg-secondary border-none h-12 rounded-xl" />
+                          <Input id="mora-cuotas" type="number" value={cuotas} onChange={e => setCuotas(e.target.value)} placeholder="Ej: 5" className="bg-secondary border-none h-12 rounded-xl" />
                       </div>
                   </div>
                   <div className="space-y-2">

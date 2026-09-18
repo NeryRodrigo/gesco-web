@@ -6,7 +6,7 @@ import { Building2, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import {
+import { 
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -104,8 +104,8 @@ function buildMonthCells(contrato: Contrato | undefined, year: number, monthCoun
     if (idx >= 0 && idx < 12) paidByMonth[idx] += p.montoPagado || 0;
   }
 
-  let overallLastPaidMonthIdx = -1;
-  for (let m = 0; m < 12; m++) {
+    let overallLastPaidMonthIdx = -1;
+    for (let m = 0; m < 12; m++) {
     if (paidByMonth[m] > 0) overallLastPaidMonthIdx = m;
   }
 
@@ -326,38 +326,38 @@ export function AdministracionVista({ unidades, onTenantClick }: AdministracionV
           >
             <TooltipProvider delayDuration={400} skipDelayDuration={0}>
               <table className="min-w-[1500px] w-full border-collapse table-fixed">
-                <thead>
-                  <tr className="bg-slate-900 text-white">
+              <thead>
+                <tr className="bg-slate-900 text-white">
                     <th className="sticky top-0 left-0 z-40 bg-slate-900 p-4 sm:p-6 text-left min-w-[220px] w-[220px] border-r border-slate-800 shadow-[2px_0_8px_rgba(0,0,0,0.4)] align-middle">
                       <span className="text-[11px] font-black uppercase tracking-widest italic">
                         Inquilino / Unidad
                       </span>
-                    </th>
+                  </th>
                     <th className="sticky top-0 z-30 bg-slate-900 p-4 sm:p-6 text-center border-r border-slate-800 min-w-[80px] w-[80px] align-middle">
-                      <span className="text-[11px] font-black uppercase tracking-widest italic">Duplex</span>
-                    </th>
+                    <span className="text-[11px] font-black uppercase tracking-widest italic">Duplex</span>
+                  </th>
                     {visibleMonths.map((month) => (
                       <th
                         key={month}
                         className="sticky top-0 z-30 p-4 sm:p-6 text-center min-w-[130px] w-[130px] border-r border-slate-800 bg-slate-900 align-middle"
                       >
-                        <span className="text-[11px] font-black uppercase tracking-widest italic">{month}</span>
-                      </th>
-                    ))}
+                      <span className="text-[11px] font-black uppercase tracking-widest italic">{month}</span>
+                    </th>
+                  ))}
                     <th className="sticky top-0 z-30 p-4 sm:p-6 text-center min-w-[150px] w-[150px] bg-red-900/40 border-l border-slate-800 align-middle">
                       <span className="text-[11px] font-black uppercase tracking-widest italic text-red-200">
                         Deuda Total
                       </span>
-                    </th>
+                  </th>
                     <th className="sticky top-0 z-30 p-4 sm:p-6 text-center min-w-[150px] w-[150px] bg-slate-800 align-middle">
-                      <span className="text-[11px] font-black uppercase tracking-widest italic">Observaciones</span>
-                    </th>
-                  </tr>
-                </thead>
+                    <span className="text-[11px] font-black uppercase tracking-widest italic">Observaciones</span>
+                  </th>
+                </tr>
+              </thead>
                 <tbody>
                   {groupedRows.map((condo) => (
-                    <React.Fragment key={condo.name}>
-                      <tr className="bg-emerald-500/10">
+                  <React.Fragment key={condo.name}>
+                    <tr className="bg-emerald-500/10">
                         <td colSpan={monthCount + 4} className="px-6 py-3.5 align-middle">
                           <div className="flex items-center gap-3 min-h-[28px]">
                             <Building2 className="w-5 h-5 text-emerald-400 shrink-0" />
@@ -366,8 +366,8 @@ export function AdministracionVista({ unidades, onTenantClick }: AdministracionV
                             </span>
                             <div className="h-px flex-1 bg-emerald-500/20 ml-4" />
                           </div>
-                        </td>
-                      </tr>
+                          </td>
+                        </tr>
                       {condo.rows.map((row) => (
                         <UnitRow
                           key={row.unit.unidadId}
@@ -377,11 +377,11 @@ export function AdministracionVista({ unidades, onTenantClick }: AdministracionV
                           onTenantClick={onTenantClick}
                         />
                       ))}
-                    </React.Fragment>
-                  ))}
-                </tbody>
-                <tfoot className="bg-slate-900 text-white">
-                  <tr>
+                  </React.Fragment>
+                ))}
+              </tbody>
+              <tfoot className="bg-slate-900 text-white">
+                <tr>
                     <th
                       colSpan={2}
                       className="sticky left-0 z-30 bg-slate-900 p-6 sm:p-8 text-left border-r border-slate-800 shadow-[2px_0_8px_rgba(0,0,0,0.4)]"
@@ -389,31 +389,31 @@ export function AdministracionVista({ unidades, onTenantClick }: AdministracionV
                       <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 italic">
                         Totales hasta {MONTHS[currentMonthIdx]}
                       </span>
-                    </th>
-                    {monthlyTotals.map((total, idx) => (
+                  </th>
+                  {monthlyTotals.map((total, idx) => (
                       <th key={idx} className="p-4 border-r border-slate-800 bg-slate-900">
-                        <div className="flex flex-col items-center gap-1">
-                          <span className="text-[7px] font-black uppercase text-slate-500">Abonado</span>
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="text-[7px] font-black uppercase text-slate-500">Abonado</span>
                           <span className="text-[11px] font-black italic text-emerald-400">
                             {formatGs(total.abonado)}
                           </span>
-                          <span className="text-[7px] font-black uppercase text-red-400 mt-1">Saldo</span>
+                        <span className="text-[7px] font-black uppercase text-red-400 mt-1">Saldo</span>
                           <span className="text-[12px] font-black italic text-red-500">
                             {formatGs(total.saldo)}
                           </span>
-                        </div>
-                      </th>
-                    ))}
-                    <th className="p-4 bg-red-900/20 text-center border-l border-slate-800">
-                      <span className="text-[7px] font-black uppercase text-red-300 block mb-1">Total Saldo</span>
-                      <span className="text-[15px] font-black italic text-red-400">
-                        {formatGs(totalSaldoGeneral)}
-                      </span>
+                      </div>
                     </th>
+                  ))}
+                  <th className="p-4 bg-red-900/20 text-center border-l border-slate-800">
+                     <span className="text-[7px] font-black uppercase text-red-300 block mb-1">Total Saldo</span>
+                     <span className="text-[15px] font-black italic text-red-400">
+                        {formatGs(totalSaldoGeneral)}
+                     </span>
+                  </th>
                     <th className="bg-slate-900" />
-                  </tr>
-                </tfoot>
-              </table>
+                </tr>
+              </tfoot>
+            </table>
             </TooltipProvider>
           </div>
         </CardContent>
