@@ -4233,6 +4233,9 @@ export function DetalleUnidadModal({
 
             <div className="space-y-4">
                 <div id="ficha-cobro-meses" className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
+                          Meses a cobrar ({paymentForm.mesesSeleccionados.length || 0})
                         </label>
                         <button
                           type="button"

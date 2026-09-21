@@ -242,119 +242,43 @@ export function VordiaInstitucional() {
 
       {/* HERO */}
       <section id="inicio" className="relative overflow-hidden">
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(ellipse 68% 86% at 70% 46%, rgba(0,90,255,0.38) 0%, rgba(0,50,160,0.14) 36%, transparent 64%)",
-          }}
-        />
-        <div className="pointer-events-none absolute inset-x-[8%] bottom-[8%] h-px bg-gradient-to-r from-transparent via-[#006CFF]/55 to-transparent" />
-        <div className="pointer-events-none absolute top-[40px] right-[-2%] bottom-[-18%] hidden w-[58%] items-center justify-center lg:flex">
-          <div
-            className="absolute h-[400px] w-[400px] -translate-y-[10%] rounded-full"
-            style={{
-              background:
-                "radial-gradient(circle, rgba(40,140,255,0.38) 0%, rgba(0,80,255,0.12) 42%, transparent 68%)",
-            }}
+        <div className="relative w-full lg:aspect-[2170/725]">
+          <img
+            src="/images/web/vordia-4k.png?v=3"
+            alt=""
+            aria-hidden
+            className="pointer-events-none hidden object-contain object-center lg:absolute lg:left-1/2 lg:top-[54%] lg:block lg:h-[86%] lg:w-[86%] lg:-translate-x-1/2 lg:-translate-y-1/2"
           />
-          <div className="vordia-hero-mark relative z-10 w-[min(120%,820px)] max-w-none">
-            <img
-              src="/images/web/isotipo-hero.png?v=18"
-              alt=""
-              aria-hidden
-              className="vordia-hero-fade absolute inset-0 h-full w-full mix-blend-screen"
-              style={{
-                filter: "blur(22px) saturate(2.6) contrast(1.5) brightness(1.2)",
-                opacity: 0.38,
-              }}
-            />
-            <img
-              src="/images/web/isotipo-hero.png?v=18"
-              alt=""
-              aria-hidden
-              className="vordia-hero-fade absolute inset-0 h-full w-full mix-blend-screen"
-              style={{
-                filter: "contrast(2.1) brightness(1.45) saturate(1.15)",
-                opacity: 0.5,
-              }}
-            />
-            <img
-              src="/images/web/isotipo-hero.png?v=18"
-              alt=""
-              className="vordia-hero-fade relative w-full mix-blend-screen"
-              style={{
-                filter: "contrast(1.28) brightness(1.16) saturate(1.2)",
-              }}
-            />
-            <img
-              src="/images/web/isotipo-hero.png?v=18"
-              alt=""
-              aria-hidden
-              className="vordia-hero-reflection absolute inset-0 h-full w-full"
-            />
-            <div className="absolute left-1/2 top-[60%] h-[3px] w-[34%] -translate-x-1/2 rounded-full bg-[#9ad4ff]/70 blur-[3px]" />
-            <div className="absolute left-1/2 top-[59.5%] h-[42px] w-[42%] -translate-x-1/2 rounded-full bg-[#3d9fff]/40 blur-[20px]" />
-          </div>
-        </div>
-        <div className="relative z-10 mx-auto max-w-[1180px] px-5 pt-[108px] pb-20 sm:px-8 lg:pt-[124px] lg:pb-28">
-          <div className="vordia-fade-up max-w-[540px]">
-            <h1 className="font-sans text-[clamp(2.6rem,5.8vw,4.55rem)] font-extrabold leading-[1.04] tracking-[-0.042em] text-white">
-              Muchas partes.
-              <br />
-              <span className="text-[#3d8fff]">Una sola operación.</span>
-            </h1>
-            <p className="mt-6 max-w-[430px] text-[15px] leading-[1.7] text-[#AAB3C0]">
-              VORDIA conecta procesos, información y decisiones mediante plataformas especializadas
-              para cada sector.
-            </p>
-            <div className="mt-9 flex flex-wrap items-center gap-5">
-              <a
-                href="#soluciones"
-                className="inline-flex items-center gap-2 rounded-full bg-[#006CFF] px-6 py-3 text-[14px] font-semibold text-white shadow-[0_0_32px_rgba(0,108,255,0.45)]"
-              >
-                Encontrá tu solución <ArrowRight size={16} />
-              </a>
-              <a href="#como-trabajamos" className="text-[14px] font-medium text-[#5eb0ff] hover:text-white">
-                Conocé VORDIA
-              </a>
+          <div className="relative z-10 mx-auto flex h-full max-w-[1180px] flex-col justify-center px-5 pt-[100px] pb-8 sm:px-8 lg:pt-[64px] lg:pb-6">
+            <div className="vordia-fade-up max-w-[34rem]">
+              <h1 className="font-sans text-[clamp(1.9rem,3.5vw,3.1rem)] font-extrabold leading-[1.08] tracking-[-0.04em] text-white">
+                Muchas partes.
+                <br />
+                <span className="text-[#3d8fff]">Una sola operación.</span>
+              </h1>
+              <p className="mt-4 max-w-[26rem] text-[13px] leading-[1.65] text-[#AAB3C0] sm:text-[14px]">
+                VORDIA conecta procesos, información y decisiones mediante plataformas especializadas
+                para cada sector.
+              </p>
+              <div className="mt-7 flex flex-wrap items-center gap-5">
+                <a
+                  href="#soluciones"
+                  className="inline-flex items-center gap-2 rounded-full bg-[#006CFF] px-6 py-3 text-[14px] font-semibold text-white shadow-[0_0_32px_rgba(0,108,255,0.45)]"
+                >
+                  Encontrá tu solución <ArrowRight size={16} />
+                </a>
+                <a href="#como-trabajamos" className="text-[14px] font-medium text-[#5eb0ff] hover:text-white">
+                  Conocé VORDIA
+                </a>
+              </div>
             </div>
-          </div>
-          <div className="relative mt-12 flex justify-center lg:hidden">
-            <div
-              className="absolute h-[240px] w-[240px] rounded-full"
-              style={{
-                background:
-                  "radial-gradient(circle, rgba(30,120,255,0.4) 0%, rgba(0,80,255,0.14) 46%, transparent 70%)",
-              }}
+            <img
+              src="/images/web/vordia-4k.png?v=3"
+              alt=""
+              aria-hidden
+              className="mx-auto mt-8 w-[86%] object-contain object-center lg:hidden"
+              style={{ aspectRatio: "2170 / 725" }}
             />
-            <div className="relative z-10 w-[78%] max-w-[360px]">
-              <img
-                src="/images/web/isotipo-hero.png?v=18"
-                alt=""
-                aria-hidden
-                className="vordia-hero-fade absolute inset-0 h-full w-full mix-blend-screen"
-                style={{
-                  filter: "blur(16px) saturate(2.4) contrast(1.45) brightness(1.15)",
-                  opacity: 0.38,
-                }}
-              />
-              <img
-                src="/images/web/isotipo-hero.png?v=18"
-                alt=""
-                className="vordia-hero-fade relative w-full mix-blend-screen"
-                style={{
-                  filter: "contrast(1.28) brightness(1.16) saturate(1.2)",
-                }}
-              />
-              <img
-                src="/images/web/isotipo-hero.png?v=18"
-                alt=""
-                aria-hidden
-                className="vordia-hero-reflection absolute inset-0 h-full w-full"
-              />
-              <div className="absolute left-1/2 top-[60%] h-[3px] w-[40%] -translate-x-1/2 rounded-full bg-[#9ad4ff]/70 blur-[3px]" />
-            </div>
           </div>
         </div>
       </section>
