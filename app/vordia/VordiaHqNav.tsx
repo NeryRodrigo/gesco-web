@@ -313,6 +313,18 @@ export function VordiaHqSidebarNav({
   );
 }
 
+export function VordiaHqEcosistemaWidget() {
+  return (
+    <div className="rounded-xl border border-[#0e3d4a]/80 bg-[#051821] p-3">
+      <div className="flex items-center gap-2">
+        <span className="h-2 w-2 rounded-full bg-[#16D98B] shadow-[0_0_8px_#16D98B]" />
+        <p className="text-[11px] font-semibold text-[#D7F8EE]">Ecosistema conectado</p>
+      </div>
+      <p className="text-[10px] text-slate-500 mt-1 pl-4">Todos los sistemas operativos</p>
+    </div>
+  );
+}
+
 export function VordiaHqHealthWidget({
   score = 70,
   empresaId,

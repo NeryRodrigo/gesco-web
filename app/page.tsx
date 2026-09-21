@@ -7,7 +7,7 @@ import {
   ExternalLink, Save, X, DollarSign, Ruler, ShieldCheck, XCircle, 
   Search, Filter, Sparkles, User, Building2, Wallet, LogOut, 
   Activity, Users, FileText, Cpu, Lock, History, Settings, List, CheckSquare, Menu, Bed,
-  Package, FolderKanban, Truck, BarChart3, CreditCard, LineChart, Sprout
+  Package, FolderKanban, Truck, BarChart3, CreditCard, LineChart, Sprout, Bell, CalendarDays, ChevronDown
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,7 @@ import { ContabilidadPage } from "./contabilidad/ContabilidadPage";
 import { MigradorPage } from "./configuracion/MigradorPage";
 import { FontanaPage } from "./fontana/FontanaPage";
 import { VordiaHqInicio } from "./vordia/VordiaHqInicio";
-import { VordiaHqSidebarNav, VordiaHqHealthWidget, VORDIA_HQ_TITULOS } from "./vordia/VordiaHqNav";
+import { VordiaHqSidebarNav, VordiaHqEcosistemaWidget, VORDIA_HQ_TITULOS } from "./vordia/VordiaHqNav";
 import { VordiaClientesPage } from "./vordia/VordiaClientesPage";
 import { VordiaPipelinePage } from "./vordia/VordiaPipelinePage";
 import { VordiaContratosPage } from "./vordia/VordiaContratosPage";
@@ -613,7 +613,13 @@ export default function OimaDashboard() {
         </div>
 
         <div className="mt-auto p-5 lg:p-6 bg-[#0B1222]/50 border-t border-white/5 space-y-3">
-          {isUsuarioVordia && <VordiaHqHealthWidget empresaId={empresaId} />}
+          {isUsuarioVordia && <VordiaHqEcosistemaWidget />}
+          {isUsuarioVordia && (
+            <div className="flex items-center justify-between px-0.5">
+              <p className="text-[10px] font-semibold tracking-wide text-slate-500">VORDIA HQ</p>
+              <p className="text-[10px] text-slate-600">v1.0.0</p>
+            </div>
+          )}
           <div className="flex items-center gap-3 min-w-0">
             <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-xs shadow-lg shadow-blue-600/20 shrink-0">
               {usuarioActivo?.nombre?.charAt(0).toUpperCase()}
@@ -668,6 +674,18 @@ export default function OimaDashboard() {
               </button>
             )}
 
+            {isUsuarioVordia && vistaActual === "inicio" ? (
+              <div className="min-w-0">
+                <h2 className="text-[20px] lg:text-[24px] font-semibold text-white tracking-tight leading-none">
+                  Dashboard Ejecutivo
+                </h2>
+                <p className="mt-1.5 text-[11px] text-slate-400 truncate">
+                  {new Date().toLocaleDateString("es-PY", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                  <span className="mx-2 text-white/20">|</span>
+                  Bienvenido de nuevo
+                </p>
+              </div>
+            ) : (
             <h2 className={`mobile-title lg:text-2xl font-semibold text-white tracking-tight truncate capitalize lg:normal-case ${isUsuarioVordia ? "max-lg:text-[1.05rem]" : ""}`}>
               {isUsuarioVordia && VORDIA_HQ_TITULOS[vistaActual]
                 ? VORDIA_HQ_TITULOS[vistaActual]
@@ -681,9 +699,21 @@ export default function OimaDashboard() {
                         ? "Fontana · Condominio Agus"
                         : vistaActual.replace(/_/g, " ")}
             </h2>
+            )}
           </div>
 
-          <div className="flex items-center gap-2 lg:gap-4 shrink-0">
+          <div className="flex items-center gap-2 lg:gap-3 shrink-0">
+            {isUsuarioVordia && (
+              <div className="hidden lg:flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-slate-300">
+                <CalendarDays size={14} className="text-slate-400" />
+                <span>
+                  {new Date(new Date().getFullYear(), new Date().getMonth(), 1).toLocaleDateString("es-PY", { day: "numeric", month: "short", year: "numeric" })}
+                  {" - "}
+                  {new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toLocaleDateString("es-PY", { day: "numeric", month: "short", year: "numeric" })}
+                </span>
+                <ChevronDown size={14} className="text-slate-500" />
+              </div>
+            )}
             <div className="hidden md:flex items-center bg-white/5 border border-white/10 rounded-xl px-4 py-2 gap-3 text-slate-400">
                 <Search size={16} />
                 <input
@@ -692,14 +722,28 @@ export default function OimaDashboard() {
                   className="bg-transparent border-none outline-none text-xs w-40"
                 />
             </div>
-            {isUsuarioVordia && (
-              <div className="hidden lg:flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Periodo: {new Date().toLocaleDateString("es-PY", { month: "long", year: "numeric" })}
-              </div>
-            )}
-            <button type="button" className="h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 text-slate-400" aria-label="Actividad">
+            {isUsuarioVordia ? (
+              <>
+                <button type="button" className="relative h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 text-slate-400" aria-label="Notificaciones">
+                  <Bell size={18} />
+                  <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full bg-[#FF4D5A] text-[9px] font-bold text-white flex items-center justify-center">3</span>
+                </button>
+                <div className="hidden sm:flex items-center gap-2 pl-1">
+                  <div className="h-9 w-9 rounded-full bg-[#1687FF] flex items-center justify-center text-xs font-bold text-white">
+                    {(usuarioActivo?.nombre || "A").charAt(0).toUpperCase()}
+                  </div>
+                  <div className="leading-tight mr-1">
+                    <p className="text-[12px] font-semibold text-white">{usuarioActivo?.rol || "Admin"}</p>
+                    <p className="text-[10px] text-slate-400">VORDIA HQ</p>
+                  </div>
+                  <ChevronDown size={14} className="text-slate-500" />
+                </div>
+              </>
+            ) : (
+              <button type="button" className="h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 text-slate-400" aria-label="Actividad">
                 <Activity size={18} />
-            </button>
+              </button>
+            )}
           </div>
 
         </header>
