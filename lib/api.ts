@@ -16,10 +16,8 @@ function resolveApiBase() {
   if (host === "localhost" || host === "127.0.0.1") {
     return API_QUEMADA || "http://localhost:5034";
   }
-  if (API_QUEMADA && !/localhost|127\.0\.0\.1/.test(API_QUEMADA)) {
-    return API_QUEMADA;
-  }
-  return "https://vordia.duckdns.org";
+  // Mismo origen: /api lo manda Nginx a gesco-api y no hay CORS.
+  return window.location.origin;
 }
 
 export const API_BASE = resolveApiBase();
