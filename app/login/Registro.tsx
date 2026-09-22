@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { API_BASE, setAuthToken, installAuthFetch } from "@/lib/api";
+import { slugEmpresa } from "@/lib/vordiaEntornos";
 
 interface Usuario {
   id: number;
@@ -26,6 +27,14 @@ interface Usuario {
 interface Empresa {
   empresaId: number;
   razonSocial: string;
+}
+
+function slugDesdeUrl() {
+  if (typeof window === "undefined") return "";
+  const q = new URLSearchParams(window.location.search).get("empresa");
+  if (q) return slugEmpresa(q);
+  const seg = window.location.pathname.replace(/^\/+|\/+$/g, "").split("/")[0] || "";
+  return seg ? slugEmpresa(seg) : "";
 }
 
 export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: Usuario) => void }) {
@@ -66,7 +75,13 @@ export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: 
         .then(res => res.json())
         .then(data => {
             setEmpresas(data);
-            if (data.length > 0) setFormData(prev => ({ ...prev, empresaId: 7 }));
+            const slug = slugDesdeUrl();
+            const porUrl = slug
+              ? data.find((e: Empresa) => slugEmpresa(e.razonSocial) === slug)
+              : null;
+            const fallback = data.find((e: Empresa) => e.empresaId === 7) ?? data[0];
+            const elegida = porUrl ?? fallback;
+            if (elegida) setFormData(prev => ({ ...prev, empresaId: elegida.empresaId }));
         })
         .catch(() => toast.error("Error al conectar con el servidor"));
   }, []);
