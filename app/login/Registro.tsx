@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { API_BASE, setAuthToken, installAuthFetch } from "@/lib/api";
-import { slugEmpresa } from "@/lib/vordiaEntornos";
+import { empresaPorSlug, normalizarEmpresa, slugEmpresa, type EmpresaLogin } from "@/lib/vordiaEntornos";
 
 interface Usuario {
   id: number;
@@ -22,11 +22,6 @@ interface Usuario {
   empresaId: number;
   requiereCambioPass: boolean;
   rubro: string;
-}
-
-interface Empresa {
-  empresaId: number;
-  razonSocial: string;
 }
 
 function slugDesdeUrl() {
@@ -43,7 +38,7 @@ export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: 
   const [isResetting, setIsResetting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
-  const [empresas, setEmpresas] = useState<Empresa[]>([]);
+  const [empresas, setEmpresas] = useState<EmpresaLogin[]>([]);
   const [tempUserData, setTempUserData] = useState<Usuario | null>(null);
 
   const [showGoogleModal, setShowGoogleModal] = useState(false);
@@ -58,7 +53,7 @@ export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: 
     password: "",
     newPassword: "",
     confirmPassword: "",
-    empresaId: 7,
+    empresaId: 0,
     rol: "AGENTE",
     modulosIds: []
   });
@@ -74,13 +69,12 @@ export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: 
     fetch(`${API_URL}/api/Auth/empresas`)
         .then(res => res.json())
         .then(data => {
-            setEmpresas(data);
-            const slug = slugDesdeUrl();
-            const porUrl = slug
-              ? data.find((e: Empresa) => slugEmpresa(e.razonSocial) === slug)
-              : null;
-            const fallback = data.find((e: Empresa) => e.empresaId === 7) ?? data[0];
-            const elegida = porUrl ?? fallback;
+            const lista = (Array.isArray(data) ? data : [])
+              .map((raw) => normalizarEmpresa(raw as Record<string, unknown>))
+              .filter((e): e is EmpresaLogin => e != null);
+            setEmpresas(lista);
+            const porUrl = empresaPorSlug(lista, slugDesdeUrl());
+            const elegida = porUrl ?? lista[0];
             if (elegida) setFormData(prev => ({ ...prev, empresaId: elegida.empresaId }));
         })
         .catch(() => toast.error("Error al conectar con el servidor"));
@@ -98,6 +92,12 @@ export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: 
 
     if (isResetting) {
         handleUpdatePassword();
+        return;
+    }
+
+    if (!formData.empresaId) {
+        setLoginError("Seleccioná un entorno de trabajo");
+        setLoading(false);
         return;
     }
 
@@ -236,7 +236,7 @@ export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: 
               <>
                 <div className="space-y-2">
                   <Label className="text-gray-400 text-[10px] uppercase font-bold tracking-widest ml-1 flex items-center gap-2">Entorno de Trabajo <Info className="w-3 h-3 opacity-30" /></Label>
-                  <Select value={formData.empresaId.toString()} onValueChange={(v) => setFormData({...formData, empresaId: parseInt(v)})}>
+                  <Select value={formData.empresaId ? String(formData.empresaId) : undefined} onValueChange={(v) => setFormData({...formData, empresaId: parseInt(v)})}>
                     <SelectTrigger className="w-full bg-[#0a1120]/60 border-white/[0.1] text-white h-14 rounded-2xl px-5 font-bold">
                         <div className="flex items-center gap-3"><Building2 className="w-5 h-5 text-gray-500" /><SelectValue placeholder="Seleccioná tu entorno" /></div>
                     </SelectTrigger>
