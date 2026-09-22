@@ -1,13 +1,28 @@
 /**
  * Base URL del backend Gesco.API.
- * Local:  http://localhost:5034   (archivo .env.local)
- * Server: https://vordia.duckdns.org  (.env.local o .env.production.local en el servidor)
+ * Local:  http://localhost:5034
+ * Server: https://vordia.duckdns.org  (o la que se pase al build)
  *
- * No commitear .env.local — cada entorno tiene el suyo.
+ * Si Docker compiló sin NEXT_PUBLIC_API_BASE_URL, Next deja localhost y
+ * Documentos/CRM fallan con "Failed to fetch" en vordia.com.py.
  */
-export const API_BASE = (
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5034"
-).replace(/\/$/, "");
+const API_QUEMADA = (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(/\/$/, "");
+
+function resolveApiBase() {
+  if (typeof window === "undefined") {
+    return API_QUEMADA || "http://localhost:5034";
+  }
+  const host = window.location.hostname;
+  if (host === "localhost" || host === "127.0.0.1") {
+    return API_QUEMADA || "http://localhost:5034";
+  }
+  if (API_QUEMADA && !/localhost|127\.0\.0\.1/.test(API_QUEMADA)) {
+    return API_QUEMADA;
+  }
+  return "https://vordia.duckdns.org";
+}
+
+export const API_BASE = resolveApiBase();
 
 const JWT_KEY = "VORDIA_jwt";
 
