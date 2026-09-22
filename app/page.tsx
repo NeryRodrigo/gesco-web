@@ -404,13 +404,13 @@ export default function OimaDashboard() {
   return (
     <div className={`flex min-h-dvh bg-[#050B18] text-white font-sans overflow-x-hidden ${isUsuarioVordia ? "vordia-hq" : ""}`}>
       
-      {/* SIDEBAR — drawer en móvil; ancho fijo w-72 en escritorio (como antes) */}
+      {/* SIDEBAR — drawer en móvil; pie fijo para que Cerrar sesión no quede debajo */}
       <aside
         className={`
         ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
         lg:translate-x-0
         flex w-[min(18rem,88vw)] lg:w-72 lg:max-w-none bg-[#080E1E] flex-col border-r border-white/5
-        fixed inset-y-0 left-0 z-50 h-full
+        fixed inset-y-0 left-0 z-50 h-dvh max-h-dvh overflow-hidden
         transition-transform duration-200 ease-out will-change-transform
         max-lg:pt-[env(safe-area-inset-top)] max-lg:pb-[env(safe-area-inset-bottom)]
         `}
@@ -420,20 +420,20 @@ export default function OimaDashboard() {
         <button 
           type="button"
           onClick={() => setIsMobileMenuOpen(false)}
-          className="lg:hidden absolute top-4 right-4 text-slate-500 hover:text-white p-2.5 rounded-xl hover:bg-white/5"
+          className="lg:hidden absolute top-4 right-4 z-10 text-slate-500 hover:text-white p-2.5 rounded-xl hover:bg-white/5"
           aria-label="Cerrar menú"
         >
           <X size={22} />
         </button>
 
-        <div className="p-6 lg:p-8 flex flex-col items-center">
+        <div className="shrink-0 px-6 pt-6 pb-3 lg:px-8 lg:pt-8 lg:pb-6 flex flex-col items-center">
           
-          <div className={`${isUsuarioVordia ? "mb-6 lg:mb-9" : "mb-6 lg:mb-12"} w-full flex justify-start lg:justify-center cursor-pointer`} onClick={() => { irA("inicio"); setIsMobileMenuOpen(false); }}>
+          <div className={`${isUsuarioVordia ? "mb-3 lg:mb-9" : "mb-4 lg:mb-12"} w-full flex justify-start lg:justify-center cursor-pointer`} onClick={() => { irA("inicio"); setIsMobileMenuOpen(false); }}>
             {isUsuarioVordia ? (
               <div
                 role="img"
                 aria-label="Vordia HQ"
-                className="w-[188px] lg:w-[204px] mx-auto flex flex-col items-center transition-transform duration-500 hover:scale-[1.03]"
+                className="w-[140px] lg:w-[204px] mx-auto flex flex-col items-center transition-transform duration-500 hover:scale-[1.03]"
               >
                 <img
                   src="/images/vordia-hq-isotipo.png"
@@ -475,8 +475,9 @@ export default function OimaDashboard() {
               </div>
             )}
           </div>
+        </div>
 
-          <nav className="w-full space-y-1 overflow-y-auto max-h-[calc(100dvh-280px)] lg:max-h-[calc(100vh-320px)] custom-scrollbar overscroll-contain">
+          <nav className="flex-1 min-h-0 w-full space-y-1 overflow-y-auto overflow-x-hidden px-6 lg:px-8 custom-scrollbar overscroll-contain">
             {!isUsuarioVordia && (
               <p className="text-[10px] font-black uppercase text-[#007bff] tracking-[0.2em] mb-4 lg:mb-6 ml-2">
                 {isUsuarioAgro ? "Agrofield" : "Módulo de gestión"}
@@ -610,10 +611,13 @@ export default function OimaDashboard() {
               )}
             </div>
           </nav>
-        </div>
 
-        <div className="mt-auto p-5 lg:p-6 bg-[#0B1222]/50 border-t border-white/5 space-y-3">
-          {isUsuarioVordia && <VordiaHqEcosistemaWidget />}
+        <div className="shrink-0 p-4 lg:p-6 bg-[#0B1222]/50 border-t border-white/5 space-y-3">
+          {isUsuarioVordia && (
+            <div className="hidden lg:block">
+              <VordiaHqEcosistemaWidget />
+            </div>
+          )}
           {isUsuarioVordia && (
             <div className="flex items-center justify-between px-0.5">
               <p className="text-[10px] font-semibold tracking-wide text-slate-500">VORDIA HQ</p>
@@ -630,10 +634,23 @@ export default function OimaDashboard() {
                 {isUsuarioVordia ? (usuarioActivo?.rol || "Dirección") : usuarioActivo?.rol}
               </p>
             </div>
-            <button type="button" onClick={handleLogoutConfirmation} className="text-slate-500 hover:text-red-400 transition-colors p-2 shrink-0" aria-label="Cerrar sesión">
+            <button
+              type="button"
+              onClick={handleLogoutConfirmation}
+              className="hidden lg:inline-flex text-slate-500 hover:text-red-400 transition-colors p-2 shrink-0"
+              aria-label="Cerrar sesión"
+            >
               <LogOut size={16} />
             </button>
           </div>
+          <button
+            type="button"
+            onClick={handleLogoutConfirmation}
+            className="lg:hidden w-full flex items-center justify-center gap-2 rounded-xl border border-red-400/25 bg-red-500/10 px-3 py-2.5 text-xs font-semibold text-red-300 hover:bg-red-500/20 active:scale-[0.98] touch-manipulation"
+          >
+            <LogOut size={15} />
+            Cerrar sesión
+          </button>
         </div>
       </aside>
 

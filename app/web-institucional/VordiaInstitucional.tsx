@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import {
   ArrowRight,
   BarChart3,
@@ -143,14 +143,21 @@ function BtnDemo({
   );
 }
 
-export function VordiaInstitucional() {
+export function VordiaInstitucional({ entornoInicial }: { entornoInicial?: string }) {
+  const entorno = PRODUCTOS.some((p) => p.codigo === entornoInicial) ? entornoInicial! : "HABITAT";
   const [menu, setMenu] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
-  const [sector, setSector] = useState("HABITAT");
-  const [activo, setActivo] = useState("HABITAT");
+  const [sector, setSector] = useState(entorno);
+  const [activo, setActivo] = useState(entorno);
   const [sent, setSent] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!entornoInicial) return;
+    const seccion = document.getElementById("soluciones");
+    seccion?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [entornoInicial]);
 
   const producto = useMemo(
     () => PRODUCTOS.find((p) => p.codigo === activo) ?? PRODUCTOS[0],
