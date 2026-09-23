@@ -463,9 +463,9 @@ export default function OimaDashboard() {
               </div>
             ) : isUsuarioCondominio ? (
               <img
-                src="/fontanas.png"
+                src="/fontana-png.png"
                 alt="Fontana Di Luque"
-                className="w-40 lg:w-44 h-auto object-contain drop-shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-transform duration-500 hover:scale-105"
+                className="w-[7.5rem] lg:w-[9.5rem] h-auto object-contain drop-shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-transform duration-500 hover:scale-105"
               />
             ) : isUsuarioInmobiliaria ? (
               <img src="/remax-logo.png" alt="REMAX" className="h-12 w-auto object-contain shrink-0" />

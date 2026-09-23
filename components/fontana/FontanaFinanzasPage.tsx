@@ -43,8 +43,8 @@ export function FontanaFinanzasPage({ empresaId, habitaciones, reservas }: Props
   const [loading, setLoading] = useState(true);
   const [propiedad, setPropiedad] = useState<FontanaFinanzaPropiedad>("Todas");
   const [periodo, setPeriodo] = useState<FontanaPeriodoPreset>("mes");
-  const [fromCustom, setFromCustom] = useState("");
-  const [toCustom, setToCustom] = useState("");
+  const [fromCustom, setFromCustom] = useState(() => rangoPeriodo("mes").from);
+  const [toCustom, setToCustom] = useState(() => rangoPeriodo("mes").to);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     tipo: "ingreso" as FontanaMovimientoTipo,
@@ -71,10 +71,10 @@ export function FontanaFinanzasPage({ empresaId, habitaciones, reservas }: Props
     void reload();
   }, [reload]);
 
-  const { from, to } = useMemo(
-    () => rangoPeriodo(periodo, fromCustom, toCustom),
-    [periodo, fromCustom, toCustom]
-  );
+  const { from, to } = useMemo(() => {
+    if (fromCustom && toCustom) return { from: fromCustom, to: toCustom };
+    return rangoPeriodo(periodo, fromCustom, toCustom);
+  }, [periodo, fromCustom, toCustom]);
 
   const filtrados = useMemo(
     () => filtrarMovimientos(movimientos, { propiedad, from, to }),
@@ -124,10 +124,10 @@ export function FontanaFinanzasPage({ empresaId, habitaciones, reservas }: Props
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
           <h2 className="text-xl font-black italic uppercase tracking-tighter text-white flex items-center gap-2">
-            <Wallet className="w-5 h-5 text-amber-400" /> Finanzas
+            <Wallet className="w-5 h-5 text-amber-400" /> Movimientos
           </h2>
           <p className="text-[11px] text-slate-400 mt-1">
-            Persistido en API/BD · Abrí → mirá resultado → registrá cobro o gasto.
+            Cobros y gastos entre fecha de inicio y fecha de fin.
           </p>
         </div>
         <Button
@@ -163,13 +163,17 @@ export function FontanaFinanzasPage({ empresaId, habitaciones, reservas }: Props
               ["semana", "Semana"],
               ["mes", "Mes"],
               ["anio", "Año"],
-              ["custom", "Personalizado"],
             ] as const
           ).map(([k, label]) => (
             <button
               key={k}
               type="button"
-              onClick={() => setPeriodo(k)}
+              onClick={() => {
+                const r = rangoPeriodo(k);
+                setPeriodo(k);
+                setFromCustom(r.from);
+                setToCustom(r.to);
+              }}
               className={`min-h-9 px-3 rounded-lg text-[10px] font-black uppercase tracking-wider ${
                 periodo === k ? "bg-sky-500 text-slate-950" : "text-slate-400 hover:text-white"
               }`}
@@ -177,25 +181,40 @@ export function FontanaFinanzasPage({ empresaId, habitaciones, reservas }: Props
               {label}
             </button>
           ))}
-          {periodo === "custom" && (
-            <div className="flex gap-2 items-center">
-              <Input
-                type="date"
-                value={fromCustom}
-                onChange={(e) => setFromCustom(e.target.value)}
-                className="h-9 bg-black/30 border-white/10 text-white text-xs"
-              />
-              <Input
-                type="date"
-                value={toCustom}
-                onChange={(e) => setToCustom(e.target.value)}
-                className="h-9 bg-black/30 border-white/10 text-white text-xs"
-              />
-            </div>
-          )}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="space-y-1">
+            <span className="block text-[10px] font-black uppercase tracking-wider text-slate-400">
+              Fecha inicio
+            </span>
+            <Input
+              type="date"
+              value={fromCustom}
+              onChange={(e) => {
+                setPeriodo("custom");
+                setFromCustom(e.target.value);
+              }}
+              className="h-11 bg-black/30 border-white/10 text-white text-sm"
+            />
+          </label>
+          <label className="space-y-1">
+            <span className="block text-[10px] font-black uppercase tracking-wider text-slate-400">
+              Fecha fin
+            </span>
+            <Input
+              type="date"
+              value={toCustom}
+              min={fromCustom || undefined}
+              onChange={(e) => {
+                setPeriodo("custom");
+                setToCustom(e.target.value);
+              }}
+              className="h-11 bg-black/30 border-white/10 text-white text-sm"
+            />
+          </label>
         </div>
         <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">
-          Periodo {from} → {to}
+          Mostrando del {from} al {to}
         </p>
       </div>
 
@@ -222,7 +241,7 @@ export function FontanaFinanzasPage({ empresaId, habitaciones, reservas }: Props
       <section className="rounded-2xl border border-white/5 bg-[#0C1327]/80 overflow-hidden">
         <div className="px-4 py-3 border-b border-white/5">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-            Movimientos ({filtrados.length})
+            Movimientos ({filtrados.length}) · {from} → {to}
           </p>
         </div>
         {loading ? (

@@ -1,157 +1,52 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   BarChart3,
   GitMerge,
-  Instagram,
   Layers,
   LayoutGrid,
-  Linkedin,
-  Menu,
   Search,
   TrendingUp,
   Users,
-  X,
-  Youtube,
+  Waypoints,
 } from "lucide-react";
-import { apiUrl } from "@/lib/api";
-
-const FONDO = "#020407";
-const LOCKUP = "/images/web/lockup-wordmark.png";
-const AZUL = "#006CFF";
-
-const NAV = [
-  { href: "#soluciones", label: "Soluciones" },
-  { href: "#como-trabajamos", label: "Cómo trabajamos" },
-  { href: "#contacto", label: "Contacto" },
-];
-
-const PRODUCTOS = [
-  {
-    codigo: "HABITAT",
-    nombre: "Condominios y edificios",
-    texto: "Administración integral, finanzas, comunicación y operación en un solo lugar.",
-    pills: ["Administración centralizada", "Finanzas transparentes", "Comunicación eficiente"],
-    imagen: "/images/web/habitat-edificio.png",
-  },
-  {
-    codigo: "STAY",
-    nombre: "Hoteles y alojamientos",
-    texto: "Reservas, huéspedes y operación diaria con una sola visión de ocupación.",
-    pills: ["Reservas", "Huéspedes", "Ocupación"],
-    imagen: "/images/web/stay-hotel.png?v=2",
-  },
-  {
-    codigo: "DINE",
-    nombre: "Gastronomía",
-    texto: "Salón, cocina y caja dentro de una misma gestión, sin perder el ritmo.",
-    pills: ["Salón", "Cocina", "Caja"],
-    imagen: "/images/web/dine-restaurante.png?v=2",
-  },
-  {
-    codigo: "RETAIL",
-    nombre: "Comercio y librerías",
-    texto: "Del inventario a la venta, cada movimiento queda relacionado.",
-    pills: ["Inventario", "Ventas", "Caja"],
-    imagen: "/images/web/retail-comercio.png?v=2",
-  },
-  {
-    codigo: "BOUTIQUE",
-    nombre: "Moda",
-    texto: "Gestión especializada para el mundo de la moda, venta y alquiler.",
-    pills: ["Variantes", "Venta", "Alquiler"],
-    imagen: "/images/web/boutique-moda.png?v=2",
-  },
-  {
-    codigo: "OPS",
-    nombre: "Operaciones y logística",
-    texto: "Más trazabilidad para operaciones que no pueden detenerse.",
-    pills: ["Depósito", "Traslados", "Trazas"],
-    imagen: "/images/web/ops-logistica.png?v=2",
-  },
-  {
-    codigo: "AGRO",
-    nombre: "Producción agrícola",
-    texto: "Información organizada para cada etapa productiva.",
-    pills: ["Lotes", "Etapas", "Campañas"],
-    imagen: "/images/web/agro-produccion.png?v=2",
-  },
-];
-
-const TAMANOS = [
-  { value: "1-10", label: "1 a 10 personas o unidades" },
-  { value: "11-50", label: "11 a 50" },
-  { value: "51-200", label: "51 a 200" },
-  { value: "200+", label: "Más de 200" },
-];
-
-const GESTION = [
-  { value: "planillas", label: "Planillas, Excel y WhatsApp" },
-  { value: "otro_sistema", label: "Ya usamos otro sistema" },
-  { value: "mixto", label: "Mixto: planillas y un sistema" },
-  { value: "nada", label: "Todavía no tenemos un método claro" },
-];
-
-const HORARIOS = ["Mañana", "Mediodía", "Tarde", "WhatsApp cuando puedan"];
-
-const CAMPO =
-  "w-full rounded-lg border border-white/12 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-white/35 outline-none focus:border-[#006CFF]/60";
-const SELECT =
-  "w-full rounded-lg border border-white/12 bg-[#050B13] px-4 py-3 text-sm text-white outline-none focus:border-[#006CFF]/60";
-
-function Kicker({ children }: { children: string }) {
-  return (
-    <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#5eb0ff]">{children}</p>
-  );
-}
-
-function Title({
-  children,
-  className = "",
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <h2
-      className={`font-sans text-[clamp(1.55rem,2.8vw,2.15rem)] font-extrabold leading-[1.15] tracking-[-0.035em] text-white ${className}`}
-    >
-      {children}
-    </h2>
-  );
-}
-
-function BtnDemo({
-  onClick,
-  children,
-  className = "",
-}: {
-  onClick: () => void;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`inline-flex items-center justify-center gap-2 rounded-full bg-[#006CFF] px-5 py-2.5 text-[13px] font-semibold text-white shadow-[0_0_28px_rgba(0,108,255,0.4)] transition hover:bg-[#1a7aff] ${className}`}
-    >
-      {children}
-    </button>
-  );
-}
+import { VORDIA_PRODUCTOS } from "@/lib/vordiaProductos";
+import {
+  AZUL,
+  BtnDemo,
+  Kicker,
+  Title,
+  VordiaSitioChrome,
+  useVordiaSitio,
+} from "./VordiaSitioChrome";
 
 export function VordiaInstitucional({ entornoInicial }: { entornoInicial?: string }) {
-  const entorno = PRODUCTOS.some((p) => p.codigo === entornoInicial) ? entornoInicial! : "HABITAT";
-  const [menu, setMenu] = useState(false);
-  const [formOpen, setFormOpen] = useState(false);
-  const [sector, setSector] = useState(entorno);
+  const entorno = VORDIA_PRODUCTOS.some((p) => p.codigo === entornoInicial)
+    ? entornoInicial!
+    : "HABITAT";
+
+  return (
+    <VordiaSitioChrome sectorInicial={entorno}>
+      <HomeContenido entornoInicial={entornoInicial} entorno={entorno} />
+    </VordiaSitioChrome>
+  );
+}
+
+function HomeContenido({
+  entornoInicial,
+  entorno,
+}: {
+  entornoInicial?: string;
+  entorno: string;
+}) {
+  const { abrirDemo } = useVordiaSitio();
   const [activo, setActivo] = useState(entorno);
-  const [sent, setSent] = useState(false);
-  const [enviando, setEnviando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const producto = useMemo(
+    () => VORDIA_PRODUCTOS.find((p) => p.codigo === activo) ?? VORDIA_PRODUCTOS[0],
+    [activo]
+  );
 
   useEffect(() => {
     if (!entornoInicial) return;
@@ -159,130 +54,47 @@ export function VordiaInstitucional({ entornoInicial }: { entornoInicial?: strin
     seccion?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [entornoInicial]);
 
-  const producto = useMemo(
-    () => PRODUCTOS.find((p) => p.codigo === activo) ?? PRODUCTOS[0],
-    [activo]
-  );
-
-  function abrirDemo(codigo?: string) {
-    if (codigo) {
-      setSector(codigo);
-      setActivo(codigo);
-    }
-    setFormOpen(true);
-    setMenu(false);
-  }
-
-  async function enviarSolicitud(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    setEnviando(true);
-    setError(null);
-    try {
-      const res = await fetch(apiUrl("/api/leads"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nombre: fd.get("nombre"),
-          cargo: fd.get("cargo"),
-          empresa: fd.get("empresa"),
-          ciudad: fd.get("ciudad"),
-          email: fd.get("email"),
-          telefono: fd.get("telefono"),
-          sector: fd.get("sector"),
-          tamano: fd.get("tamano"),
-          gestionActual: fd.get("gestionActual"),
-          horarioContacto: fd.get("horarioContacto"),
-          necesidad: fd.get("necesidad"),
-          sitio: fd.get("sitio"),
-        }),
-      });
-      if (!res.ok) throw new Error(String(res.status));
-      setSent(true);
-    } catch {
-      setError("No pudimos enviar la solicitud. Escribinos por WhatsApp y lo resolvemos.");
-    } finally {
-      setEnviando(false);
-    }
-  }
-
   return (
-    <div className="min-h-screen overflow-x-hidden font-sans text-[#F5F7FA]" style={{ background: FONDO }}>
-      <header className="fixed inset-x-0 top-0 z-40 bg-[#020407]/70 backdrop-blur-xl">
-        <div className="mx-auto grid h-[72px] max-w-[1180px] grid-cols-[1fr_auto] items-center px-5 md:grid-cols-[1fr_auto_1fr] sm:px-8">
-          <a href="#inicio" className="justify-self-start" aria-label="VORDIA">
-            <img src={LOCKUP} alt="VORDIA" className="h-8 w-auto object-contain mix-blend-screen" />
-          </a>
-          <nav className="hidden items-center gap-10 md:flex">
-            {NAV.map((l) => (
-              <a key={l.href} href={l.href} className="text-[13px] text-white/65 transition-colors hover:text-white">
-                {l.label}
-              </a>
-            ))}
-          </nav>
-          <div className="flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => abrirDemo()}
-              className="hidden md:inline-flex items-center gap-2 rounded-full border border-[#006CFF] px-5 py-2 text-[13px] font-semibold text-white shadow-[0_0_22px_rgba(0,108,255,0.28)] hover:bg-[#006CFF]/12"
-            >
-              Solicitar una demo <ArrowRight size={14} />
-            </button>
-            <button type="button" className="p-2 md:hidden" onClick={() => setMenu((v) => !v)} aria-label="Menú">
-              {menu ? <X size={20} /> : <Menu size={20} />}
-            </button>
-          </div>
-        </div>
-        {menu && (
-          <div className="space-y-2 border-t border-white/10 bg-[#020407] px-5 py-4 md:hidden">
-            {NAV.map((l) => (
-              <a key={l.href} href={l.href} onClick={() => setMenu(false)} className="block py-2 text-[15px] text-white/80">
-                {l.label}
-              </a>
-            ))}
-            <BtnDemo onClick={() => abrirDemo()} className="mt-2 w-full">
-              Solicitar una demo
-            </BtnDemo>
-          </div>
-        )}
-      </header>
-
-      {/* HERO */}
+    <>
       <section id="inicio" className="relative overflow-hidden">
         <div className="relative w-full lg:aspect-[2170/725]">
           <img
             src="/images/web/vordia-4k.png?v=3"
-            alt=""
-            aria-hidden
+            alt="Composición visual del ecosistema VORDIA"
+            width={2170}
+            height={725}
+            fetchPriority="high"
+            decoding="async"
             className="pointer-events-none hidden object-contain object-center lg:absolute lg:left-1/2 lg:top-[54%] lg:block lg:h-[86%] lg:w-[86%] lg:-translate-x-1/2 lg:-translate-y-1/2"
           />
           <div className="relative z-10 mx-auto flex h-full max-w-[1180px] flex-col justify-center px-5 pt-[100px] pb-8 sm:px-8 lg:pt-[64px] lg:pb-6">
-            <div className="vordia-fade-up max-w-[34rem]">
-              <h1 className="font-sans text-[clamp(1.9rem,3.5vw,3.1rem)] font-extrabold leading-[1.08] tracking-[-0.04em] text-white">
-                Muchas partes.
-                <br />
-                <span className="text-[#3d8fff]">Una sola operación.</span>
+            <div className="vordia-fade-up max-w-[36rem]">
+              <Kicker>Software de gestión empresarial · Paraguay</Kicker>
+              <h1 className="mt-3 font-sans text-[clamp(1.7rem,3.2vw,2.7rem)] font-extrabold leading-[1.1] tracking-[-0.04em] text-white">
+                Software de gestión para empresas que operan en muchas partes.
               </h1>
-              <p className="mt-4 max-w-[26rem] text-[13px] leading-[1.65] text-[#AAB3C0] sm:text-[14px]">
-                VORDIA conecta procesos, información y decisiones mediante plataformas especializadas
-                para cada sector.
+              <p className="mt-4 font-sans text-[clamp(1.35rem,2.4vw,1.85rem)] font-extrabold leading-[1.15] tracking-[-0.035em] text-[#3d8fff]">
+                Muchas partes. Una sola operación.
+              </p>
+              <p className="mt-4 max-w-[28rem] text-[13px] leading-[1.65] text-[#AAB3C0] sm:text-[14px]">
+                VORDIA conecta personas, procesos, información y decisiones mediante plataformas
+                especializadas para cada sector.
               </p>
               <div className="mt-7 flex flex-wrap items-center gap-5">
-                <a
-                  href="#soluciones"
-                  className="inline-flex items-center gap-2 rounded-full bg-[#006CFF] px-6 py-3 text-[14px] font-semibold text-white shadow-[0_0_32px_rgba(0,108,255,0.45)]"
-                >
-                  Encontrá tu solución <ArrowRight size={16} />
-                </a>
-                <a href="#como-trabajamos" className="text-[14px] font-medium text-[#5eb0ff] hover:text-white">
-                  Conocé VORDIA
+                <BtnDemo onClick={() => abrirDemo()} className="px-6 py-3 text-[14px]">
+                  Solicitar una demostración <ArrowRight size={16} />
+                </BtnDemo>
+                <a href="#soluciones" className="text-[14px] font-medium text-[#5eb0ff] hover:text-white">
+                  Ver las soluciones
                 </a>
               </div>
             </div>
             <img
               src="/images/web/vordia-4k.png?v=3"
-              alt=""
-              aria-hidden
+              alt="Composición visual del ecosistema VORDIA"
+              width={2170}
+              height={725}
+              decoding="async"
               className="mx-auto mt-8 w-[86%] object-contain object-center lg:hidden"
               style={{ aspectRatio: "2170 / 725" }}
             />
@@ -290,26 +102,40 @@ export function VordiaInstitucional({ entornoInicial }: { entornoInicial?: strin
         </div>
       </section>
 
-      {/* LO QUE VORDIA CONECTA */}
       <section className="border-y border-white/[0.08]">
+        <div className="mx-auto max-w-[1180px] px-5 py-12 sm:px-8 sm:py-16">
+          <Kicker>El problema</Kicker>
+          <Title className="mt-3 max-w-2xl">
+            Cuando la operación vive en partes sueltas,{" "}
+            <span className="text-[#3d8fff]">decidir se vuelve lento.</span>
+          </Title>
+          <p className="mt-4 max-w-xl text-[14px] leading-relaxed text-[#AAB3C0]/85">
+            Los equipos, los datos y las tareas quedan en lugares distintos. VORDIA no suma
+            herramientas aisladas: ordena y conecta la operación.
+          </p>
+        </div>
+      </section>
+
+      <section className="border-b border-white/[0.08]">
         <div className="mx-auto grid max-w-[1180px] items-start gap-10 px-5 py-12 sm:px-8 sm:py-16 lg:grid-cols-[0.78fr_1.22fr] lg:gap-14">
           <div>
             <Kicker>Lo que VORDIA conecta</Kicker>
             <Title className="mt-3">
-              La operación completa,
+              Personas, procesos,
               <br />
-              <span className="text-[#3d8fff]">en una misma dirección.</span>
+              información y <span className="text-[#3d8fff]">decisiones.</span>
             </Title>
           </div>
-          <div className="grid sm:grid-cols-3">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4">
             {[
               { n: "01", Icon: Users, t: "Personas", d: "Equipos que saben qué hacer, cuándo hacerlo y qué necesita atención." },
               { n: "02", Icon: Layers, t: "Procesos", d: "Actividades conectadas, responsabilidades claras y continuidad operativa." },
               { n: "03", Icon: BarChart3, t: "Información", d: "Datos ordenados que se convierten en visibilidad y mejores decisiones." },
+              { n: "04", Icon: Waypoints, t: "Decisiones", d: "Una misma visión para actuar con contexto, no con partes sueltas." },
             ].map((x, i) => (
               <div
                 key={x.n}
-                className={`px-0 py-4 sm:px-6 sm:py-0 ${i > 0 ? "sm:border-l sm:border-white/[0.08]" : ""}`}
+                className={`px-0 py-4 sm:px-5 sm:py-0 ${i > 0 ? "sm:border-l sm:border-white/[0.08]" : ""}`}
               >
                 <div className="flex items-center gap-3 text-[#5eb0ff]">
                   <span className="text-[12px] font-semibold tabular-nums">{x.n}</span>
@@ -323,7 +149,6 @@ export function VordiaInstitucional({ entornoInicial }: { entornoInicial?: strin
         </div>
       </section>
 
-      {/* LO QUE CAMBIA */}
       <section className="relative overflow-hidden py-16 sm:py-20">
         <div
           className="pointer-events-none absolute inset-0"
@@ -332,9 +157,9 @@ export function VordiaInstitucional({ entornoInicial }: { entornoInicial?: strin
         <div className="relative mx-auto max-w-[1180px] px-5 sm:px-8">
           <Kicker>Lo que cambia</Kicker>
           <Title className="mt-3 max-w-xl">
-            La complejidad deja
+            Lo que cambia cuando
             <br />
-            de sentirse <span className="text-[#3d8fff]">fragmentada.</span>
+            la operación está <span className="text-[#3d8fff]">conectada.</span>
           </Title>
           <div className="mt-12">
             <svg className="mx-auto hidden h-[150px] w-full max-w-[920px] sm:block" viewBox="0 0 920 150" fill="none" aria-hidden>
@@ -366,9 +191,9 @@ export function VordiaInstitucional({ entornoInicial }: { entornoInicial?: strin
             </svg>
             <div className="grid gap-10 sm:grid-cols-3">
               {[
-                { t: "De datos dispersos", d: "a información útil." },
-                { t: "De tareas aisladas", d: "a procesos conectados." },
-                { t: "De reaccionar tarde", d: "a decidir con claridad." },
+                { t: "De datos dispersos", d: "a información útil y centralizada." },
+                { t: "De tareas aisladas", d: "a procesos conectados, con menos trabajo manual." },
+                { t: "De reaccionar tarde", d: "a decidir con trazabilidad y continuidad." },
               ].map((x) => (
                 <div key={x.t} className="sm:pt-2">
                   <p className="text-[15px] font-semibold text-white">{x.t}</p>
@@ -380,34 +205,32 @@ export function VordiaInstitucional({ entornoInicial }: { entornoInicial?: strin
         </div>
       </section>
 
-      {/* ECOSISTEMA */}
       <section id="soluciones" className="border-t border-white/[0.08] py-16 sm:py-24">
         <div className="mx-auto grid max-w-[1180px] items-stretch gap-10 px-5 sm:px-8 lg:grid-cols-[0.78fr_1.22fr] lg:gap-12">
           <div className="flex flex-col justify-center">
             <Kicker>Ecosistema VORDIA</Kicker>
             <Title className="mt-3">
-              Una tecnología.
+              Siete soluciones.
               <br />
-              Siete soluciones
+              Una misma lógica
               <br />
-              <span className="text-[#3d8fff]">especializadas.</span>
+              <span className="text-[#3d8fff]">operativa.</span>
             </Title>
             <p className="mt-5 max-w-md text-[14px] leading-relaxed text-[#AAB3C0]/85">
               Distintos sectores. Una misma lógica. Cada solución entiende la realidad de su
               industria y comparte la precisión, la claridad y la visión de VORDIA.
             </p>
-            <button
-              type="button"
-              onClick={() => abrirDemo(activo)}
+            <a
+              href={`/${producto.slug}`}
               className="mt-6 inline-flex items-center gap-2 text-[13px] font-semibold text-[#5eb0ff] hover:text-white"
             >
-              Conocé todas las soluciones <ArrowRight size={14} />
-            </button>
+              Conocer {producto.codigo} <ArrowRight size={14} />
+            </a>
           </div>
 
           <div className="overflow-hidden rounded-2xl border border-[#006CFF]/25 bg-[#050B13] shadow-[0_0_48px_rgba(0,108,255,0.1)]">
             <div className="flex gap-2 overflow-x-auto border-b border-white/[0.06] px-3 py-3 lg:hidden">
-              {PRODUCTOS.map((p, i) => (
+              {VORDIA_PRODUCTOS.map((p, i) => (
                 <button
                   key={p.codigo}
                   type="button"
@@ -422,7 +245,7 @@ export function VordiaInstitucional({ entornoInicial }: { entornoInicial?: strin
             </div>
             <div className="grid min-h-[420px] lg:grid-cols-[148px_1fr]">
               <ol className="hidden border-r border-white/[0.06] py-4 lg:block">
-                {PRODUCTOS.map((p, i) => (
+                {VORDIA_PRODUCTOS.map((p, i) => (
                   <li key={p.codigo}>
                     <button
                       type="button"
@@ -445,7 +268,11 @@ export function VordiaInstitucional({ entornoInicial }: { entornoInicial?: strin
                 <img
                   key={producto.codigo}
                   src={producto.imagen}
-                  alt=""
+                  alt={producto.imagenAlt}
+                  width={900}
+                  height={600}
+                  loading="lazy"
+                  decoding="async"
                   className="absolute inset-0 h-full w-full object-cover object-center"
                 />
                 <div className="absolute inset-0 bg-gradient-to-r from-[#050B13] via-[#050B13]/78 to-[#050B13]/15" />
@@ -456,9 +283,21 @@ export function VordiaInstitucional({ entornoInicial }: { entornoInicial?: strin
                   </h3>
                   <p className="mt-1 text-[13px] text-white/55">{producto.nombre}</p>
                   <p className="mt-3 text-[14px] leading-relaxed text-white/78">{producto.texto}</p>
-                  <BtnDemo onClick={() => abrirDemo(producto.codigo)} className="mt-6 w-fit">
-                    Conocer la solución <ArrowRight size={14} />
-                  </BtnDemo>
+                  <div className="mt-6 flex flex-wrap items-center gap-3">
+                    <a
+                      href={`/${producto.slug}`}
+                      className="inline-flex items-center gap-2 rounded-full bg-[#006CFF] px-5 py-2.5 text-[13px] font-semibold text-white"
+                    >
+                      Conocer {producto.codigo} <ArrowRight size={14} />
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => abrirDemo(producto.codigo)}
+                      className="text-[13px] font-medium text-[#5eb0ff] hover:text-white"
+                    >
+                      Solicitar una demo
+                    </button>
+                  </div>
                   <div className="mt-6 space-y-1.5">
                     {producto.pills.map((pill) => (
                       <p key={pill} className="text-[12px] text-white/62">
@@ -473,18 +312,19 @@ export function VordiaInstitucional({ entornoInicial }: { entornoInicial?: strin
         </div>
       </section>
 
-      {/* CÓMO TRABAJAMOS */}
       <section id="como-trabajamos" className="border-t border-white/[0.08] py-16 sm:py-20">
         <div className="mx-auto grid max-w-[1180px] items-start gap-10 px-5 sm:px-8 lg:grid-cols-[0.72fr_1.28fr] lg:gap-14">
           <div>
             <Kicker>Cómo trabajamos</Kicker>
             <Title className="mt-3">
-              Tecnología que parte
+              Entender.
               <br />
-              de la operación real.
+              Conectar.
+              <br />
+              <span className="text-[#3d8fff]">Hacer visible.</span>
             </Title>
             <p className="mt-4 text-[14px] leading-relaxed text-[#AAB3C0]/80">
-              Desde la estrategia hasta la operación, te acompañamos en cada etapa.
+              Tecnología que parte de la operación real, no de un catálogo genérico.
             </p>
           </div>
           <div className="grid sm:grid-cols-3">
@@ -511,7 +351,6 @@ export function VordiaInstitucional({ entornoInicial }: { entornoInicial?: strin
         </div>
       </section>
 
-      {/* LA DIFERENCIA */}
       <section className="border-t border-white/[0.08] py-16 sm:py-20">
         <div className="mx-auto max-w-[1180px] px-5 sm:px-8">
           <Kicker>La diferencia VORDIA</Kicker>
@@ -548,11 +387,38 @@ export function VordiaInstitucional({ entornoInicial }: { entornoInicial?: strin
         </div>
       </section>
 
-      {/* CTA FINAL */}
+      <section className="border-t border-white/[0.08] py-16 sm:py-20">
+        <div className="mx-auto max-w-[1180px] px-5 sm:px-8">
+          <Kicker>Cómo se trabaja con VORDIA</Kicker>
+          <Title className="mt-3 max-w-xl">
+            Si querés conocer VORDIA,
+            <br />
+            el siguiente paso es una <span className="text-[#3d8fff]">demostración.</span>
+          </Title>
+          <div className="mt-10 grid gap-8 sm:grid-cols-3">
+            {[
+              { n: "01", t: "Contanos tu operación", d: "Indicá el sector y cómo se gestiona hoy. No hace falta un expediente completo." },
+              { n: "02", t: "Revisamos la solicitud", d: "Un responsable de VORDIA lee el caso y se comunica para coordinar el siguiente paso." },
+              { n: "03", t: "Conversación y demostración", d: "Vemos juntas si la solución corresponde a tu operación." },
+            ].map((x) => (
+              <div key={x.n}>
+                <p className="text-[12px] font-semibold text-[#5eb0ff]">{x.n}</p>
+                <h3 className="mt-2 text-[16px] font-semibold text-white">{x.t}</h3>
+                <p className="mt-2 text-[13px] leading-relaxed text-[#AAB3C0]/80">{x.d}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section id="contacto" className="relative overflow-hidden border-t border-white/[0.08]">
         <img
           src="/images/web/cityscape-cta.png"
           alt=""
+          width={1600}
+          height={700}
+          loading="lazy"
+          decoding="async"
           className="absolute inset-0 h-full w-full object-cover object-right"
         />
         <div
@@ -577,125 +443,6 @@ export function VordiaInstitucional({ entornoInicial }: { entornoInicial?: strin
           </BtnDemo>
         </div>
       </section>
-
-      <footer className="border-t border-white/[0.08] py-7">
-        <div className="mx-auto flex max-w-[1180px] flex-col items-center justify-between gap-5 px-5 sm:flex-row sm:px-8">
-          <img src={LOCKUP} alt="VORDIA" className="h-7 w-auto object-contain mix-blend-screen" />
-          <nav className="flex items-center gap-6 text-[13px] text-white/45">
-            {NAV.map((l) => (
-              <a key={l.href} href={l.href} className="hover:text-white">
-                {l.label}
-              </a>
-            ))}
-          </nav>
-          <div className="flex items-center gap-4 text-white/40">
-            <a href="https://www.linkedin.com" target="_blank" rel="noreferrer" aria-label="LinkedIn">
-              <Linkedin size={16} />
-            </a>
-            <a href="https://www.instagram.com" target="_blank" rel="noreferrer" aria-label="Instagram">
-              <Instagram size={16} />
-            </a>
-            <a href="https://www.youtube.com" target="_blank" rel="noreferrer" aria-label="YouTube">
-              <Youtube size={16} />
-            </a>
-            <span className="hidden h-4 w-px bg-white/15 sm:block" />
-            <p className="text-[11px] text-white/30">© 2026 VORDIA. Todos los derechos reservados.</p>
-          </div>
-        </div>
-      </footer>
-
-      {formOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setFormOpen(false)}>
-          <div
-            className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-white/10 bg-[#050B13] p-5 sm:p-7"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div>
-                <Kicker>Solicitar una demostración</Kicker>
-                <h3 className="mt-2 text-[20px] font-semibold text-white">Contanos tu operación</h3>
-                <p className="mt-1 text-[13px] text-white/50">
-                  Estos datos entran a Vordia HQ como cliente potencial para contactarte.
-                </p>
-              </div>
-              <button type="button" onClick={() => setFormOpen(false)} className="p-1 text-white/40 hover:text-white">
-                <X size={18} />
-              </button>
-            </div>
-            {sent ? (
-              <p className="py-6 text-[15px] leading-relaxed text-white/75">
-                Recibimos tus datos. Un responsable de Vordia va a revisar la solicitud y te va a
-                escribir para coordinar la primera conversación.
-              </p>
-            ) : (
-              <form className="space-y-3" onSubmit={enviarSolicitud}>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <input name="nombre" required placeholder="Nombre y apellido *" className={CAMPO} />
-                  <input name="cargo" required placeholder="Cargo *" className={CAMPO} />
-                  <input name="empresa" required placeholder="Empresa *" className={CAMPO} />
-                  <input name="ciudad" required placeholder="Ciudad *" className={CAMPO} />
-                  <input name="email" type="email" required placeholder="Correo electrónico *" className={CAMPO} />
-                  <input name="telefono" required inputMode="tel" placeholder="Teléfono o WhatsApp *" className={CAMPO} />
-                </div>
-                <select name="sector" required defaultValue={sector} className={SELECT}>
-                  {PRODUCTOS.map((p) => (
-                    <option key={p.codigo} value={p.codigo}>
-                      {p.codigo} — {p.nombre}
-                    </option>
-                  ))}
-                  <option value="hablar">Todavía no lo definí</option>
-                </select>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <select name="tamano" required defaultValue="" className={SELECT}>
-                    <option value="" disabled>
-                      Tamaño de la operación *
-                    </option>
-                    {TAMANOS.map((t) => (
-                      <option key={t.value} value={t.value}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </select>
-                  <select name="gestionActual" required defaultValue="" className={SELECT}>
-                    <option value="" disabled>
-                      ¿Cómo se gestiona hoy? *
-                    </option>
-                    {GESTION.map((g) => (
-                      <option key={g.value} value={g.value}>
-                        {g.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <select name="horarioContacto" defaultValue="" className={SELECT}>
-                  <option value="">Mejor horario para contactarte</option>
-                  {HORARIOS.map((h) => (
-                    <option key={h} value={h}>
-                      {h}
-                    </option>
-                  ))}
-                </select>
-                <textarea
-                  name="necesidad"
-                  required
-                  rows={3}
-                  placeholder="¿Qué necesita resolver tu operación? *"
-                  className={`${CAMPO} resize-y`}
-                />
-                <input name="sitio" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden="true" />
-                <button
-                  type="submit"
-                  disabled={enviando}
-                  className="w-full rounded-full bg-[#006CFF] px-5 py-3 text-[14px] font-semibold text-white disabled:opacity-60"
-                >
-                  {enviando ? "Enviando…" : "Enviar solicitud"}
-                </button>
-                {error && <p className="text-[13px] text-red-300/80">{error}</p>}
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+    </>
   );
 }

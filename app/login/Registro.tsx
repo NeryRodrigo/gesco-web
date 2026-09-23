@@ -28,8 +28,9 @@ function slugDesdeUrl() {
   if (typeof window === "undefined") return "";
   const q = new URLSearchParams(window.location.search).get("empresa");
   if (q) return slugEmpresa(q);
-  const seg = window.location.pathname.replace(/^\/+|\/+$/g, "").split("/")[0] || "";
-  return seg ? slugEmpresa(seg) : "";
+  const partes = window.location.pathname.replace(/^\/+|\/+$/g, "").split("/");
+  if (partes[0] === "acceso" && partes[1]) return slugEmpresa(partes[1]);
+  return partes[0] ? slugEmpresa(partes[0]) : "";
 }
 
 export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: Usuario) => void }) {

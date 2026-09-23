@@ -33,6 +33,66 @@ export const VORDIA_ENTORNO_CANONICOS = [
   "agro",
 ] as const;
 
+export type VordiaProductoSlug = (typeof VORDIA_ENTORNO_CANONICOS)[number];
+
+export const VORDIA_SLUGS_PRODUCTO = new Set<string>(VORDIA_ENTORNO_CANONICOS);
+
+/** Alias de marketing → slug canónico. Solo se redirigen en el dominio público. */
+export const VORDIA_ALIAS_CANONICO: Record<string, VordiaProductoSlug> = {
+  condominios: "habitat",
+  condominio: "habitat",
+  edificios: "habitat",
+  hotel: "stay",
+  hoteles: "stay",
+  hostel: "stay",
+  alojamiento: "stay",
+  gastronomia: "dine",
+  restaurante: "dine",
+  restaurantes: "dine",
+  comercio: "retail",
+  moda: "boutique",
+  logistica: "ops",
+  agricola: "agro",
+};
+
+/** Rutas del HQ que no deben convertirse en login ni en landing. */
+export const VORDIA_MODULOS_HQ = new Set([
+  "condominio",
+  "stay",
+  "agro",
+  "hostel",
+  "captacion",
+  "configuracion",
+  "factura",
+  "nueva-factura",
+  "web",
+  "web-institucional",
+  "login",
+  "sitio",
+  "acceso",
+  "recursos",
+]);
+
+export const VORDIA_RESERVADOS = new Set([
+  "web",
+  "api",
+  "login",
+  "acceso",
+  "images",
+  "icons",
+  "favicon.ico",
+  "_next",
+  "sitio",
+  "recursos",
+  "robots.txt",
+  "sitemap.xml",
+]);
+
+export function esRecursoEstatico(pathname: string) {
+  const ultimo = pathname.split("/").filter(Boolean).pop() || "";
+  return ultimo.includes(".");
+}
+
 export function entornoDesdeSlug(slug: string | null | undefined): string | null {
   if (!slug) return null;
   const key = slug.trim().toLowerCase().replace(/\/+$/, "");
@@ -65,7 +125,6 @@ export function normalizarEmpresa(raw: Record<string, unknown>): EmpresaLogin | 
 const RUBRO_POR_SLUG: Record<string, string> = {
   vordia: "VORDIA",
   agrofield: "AGRO",
-  agro: "AGRO",
 };
 
 export function empresaPorSlug(empresas: EmpresaLogin[], slug: string | null | undefined) {
