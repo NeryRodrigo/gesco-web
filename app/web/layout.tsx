@@ -35,6 +35,12 @@ const JSON_LD = {
       url: "https://www.vordia.com.py",
       logo: "https://www.vordia.com.py/images/web/lockup-wordmark.png",
       areaServed: "PY",
+      sameAs: [
+        "https://www.linkedin.com/in/vordia-py-4ab885439/",
+        "https://www.instagram.com/vordia.py/",
+        "https://www.youtube.com/channel/UCkvRt8wEcA7P9ufYWLJRGgQ",
+        "https://www.tiktok.com/@vordia.py",
+      ],
     },
     {
       "@type": "WebSite",
