@@ -14,7 +14,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: `https://www.vordia.com.py/${slug}`,
       lastModified: now,
       changeFrequency: "weekly" as const,
-      priority: 0.8,
+      priority: slug === "habitat" ? 0.9 : 0.8,
     })),
   ];
 }

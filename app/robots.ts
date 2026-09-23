@@ -5,7 +5,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/login", "/api/"],
+      disallow: ["/login", "/api/", "/acceso", "/acceso/", "/sitio/", "/web-institucional"],
     },
     sitemap: "https://www.vordia.com.py/sitemap.xml",
     host: "https://www.vordia.com.py",

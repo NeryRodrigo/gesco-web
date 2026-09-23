@@ -23,6 +23,7 @@ import {
   Receipt,
   Clock,
   Settings,
+  Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import { API_BASE } from "@/lib/api";
@@ -232,6 +233,9 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [fichaTab, setFichaTab] = useState<FichaTab>("reserva");
   const [fontanaVista, setFontanaVista] = useState<FontanaVista>("croquis");
+  const [filtroLugar, setFiltroLugar] = useState("todas");
+  const [filtroEstado, setFiltroEstado] = useState<"todas" | "ocupadas" | "libres">("todas");
+  const [busquedaHospedaje, setBusquedaHospedaje] = useState("");
   const [finanzasTick, setFinanzasTick] = useState(0);
   const [desocupando, setDesocupando] = useState(false);
   const [comprobanteOpen, setComprobanteOpen] = useState(false);
@@ -482,6 +486,50 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
       });
     }
     return map;
+  }, [habitaciones]);
+
+  const gruposHospedaje = useMemo(() => {
+    const q = busquedaHospedaje.trim().toLowerCase();
+    const groups = new Map<string, Habitacion[]>();
+    for (const h of habitaciones) {
+      const d = parseFontanaDetalles(h.detallesJson);
+      const lugar = (d.nombreLugar || "Otros").trim() || "Otros";
+      if (filtroLugar !== "todas" && !sameLugar(lugar, filtroLugar)) continue;
+      const ocupada = h.estado === "Ocupada" || d.estadoInquilino === "Activo" || d.estadoInquilino === "Moroso";
+      if (filtroEstado === "ocupadas" && !ocupada) continue;
+      if (filtroEstado === "libres" && ocupada) continue;
+      const etiqueta = (etiquetaPorHabitacionId.get(h.habitacionId) || h.nombre || "").toLowerCase();
+      const huesped = (d.nombreApellido || "").toLowerCase();
+      if (q && !etiqueta.includes(q) && !huesped.includes(q)) continue;
+      const list = groups.get(lugar) || [];
+      list.push(h);
+      groups.set(lugar, list);
+    }
+    const ordenLugar = (a: string, b: string) => a.localeCompare(b, "es");
+    const ordenHab = (a: Habitacion, b: Habitacion) => {
+      const da = parseFontanaDetalles(a.detallesJson);
+      const db = parseFontanaDetalles(b.detallesJson);
+      const na = da.numeroHabitacion || extractNumeroHabitacion(a.nombre) || a.habitacionId;
+      const nb = db.numeroHabitacion || extractNumeroHabitacion(b.nombre) || b.habitacionId;
+      if (na !== nb) return na - nb;
+      return a.habitacionId - b.habitacionId;
+    };
+    return [...groups.entries()]
+      .sort((a, b) => ordenLugar(a[0], b[0]))
+      .map(([lugar, list]) => ({ lugar, habitaciones: [...list].sort(ordenHab) }));
+  }, [habitaciones, filtroLugar, filtroEstado, busquedaHospedaje, etiquetaPorHabitacionId]);
+
+  const lugaresHospedaje = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const h of habitaciones) {
+      const lugar = (parseFontanaDetalles(h.detallesJson).nombreLugar || "Otros").trim() || "Otros";
+      const key = lugar.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(lugar);
+    }
+    return out.sort((a, b) => a.localeCompare(b, "es"));
   }, [habitaciones]);
 
   const openCreate = () => {
@@ -1330,17 +1378,24 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
     >
       {/* Módulo Fontana dentro del entorno Condominio Agus / Fontana Di Luque */}
       <div className="bg-[#0C1327] border border-amber-500/20 rounded-[1.5rem] p-4 sm:p-5">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-400/90">
-              Condominio Agus · Módulo Fontana
-            </p>
-            <h2 className="text-lg sm:text-xl font-black italic uppercase tracking-tighter text-white mt-1">
-              Fontana · Alojamiento operativo
-            </h2>
-            <p className="text-[11px] text-slate-400 mt-1 leading-snug">
-              Croquis · propiedades · hospedaje · finanzas · personal · reportes
-            </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <img
+              src="/fontana-png.png"
+              alt="Fontana Di Luque"
+              className="h-14 w-14 sm:h-16 sm:w-16 object-contain shrink-0"
+            />
+            <div className="min-w-0">
+              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-400/90">
+                Condominio Agus · Fontana Di Luque
+              </p>
+              <h2 className="text-lg sm:text-xl font-black italic uppercase tracking-tighter text-white mt-1">
+                Alojamiento operativo
+              </h2>
+              <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                Plano · habitaciones · hospedaje · movimientos · personal
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -1349,10 +1404,10 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
       <div className="flex flex-wrap gap-1 p-1 rounded-2xl bg-[#0C1327] border border-white/5 w-full">
         {(
           [
-            ["croquis", "Croquis"],
+            ["croquis", "Plano"],
             ["propiedades", "Propiedades"],
             ["hospedaje", "Hospedaje"],
-            ["finanzas", "Finanzas"],
+            ["finanzas", "Movimientos"],
             ["personal", "Personal"],
             ["reportes", "Reportes"],
           ] as const
@@ -1424,36 +1479,87 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
 
       {fontanaVista === "hospedaje" && (
         <>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 bg-[#0C1327] p-4 sm:p-8 rounded-[1.5rem] sm:rounded-[1.75rem] border border-white/5">
-        <div className="min-w-0">
-          <h2 className="text-xl sm:text-2xl font-black italic uppercase tracking-tighter text-white flex items-center gap-3 mobile-title">
-            <span className="bg-amber-500/20 text-amber-400 p-2 rounded-xl shrink-0">
-              <Bed className="w-5 h-5" />
-            </span>
-            Fontana
-          </h2>
-          <p className="text-xs text-slate-400 font-medium mt-1 leading-snug">
-            Módulo Fontana (Agus) · cupos · dúplex Agus ocasional · en móvil: mantener pulsado la tarjeta
-          </p>
+      <div className="flex flex-col gap-4 bg-[#0C1327] p-4 sm:p-6 rounded-[1.5rem] border border-white/5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-xl sm:text-2xl font-black italic uppercase tracking-tighter text-white flex items-center gap-3 mobile-title">
+              <span className="bg-amber-500/20 text-amber-400 p-2 rounded-xl shrink-0">
+                <Bed className="w-5 h-5" />
+              </span>
+              Hospedaje
+            </h2>
+            <p className="text-xs text-slate-400 font-medium mt-1 leading-snug">
+              Habitaciones por propiedad. Tocá una tarjeta para ver la ficha.
+            </p>
+          </div>
+          <div className="flex flex-col xs:flex-row sm:flex-row flex-wrap gap-2 w-full sm:w-auto">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCupos(loadFontanaCupos(empresaId));
+                setCuposOpen(true);
+              }}
+              className="rounded-xl border-white/10 text-slate-200 w-full sm:w-auto min-h-11 touch-manipulation"
+            >
+              <Settings className="w-4 h-4 mr-2" /> Cupos
+            </Button>
+            <Button
+              onClick={openCreate}
+              disabled={lugaresDisponiblesAlta.length === 0}
+              className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black italic rounded-xl w-full sm:w-auto min-h-11 touch-manipulation"
+            >
+              <Plus className="w-4 h-4 mr-2" /> Crear habitación
+            </Button>
+          </div>
         </div>
-        <div className="flex flex-col xs:flex-row sm:flex-row flex-wrap gap-2 w-full sm:w-auto">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setCupos(loadFontanaCupos(empresaId));
-              setCuposOpen(true);
-            }}
-            className="rounded-xl border-white/10 text-slate-200 w-full sm:w-auto min-h-11 touch-manipulation"
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <Input
+            value={busquedaHospedaje}
+            onChange={(e) => setBusquedaHospedaje(e.target.value)}
+            placeholder="Buscar huésped o habitación…"
+            className="pl-9 bg-white/5 border-white/10 text-white min-h-11"
+          />
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() => setFiltroLugar("todas")}
+            className={`min-h-9 px-3 rounded-lg text-[10px] font-black uppercase tracking-wider ${
+              filtroLugar === "todas" ? "bg-amber-500 text-slate-950" : "bg-white/5 text-slate-300"
+            }`}
           >
-            <Settings className="w-4 h-4 mr-2" /> Cupos
-          </Button>
-          <Button
-            onClick={openCreate}
-            disabled={lugaresDisponiblesAlta.length === 0}
-            className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black italic rounded-xl w-full sm:w-auto min-h-11 touch-manipulation"
-          >
-            <Plus className="w-4 h-4 mr-2" /> Crear habitación
-          </Button>
+            Todas
+          </button>
+          {lugaresHospedaje.map((lugar) => (
+            <button
+              key={lugar}
+              type="button"
+              onClick={() => setFiltroLugar(lugar)}
+              className={`min-h-9 px-3 rounded-lg text-[10px] font-black uppercase tracking-wider ${
+                sameLugar(filtroLugar, lugar) ? "bg-amber-500 text-slate-950" : "bg-white/5 text-slate-300"
+              }`}
+            >
+              {lugar}
+            </button>
+          ))}
+          <span className="hidden sm:inline w-px self-stretch bg-white/10 mx-1" />
+          {([
+            ["todas", "Todas"],
+            ["ocupadas", "Ocupadas"],
+            ["libres", "Libres"],
+          ] as const).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setFiltroEstado(id)}
+              className={`min-h-9 px-3 rounded-lg text-[10px] font-black uppercase tracking-wider ${
+                filtroEstado === id ? "bg-sky-500 text-slate-950" : "bg-white/5 text-slate-400"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -1463,10 +1569,10 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Cargando Fontana…</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-4 xl:gap-6">
+        <div className="space-y-6">
           {habitaciones.length === 0 && (
             <div
-              className="col-span-full bg-[#0C1327]/60 border-2 border-dashed border-white/10 rounded-3xl p-12 text-center cursor-context-menu"
+              className="bg-[#0C1327]/60 border-2 border-dashed border-white/10 rounded-3xl p-12 text-center cursor-context-menu"
               onContextMenu={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -1483,82 +1589,105 @@ export function FontanaPage({ empresaId, usuario }: FontanaPageProps) {
             </div>
           )}
 
-          {habitaciones.map((h) => {
-            const d = parseFontanaDetalles(h.detallesJson);
-            const ocupada = h.estado === "Ocupada" || d.estadoInquilino === "Activo" || d.estadoInquilino === "Moroso";
-            return (
-              <Card
-                key={h.habitacionId}
-                data-fontana-card
-                onClick={() => setSelectedId(h.habitacionId)}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  openCtxAt(e.clientX, e.clientY, h.habitacionId);
-                }}
-                onTouchStart={(e) => onCardTouchStart(e, h.habitacionId)}
-                onTouchEnd={clearLongPress}
-                onTouchMove={clearLongPress}
-                onTouchCancel={clearLongPress}
-                className={`group cursor-pointer transition-all duration-300 border rounded-2xl overflow-hidden hover:shadow-xl bg-[#0C1327] touch-manipulation select-none ${
-                  selectedId === h.habitacionId
-                    ? "border-amber-500/60 shadow-lg shadow-amber-500/10"
-                    : "border-white/5 hover:border-amber-500/30"
-                }`}
-              >
-                <CardContent className="p-3">
-                  <div className="flex flex-col gap-2 2xl:flex-row 2xl:items-center 2xl:gap-4">
-                    <div
-                      className={`w-full 2xl:w-auto px-3 min-w-0 2xl:min-w-14 h-11 2xl:h-14 shrink-0 rounded-xl flex items-center justify-between 2xl:justify-center font-black italic text-sm tracking-tight ${
-                        ocupada ? "bg-amber-500/10 text-amber-400" : "bg-emerald-500/10 text-emerald-400"
+          {habitaciones.length > 0 && gruposHospedaje.length === 0 && (
+            <p className="text-sm text-slate-500 text-center py-8">
+              Ninguna habitación coincide con el filtro.
+            </p>
+          )}
+
+          {gruposHospedaje.map((grupo) => (
+            <section key={grupo.lugar} className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-400">
+                  {grupo.lugar}
+                </h3>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  {grupo.habitaciones.length}{" "}
+                  {grupo.habitaciones.length === 1 ? "habitación" : "habitaciones"}
+                </p>
+              </div>
+              <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-3 xl:gap-4">
+                {grupo.habitaciones.map((h) => {
+                  const d = parseFontanaDetalles(h.detallesJson);
+                  const ocupada =
+                    h.estado === "Ocupada" ||
+                    d.estadoInquilino === "Activo" ||
+                    d.estadoInquilino === "Moroso";
+                  const ingreso = formatFechaCorta(d.fechaIngreso);
+                  const salida = formatFechaCorta(d.fechaSalida);
+                  return (
+                    <Card
+                      key={h.habitacionId}
+                      data-fontana-card
+                      onClick={() => setSelectedId(h.habitacionId)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        openCtxAt(e.clientX, e.clientY, h.habitacionId);
+                      }}
+                      onTouchStart={(e) => onCardTouchStart(e, h.habitacionId)}
+                      onTouchEnd={clearLongPress}
+                      onTouchMove={clearLongPress}
+                      onTouchCancel={clearLongPress}
+                      className={`group cursor-pointer transition-all duration-300 border rounded-2xl overflow-hidden hover:shadow-xl bg-[#0C1327] touch-manipulation select-none ${
+                        selectedId === h.habitacionId
+                          ? "border-amber-500/60 shadow-lg shadow-amber-500/10"
+                          : "border-white/5 hover:border-amber-500/30"
                       }`}
                     >
-                      <span className="truncate">
-                        {etiquetaPorHabitacionId.get(h.habitacionId) || h.nombre}
-                      </span>
-                      <span className="2xl:hidden text-[9px] font-bold uppercase font-sans ml-2">
-                        {d.estadoInquilino || h.estado}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4
-                        className={`text-[13px] font-heading font-bold uppercase break-words ${
-                          d.nombreApellido ? "text-white" : "text-slate-500"
-                        }`}
-                      >
-                        {d.nombreApellido || "SIN HUÉSPED"}
-                      </h4>
-                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">
-                        {d.tipoAlquiler || h.tipo}
-                        {d.unidadCodigo ? ` · ${formatDuplex(d.unidadCodigo)}` : ""}
-                        {d.habitacionDuplexInterna
-                          ? ` · Hab interna ${d.habitacionDuplexInterna}`
-                          : ""}
-                      </p>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-[10px] font-black text-slate-400 italic">
-                          Gs. {(d.monto ?? h.precioBasePorNocheGs).toLocaleString("es-PY")}
-                        </span>
-                        <Badge
-                          className={`text-[8px] font-black uppercase border-none ${
-                            ocupada ? "bg-amber-500/20 text-amber-300" : "bg-emerald-500/20 text-emerald-300"
+                      <CardContent className="p-3.5 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <p
+                            className={`text-[11px] font-black italic tracking-tight ${
+                              ocupada ? "text-amber-400" : "text-emerald-400"
+                            }`}
+                          >
+                            {etiquetaPorHabitacionId.get(h.habitacionId) || h.nombre}
+                          </p>
+                          <Badge
+                            className={`text-[8px] font-black uppercase border-none shrink-0 ${
+                              ocupada
+                                ? "bg-amber-500/20 text-amber-300"
+                                : "bg-emerald-500/20 text-emerald-300"
+                            }`}
+                          >
+                            {d.estadoInquilino || h.estado}
+                          </Badge>
+                        </div>
+                        <h4
+                          className={`text-[13px] font-heading font-bold uppercase break-words ${
+                            d.nombreApellido ? "text-white" : "text-slate-500"
                           }`}
                         >
-                          {d.estadoInquilino || h.estado}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                          {d.nombreApellido || "SIN HUÉSPED"}
+                        </h4>
+                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">
+                          {d.tipoAlquiler || h.tipo}
+                          {d.unidadCodigo ? ` · ${formatDuplex(d.unidadCodigo)}` : ""}
+                        </p>
+                        <div className="flex items-center justify-between gap-2 text-[10px] font-bold text-slate-400">
+                          <span>
+                            {ingreso || salida
+                              ? `${ingreso || "—"} → ${salida || "—"}`
+                              : "Sin fechas de estadía"}
+                          </span>
+                          <span className="text-slate-300 italic shrink-0">
+                            Gs. {(d.monto ?? h.precioBasePorNocheGs).toLocaleString("es-PY")}
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
 
           {lugaresDisponiblesAlta.length > 0 && (
             <button
               type="button"
               onClick={openCreate}
-              className="min-h-[88px] rounded-2xl border-2 border-dashed border-white/10 bg-[#0C1327]/40 text-slate-500 hover:text-amber-400 hover:border-amber-500/40 font-black italic text-xs uppercase tracking-widest transition-colors"
+              className="w-full min-h-[72px] rounded-2xl border-2 border-dashed border-white/10 bg-[#0C1327]/40 text-slate-500 hover:text-amber-400 hover:border-amber-500/40 font-black italic text-xs uppercase tracking-widest transition-colors"
             >
               + Nueva habitación (cupos libres)
             </button>
