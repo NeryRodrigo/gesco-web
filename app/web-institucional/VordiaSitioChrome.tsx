@@ -7,7 +7,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
-import { ArrowRight, Menu, X } from "lucide-react";
+import { ArrowRight, Instagram, Linkedin, Menu, Youtube, X } from "lucide-react";
 import { apiUrl } from "@/lib/api";
 import { VORDIA_PRODUCTOS } from "@/lib/vordiaProductos";
 
@@ -20,6 +20,21 @@ const NAV = [
   { href: "/#como-trabajamos", label: "Cómo trabajamos" },
   { href: "/#contacto", label: "Contacto" },
 ];
+
+const REDES = [
+  { href: "https://www.linkedin.com/in/vordia-py-4ab885439/", label: "LinkedIn", Icon: Linkedin },
+  { href: "https://www.instagram.com/vordia.py/", label: "Instagram", Icon: Instagram },
+  { href: "https://www.youtube.com/channel/UCkvRt8wEcA7P9ufYWLJRGgQ", label: "YouTube", Icon: Youtube },
+  { href: "https://www.tiktok.com/@vordia.py", label: "TikTok", Icon: TikTokIcon },
+];
+
+function TikTokIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M14.5 3c.4 2.4 1.8 4.2 4.1 4.6v2.3c-1.4 0-2.7-.4-3.8-1.2v6.6c0 3.3-2.6 5.9-5.9 5.9S3 18.6 3 15.3c0-3.2 2.5-5.8 5.7-5.9v2.4c-1.8.1-3.2 1.6-3.2 3.5 0 1.9 1.6 3.5 3.5 3.5s3.5-1.6 3.5-3.5V3h2z" />
+    </svg>
+  );
+}
 
 const TAMANOS = [
   { value: "1-10", label: "1 a 10 personas o unidades" },
@@ -234,7 +249,23 @@ export function VordiaSitioChrome({
                 ))}
               </nav>
             </div>
-            <p className="mt-8 text-[11px] text-white/30">© 2026 VORDIA. Paraguay. Todos los derechos reservados.</p>
+            <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <nav aria-label="Redes de VORDIA" className="flex items-center gap-4 text-white/40">
+                {REDES.map((r) => (
+                  <a
+                    key={r.href}
+                    href={r.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={r.label}
+                    className="hover:text-white"
+                  >
+                    <r.Icon size={16} />
+                  </a>
+                ))}
+              </nav>
+              <p className="text-[11px] text-white/30">© 2026 VORDIA. Paraguay. Todos los derechos reservados.</p>
+            </div>
           </div>
         </footer>
 
