@@ -143,7 +143,7 @@ async function abrirFacturaPdf(
     if (!blob || blob.size < 100) throw new Error("ANDE no devolvió un PDF válido.");
 
     const url = URL.createObjectURL(blob);
-    const fileName = `ANDE_${nisClean}_${pdfParams.secRec || "factura"}.pdf`;
+    const fileName = `ANDE_${nisClean}_${pdfParams?.secRec || pdfParams?.origen || "factura"}.pdf`;
 
     // iOS / Android: window.open(blob) suele fallar → <a> + download / same gesture
     const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
