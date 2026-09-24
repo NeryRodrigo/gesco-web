@@ -56,7 +56,47 @@ export type AndePdfParams = {
   secRec?: string | null;
   fFact?: string | null;
   electronica?: boolean;
+  /** Si faltan secNis/secRec, el backend usa ultima o penultima factura pendiente. */
+  origen?: "ultima" | "penultima" | null;
 };
+
+function textoCampo(v: unknown): string {
+  if (v == null) return "";
+  return String(v).trim();
+}
+
+/** Acepta camelCase o PascalCase (producción a veces serializa distinto). */
+export function pdfParamsDeFactura(
+  f?: AndeFacturaDesglose | Record<string, unknown> | null,
+  origen?: AndePdfParams["origen"]
+): AndePdfParams {
+  const anyF = (f || {}) as Record<string, unknown>;
+  return {
+    secNis: textoCampo(anyF.secNis) || textoCampo(anyF.SecNis) || null,
+    secRec: textoCampo(anyF.secRec) || textoCampo(anyF.SecRec) || null,
+    fFact:
+      textoCampo(anyF.fechaFacturacion) ||
+      textoCampo(anyF.FechaFacturacion) ||
+      textoCampo(anyF.emision) ||
+      textoCampo(anyF.Emision) ||
+      null,
+    electronica: anyF.facturaElectronica !== false && anyF.FacturaElectronica !== false,
+    origen: origen ?? null,
+  };
+}
+
+function tiempoEmisionAnde(raw?: string | null) {
+  const s = String(raw || "").trim();
+  if (!s) return 0;
+  const m = s.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})/);
+  if (m) {
+    let y = parseInt(m[3], 10);
+    if (y < 100) y += 2000;
+    return new Date(y, parseInt(m[2], 10) - 1, parseInt(m[1], 10)).getTime();
+  }
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+}
 
 async function abrirFacturaPdf(
   nis: string,
@@ -70,12 +110,6 @@ async function abrirFacturaPdf(
     return;
   }
 
-  // Sin secNis/secRec el backend no puede bajar el PDF oficial
-  if (!pdfParams?.secNis || !pdfParams?.secRec) {
-    toast.warning("Primero ejecutá «Consultar Saldos ANDE» para este NIS y después tocá FACTURA PDF.");
-    return;
-  }
-
   const toastId = toast.loading("Obteniendo factura oficial ANDE…");
   try {
     const controller = new AbortController();
@@ -83,10 +117,11 @@ async function abrirFacturaPdf(
     const qs = new URLSearchParams();
     if (inquilino) qs.set("inquilino", inquilino);
     if (duplex) qs.set("duplex", duplex);
-    qs.set("secNis", String(pdfParams.secNis));
-    qs.set("secRec", String(pdfParams.secRec));
+    if (pdfParams?.secNis) qs.set("secNis", String(pdfParams.secNis));
+    if (pdfParams?.secRec) qs.set("secRec", String(pdfParams.secRec));
     if (pdfParams?.fFact) qs.set("fFact", String(pdfParams.fFact));
     if (pdfParams?.electronica != null) qs.set("electronica", pdfParams.electronica ? "true" : "false");
+    if (pdfParams?.origen) qs.set("origen", pdfParams.origen);
 
     const res = await fetch(
       `${ANDE_API}/factura-pdf/${encodeURIComponent(nisClean)}?${qs.toString()}`,
@@ -158,6 +193,19 @@ export function AndeDesgloseFacturasModal({
   });
   const pendientes = facturasClasificadas.filter((f) => f.pendiente);
   const sumaPendientes = pendientes.reduce((a, f) => a + (Number(f.monto) || 0), 0);
+  const pendientesPorFecha = [...pendientes].sort(
+    (a, b) =>
+      tiempoEmisionAnde(b.fechaFacturacion || b.emision) -
+      tiempoEmisionAnde(a.fechaFacturacion || a.emision)
+  );
+  const origenDe = (f: (typeof facturasClasificadas)[number]): AndePdfParams["origen"] => {
+    const idx = pendientesPorFecha.findIndex(
+      (p) => p === f || (Number(p.monto) === Number(f.monto) && p.emision === f.emision)
+    );
+    if (idx === 0) return "ultima";
+    if (idx === 1) return "penultima";
+    return null;
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
@@ -215,12 +263,7 @@ export function AndeDesgloseFacturasModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {facturasClasificadas.map((f, idx) => {
                   const pendiente = f.pendiente;
-                  const pdfParams: AndePdfParams = {
-                    secNis: f.secNis,
-                    secRec: f.secRec,
-                    fFact: f.fechaFacturacion || f.emision,
-                    electronica: f.facturaElectronica !== false,
-                  };
+                  const pdfParams = pdfParamsDeFactura(f, origenDe(f));
                   return (
                     <div
                       key={`${f.monto}-${f.emision}-${f.vencimiento}-${idx}`}
