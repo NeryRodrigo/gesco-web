@@ -93,8 +93,17 @@ export function ConsultarEstadoAndeModal({ isOpen, onClose, defaultNis = "" }: C
     if (!resultado) return;
     setLoadingPdf(true);
     try {
-      const { abrirFacturaPdf } = await import("./AndeDesgloseFacturasModal");
-      await abrirFacturaPdf(resultado.nis, resultado.titular || "", resultado.direccion || "");
+      const { abrirFacturaPdf, pdfParamsDeFactura } = await import("./AndeDesgloseFacturasModal");
+      const facts = resultado.facturas || [];
+      const target =
+        facts.find((f) => /pend|deud/i.test(f.estado || "")) ||
+        facts[0];
+      await abrirFacturaPdf(
+        resultado.nis,
+        resultado.titular || "",
+        resultado.direccion || "",
+        pdfParamsDeFactura(target as any, "ultima")
+      );
     } catch (e) {
       alert("Error abriendo factura PDF");
     } finally {

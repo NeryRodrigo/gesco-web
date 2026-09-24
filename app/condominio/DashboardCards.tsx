@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Home, CheckCircle2, Wallet, Clock, Calendar, AlertTriangle, Filter, Zap, Check, X, RefreshCw, ChevronDown, ChevronUp, Loader2, ClipboardList } from "lucide-react";
 import { ConsultarEstadoAndeModal } from "./ConsultarEstadoAndeModal";
-import { AndeDesgloseFacturasModal, abrirFacturaPdf } from "./AndeDesgloseFacturasModal";
+import { AndeDesgloseFacturasModal, abrirFacturaPdf, pdfParamsDeFactura } from "./AndeDesgloseFacturasModal";
 import { AndeLoginCredencialesModal } from "./AndeLoginCredencialesModal";
 import { MorosidadesMainModal } from "./MorosidadesMainModal";
 import { verificarPermisoGranular, ModalAccesoRestringido } from "@/app/login/PermisosGranularesMatriz";
@@ -1271,21 +1271,16 @@ export function DashboardCards({
                                 const live = andeLiveByNis[soloDigitosNis(item.nisAnde)];
                                 const facts = live?.facturas || [];
                                 const target =
-                                  facts.find((f) => esPendienteFactura(f.estado) && f.secNis && f.secRec) ||
+                                  facts.find((f) => esPendienteFactura(f.estado) && (f.secNis || (f as any).SecNis) && (f.secRec || (f as any).SecRec)) ||
+                                  facts.find((f) => esPendienteFactura(f.estado)) ||
                                   facts.find((f) => f.secNis && f.secRec) ||
                                   facts[0];
-                                if (!target?.secNis || !target?.secRec) {
-                                  toast.warning(
-                                    "No hay datos de factura en caché para este NIS. Tocá «Consultar Saldos ANDE» y reintentá FACTURA PDF."
-                                  );
-                                  return;
-                                }
-                                void abrirFacturaPdf(item.nisAnde, item.inquilino || "", item.duplex || "", {
-                                  secNis: target.secNis,
-                                  secRec: target.secRec,
-                                  fFact: target.fechaFacturacion || target.emision,
-                                  electronica: target.facturaElectronica !== false,
-                                });
+                                void abrirFacturaPdf(
+                                  item.nisAnde,
+                                  item.inquilino || "",
+                                  item.duplex || "",
+                                  pdfParamsDeFactura(target, "ultima")
+                                );
                                 }}
                                 className="bg-yellow-400 text-black border border-yellow-500 shadow-sm text-[9px] font-black italic px-3 py-2 rounded-lg hover:scale-105 hover:bg-yellow-500 transition-all max-md:hover:scale-100">
                                 FACTURA PDF
