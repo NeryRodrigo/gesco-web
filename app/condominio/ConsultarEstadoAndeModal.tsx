@@ -362,11 +362,7 @@ export function ConsultarEstadoAndeModal({ isOpen, onClose, defaultNis = "" }: C
                         const esPag =
                           /pagad|cobrad/i.test(f.estado || "") ||
                           /^ER3/i.test((f.estado || "").toUpperCase());
-                        const pendienteFinal =
-                          esPend ||
-                          (!esPag &&
-                            resultado.saldoDeuda > 0 &&
-                            Math.abs(f.monto - resultado.saldoDeuda) < 1);
+                        const pendienteFinal = esPend && !esPag;
                         return (
                           <div
                             key={`${f.monto}-${f.emision}-${idx}`}

@@ -64,6 +64,44 @@ type AndeConsultaLive = {
   facturas?: AndeFacturaLive[];
 };
 
+function textoAnde(v: unknown): string {
+  if (v == null) return "";
+  return String(v).trim();
+}
+
+function normalizarFacturaAnde(raw: Record<string, unknown> | AndeFacturaLive): AndeFacturaLive {
+  const r = raw as Record<string, unknown>;
+  return {
+    monto: Number(r.monto ?? r.Monto) || 0,
+    estado: textoAnde(r.estado ?? r.Estado),
+    emision: textoAnde(r.emision ?? r.Emision),
+    vencimiento: textoAnde(r.vencimiento ?? r.Vencimiento),
+    fechaPago: textoAnde(r.fechaPago ?? r.FechaPago) || undefined,
+    consumoKw: (r.consumoKw ?? r.ConsumoKw) == null ? null : Number(r.consumoKw ?? r.ConsumoKw) || null,
+    secNis: textoAnde(r.secNis ?? r.SecNis) || null,
+    secRec: textoAnde(r.secRec ?? r.SecRec) || null,
+    fechaFacturacion: textoAnde(r.fechaFacturacion ?? r.FechaFacturacion) || null,
+    facturaElectronica: r.facturaElectronica !== false && r.FacturaElectronica !== false,
+  };
+}
+
+function normalizarConsultaAnde(raw: any): AndeConsultaLive {
+  const facturasRaw = raw?.facturas ?? raw?.Facturas ?? [];
+  const facturas = Array.isArray(facturasRaw) ? facturasRaw.map((f) => normalizarFacturaAnde(f)) : [];
+  return {
+    nis: textoAnde(raw?.nis ?? raw?.Nis),
+    titular: textoAnde(raw?.titular ?? raw?.Titular) || undefined,
+    saldoDeuda: Number(raw?.saldoDeuda ?? raw?.SaldoDeuda) || 0,
+    consumoKw: Number(raw?.consumoKw ?? raw?.ConsumoKw) || 0,
+    facturasPendientes: Number(raw?.facturasPendientes ?? raw?.FacturasPendientes) || 0,
+    estadoPago: textoAnde(raw?.estadoPago ?? raw?.EstadoPago),
+    vencimiento: textoAnde(raw?.vencimiento ?? raw?.Vencimiento),
+    observaciones: textoAnde(raw?.observaciones ?? raw?.Observaciones) || undefined,
+    esSimulado: !!(raw?.esSimulado ?? raw?.EsSimulado),
+    facturas,
+  };
+}
+
 type AndeRowView = {
   hasNis: boolean;
   consulted: boolean;
@@ -148,32 +186,38 @@ const mapAndeLiveToRow = (live: AndeConsultaLive | undefined | null): AndeRowVie
     };
   }
 
-  const obs = live.observaciones || "";
+  const liveN = normalizarConsultaAnde(live);
+  const obs = liveN.observaciones || "";
   const fallida =
-    !!live.esSimulado ||
+    !!liveN.esSimulado ||
     /fall[oó]|bloque[oó]|Radware|credenciales|inv[aá]lido|no existe|Error interpretando/i.test(obs);
-
-  const facturas = live.facturas || [];
+  const facturas = liveN.facturas || [];
   const pendientes = facturas.filter((f) => esPendienteFactura(f.estado));
   const pagadas = facturas.filter((f) => esPagadaFactura(f.estado));
-  const saldo = Number(live.saldoDeuda) || 0;
+  const saldo = Number(liveN.saldoDeuda) || pendientes.reduce((a, f) => a + (Number(f.monto) || 0), 0);
   const isPagado =
     saldo <= 0 &&
     pendientes.length === 0 &&
-    !/PENDIENTE/i.test(live.estadoPago || "");
+    (liveN.facturasPendientes || 0) <= 0 &&
+    !/PENDIENTE/i.test(liveN.estadoPago || "");
 
   const conMonto = (arr: AndeFacturaLive[]) =>
     arr.find((f) => Number(f.monto) > 0) || arr[0];
 
+  const ultimaPendiente = [...pendientes].sort((a, b) => {
+    const ta = parseFechaAnde(a.fechaFacturacion || a.emision)?.getTime() || 0;
+    const tb = parseFechaAnde(b.fechaFacturacion || b.emision)?.getTime() || 0;
+    return tb - ta;
+  })[0];
+
   const facturaRef = isPagado
     ? conMonto(pagadas) || conMonto(facturas)
-    : conMonto(pendientes) || conMonto(facturas);
+    : ultimaPendiente || conMonto(pendientes) || conMonto(facturas);
 
+  const sumaPendientes = pendientes.reduce((a, f) => a + (Number(f.monto) || 0), 0);
   const monto = isPagado
     ? Number(facturaRef?.monto) || 0
-    : saldo > 0
-      ? saldo
-      : pendientes.reduce((a, f) => a + (Number(f.monto) || 0), 0) || Number(facturaRef?.monto) || 0;
+    : Number(ultimaPendiente?.monto) || sumaPendientes || saldo || Number(facturaRef?.monto) || 0;
 
   const emisionRef = facturaRef?.emision || "";
   const emitidaEsteMes =
@@ -182,14 +226,14 @@ const mapAndeLiveToRow = (live: AndeConsultaLive | undefined | null): AndeRowVie
   const esperandoMesActual = isPagado && monto > 0 && !emitidaEsteMes;
 
   const vencRaw =
-    (!isPagado ? live.vencimiento : "") ||
+    (!isPagado ? liveN.vencimiento : "") ||
     facturaRef?.vencimiento ||
-    live.vencimiento ||
+    liveN.vencimiento ||
     "";
   const vencDate = parseFechaAnde(vencRaw);
   const consumo =
     Number(facturaRef?.consumoKw) ||
-    Number(live.consumoKw) ||
+    Number(liveN.consumoKw) ||
     0;
 
   const facturaEmitida = emitidaEsteMes || (!isPagado && (pendientes.length > 0 || saldo > 0));
@@ -245,7 +289,12 @@ function loadAndeLiveCache(): Record<string, AndeConsultaLive> {
     const raw = sessionStorage.getItem(ANDE_LIVE_CACHE_KEY);
     if (!raw) return {};
     const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
+    if (!parsed || typeof parsed !== "object") return {};
+    const map: Record<string, AndeConsultaLive> = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      map[k] = normalizarConsultaAnde(v);
+    }
+    return map;
   } catch {
     return {};
   }
@@ -375,11 +424,11 @@ export function DashboardCards({
     });
 
     try {
-      let live = andeLiveByNis[nisKey];
+      let live = andeLiveByNis[nisKey] ? normalizarConsultaAnde(andeLiveByNis[nisKey]) : undefined;
       if (!live || !(live.facturas?.length)) {
         const res = await fetch(`${ANDE_API}/jwt/consultar/${encodeURIComponent(nisKey)}`);
         if (!res.ok) throw new Error("No se pudo consultar el NIS en ANDE");
-        live = (await res.json()) as AndeConsultaLive;
+        live = normalizarConsultaAnde(await res.json());
         setAndeLiveByNis((prev) => ({ ...prev, [nisKey]: live! }));
       }
 
@@ -465,9 +514,10 @@ export function DashboardCards({
       }
 
       const map: Record<string, AndeConsultaLive> = {};
-      for (const r of body.resultados || []) {
-        const key = soloDigitosNis(r?.nis);
-        if (key) map[key] = r as AndeConsultaLive;
+      for (const r of body.resultados || body.Resultados || []) {
+        const norm = normalizarConsultaAnde(r);
+        const key = soloDigitosNis(norm.nis || r?.nis || r?.Nis);
+        if (key) map[key] = norm;
       }
       setAndeLiveByNis(map);
       const syncLabel = new Date().toLocaleTimeString("es-PY");

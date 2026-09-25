@@ -84,9 +84,6 @@ export function pdfParamsDeFactura(
 }
 
 const ANDE_API = `${API_BASE}/api/Ande`;
-const ANDE_OPEN_PDF = "https://prod2.ande.gov.py:8581/sigaWs/api/open/";
-const ANDE_CLIENT_KEY = "iBLQWFskMfSF5oGhD2a1UYNZyuYo0tdh";
-const ANDE_RECAPTCHA_SITE_KEY = "6LcND9ohAAAAALizDIFfkfpSjHm3Xtr0DwLOLc60";
 const MSG_ANDE_FALLAS = "ANDE con fallas";
 
 function fechaFacturaAnde(raw?: string | null) {
@@ -102,68 +99,28 @@ function esPdfBytes(buf: ArrayBuffer) {
   return u.length >= 4 && u[0] === 0x25 && u[1] === 0x50 && u[2] === 0x44 && u[3] === 0x46;
 }
 
-function loadGrecaptchaAnde(): Promise<{ execute: (key: string, opts: { action: string }) => Promise<string> }> {
-  const w = window as Window & { grecaptcha?: { ready: (cb: () => void) => void; execute: (key: string, opts: { action: string }) => Promise<string> } };
-  if (w.grecaptcha?.execute) {
-    return new Promise((resolve) => w.grecaptcha!.ready(() => resolve(w.grecaptcha!)));
-  }
-  return new Promise((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>("script[data-ande-recaptcha]");
-    const onReady = () => {
-      const g = (window as typeof w).grecaptcha;
-      if (!g?.execute) {
-        reject(new Error("grecaptcha"));
-        return;
-      }
-      g.ready(() => resolve(g));
-    };
-    if (existing) {
-      existing.addEventListener("load", onReady, { once: true });
-      return;
-    }
-    const s = document.createElement("script");
-    s.src = `https://www.google.com/recaptcha/api.js?render=${ANDE_RECAPTCHA_SITE_KEY}`;
-    s.async = true;
-    s.dataset.andeRecaptcha = "1";
-    s.onload = onReady;
-    s.onerror = () => reject(new Error("grecaptcha script"));
-    document.head.appendChild(s);
-  });
-}
-
-async function tokenRecaptchaAnde(): Promise<string | null> {
-  try {
-    const g = await loadGrecaptchaAnde();
-    const token = await g.execute(ANDE_RECAPTCHA_SITE_KEY, { action: "submit" });
-    return token || null;
-  } catch {
-    return null;
-  }
-}
-
-/** Mismo endpoint que usa el portal ANDE cuando el KUDE sí abre. */
-function urlComprobanteOficialAnde(nis: string, p?: AndePdfParams, recapt?: string | null) {
-  const fields = new URLSearchParams();
-  fields.set("clientKey", ANDE_CLIENT_KEY);
-  fields.set("nis", nis);
-  fields.set("nro_nis", nis);
-  if (recapt) fields.set("recapt", recapt);
-
-  let path = "v5/suministro/ultimaFacturaElectronicaPendientePdf";
-  if (p?.secNis && p?.secRec && p.fFact) {
-    path = p.electronica === false ? "v4/suministro/facturaPdf" : "v5/suministro/facturaElectronicaPdf";
-    fields.set("sec_nis", String(p.secNis));
-    fields.set("sec_rec", String(p.secRec));
-    fields.set("f_fact", fechaFacturaAnde(p.fFact));
-  } else if (p?.origen === "penultima") {
-    path = "v5/suministro/penultimaFacturaElectronicaPendientePdf";
-  }
-  return `${ANDE_OPEN_PDF}${path}?${fields.toString()}`;
-}
-
 function mostrarPdf(buf: ArrayBuffer) {
   const url = URL.createObjectURL(new Blob([buf], { type: "application/pdf" }));
   window.open(url, "_blank", "noreferrer");
+}
+
+function postComprobanteOficial(action: string, fields: Record<string, string>) {
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = action;
+  form.target = "_blank";
+  form.acceptCharset = "UTF-8";
+  for (const [name, value] of Object.entries(fields || {})) {
+    if (value == null || value === "") continue;
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = name;
+    input.value = String(value);
+    form.appendChild(input);
+  }
+  document.body.appendChild(form);
+  form.submit();
+  form.remove();
 }
 
 function tiempoEmisionAnde(raw?: string | null) {
@@ -193,7 +150,6 @@ async function abrirFacturaPdf(
 
   const toastId = toast.loading("Obteniendo comprobante oficial de ANDE…");
   try {
-    const recapt = await tokenRecaptchaAnde();
     const qs = new URLSearchParams();
     if (inquilino) qs.set("inquilino", inquilino);
     if (duplex) qs.set("duplex", duplex);
@@ -203,13 +159,13 @@ async function abrirFacturaPdf(
     if (pdfParams?.electronica === false) qs.set("electronica", "false");
     if (pdfParams?.origen) qs.set("origen", pdfParams.origen);
 
-    const headers: Record<string, string> = {};
-    if (recapt) headers["X-Ande-Recapt"] = recapt;
-
+    const ac = new AbortController();
+    const timeout = window.setTimeout(() => ac.abort(), 180000);
     const res = await fetch(
       `${ANDE_API}/factura-pdf/${encodeURIComponent(nisClean)}?${qs}`,
-      { headers }
+      { signal: ac.signal }
     );
+    window.clearTimeout(timeout);
 
     if (res.status === 401) {
       toast.error("Faltan credenciales ANDE. Configurá usuario y contraseña de Mi Cuenta.", { id: toastId });
@@ -225,12 +181,21 @@ async function abrirFacturaPdf(
       }
     }
 
-    // El servidor a veces no puede (GCP). Si ANDE está bien, el navegador sí puede
-    // pedir el mismo KUDE que muestra ande.gov.py/servicios.
-    if (recapt) {
-      window.open(urlComprobanteOficialAnde(nisClean, pdfParams, recapt), "_blank", "noreferrer");
-      toast.success("Comprobante oficial de ANDE.", { id: toastId });
+    // En el servidor GCP a veces ANDE bloquea la API. El navegador (misma IP que local) pide el KUDE.
+    const linkRes = await fetch(
+      `${ANDE_API}/comprobante-oficial/${encodeURIComponent(nisClean)}?${qs}`
+    );
+    if (linkRes.status === 401) {
+      toast.error("Faltan credenciales ANDE. Configurá usuario y contraseña de Mi Cuenta.", { id: toastId });
       return;
+    }
+    if (linkRes.ok) {
+      const data = await linkRes.json();
+      if (data?.action && data?.fields) {
+        postComprobanteOficial(String(data.action), data.fields as Record<string, string>);
+        toast.success("Comprobante oficial de ANDE.", { id: toastId });
+        return;
+      }
     }
 
     toast.error(MSG_ANDE_FALLAS, { id: toastId });
@@ -250,17 +215,13 @@ export function AndeDesgloseFacturasModal({
   facturas,
   loading,
 }: Props) {
-  const facturasClasificadas = facturas.map((f) => {
-    let pendiente = esPendiente(f.estado);
-    if (
-      !pendiente &&
-      (saldoDeuda || 0) > 0 &&
-      Math.abs(Number(f.monto) - Number(saldoDeuda)) < 1
-    ) {
-      pendiente = true;
-    }
-    return { ...f, pendiente };
-  });
+  const facturasClasificadas = [...facturas]
+    .sort(
+      (a, b) =>
+        tiempoEmisionAnde(b.fechaFacturacion || b.emision) -
+        tiempoEmisionAnde(a.fechaFacturacion || a.emision)
+    )
+    .map((f) => ({ ...f, pendiente: esPendiente(f.estado) }));
   const pendientes = facturasClasificadas.filter((f) => f.pendiente);
   const sumaPendientes = pendientes.reduce((a, f) => a + (Number(f.monto) || 0), 0);
   const pendientesPorFecha = [...pendientes].sort(
