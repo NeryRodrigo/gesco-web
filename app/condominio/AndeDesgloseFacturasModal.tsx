@@ -6,6 +6,7 @@ import { Zap, FileText, Loader2, X } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { API_BASE } from "@/lib/api";
 
 export type AndeFacturaDesglose = {
   monto: number;
@@ -82,9 +83,8 @@ export function pdfParamsDeFactura(
   };
 }
 
-const ANDE_OPEN_PDF = "https://prod2.ande.gov.py:8581/sigaWs/api/open/";
-/** Misma clientKey pública del portal ANDE (www.ande.gov.py). Sin esto responde "Client Key no válido". */
-const ANDE_CLIENT_KEY = "iBLQWFskMfSF5oGhD2a1UYNZyuYo0tdh";
+const ANDE_API = `${API_BASE}/api/Ande`;
+const ANDE_RECAPTCHA_SITE_KEY = "6LcND9ohAAAAALizDIFfkfpSjHm3Xtr0DwLOLc60";
 
 function fechaFacturaAnde(raw?: string | null) {
   const s = String(raw || "").trim();
@@ -94,24 +94,48 @@ function fechaFacturaAnde(raw?: string | null) {
   return s;
 }
 
-function conClientKey(url: string) {
-  const sep = url.includes("?") ? "&" : "?";
-  return `${url}${sep}clientKey=${encodeURIComponent(ANDE_CLIENT_KEY)}`;
+function esPdfBytes(buf: ArrayBuffer) {
+  const u = new Uint8Array(buf.slice(0, 5));
+  return u.length >= 4 && u[0] === 0x25 && u[1] === 0x50 && u[2] === 0x44 && u[3] === 0x46;
 }
 
-/** URL del KUDE oficial. Se abre en el navegador del usuario (ANDE bloquea el servidor). */
-function urlFacturaOficialAnde(nis: string, p?: AndePdfParams) {
-  const nisClean = nis.replace(/\D/g, "");
-  if (p?.secNis && p?.secRec && p.fFact) {
-    const f = fechaFacturaAnde(p.fFact);
-    const qs = `nro_nis=${nisClean}&sec_nis=${encodeURIComponent(String(p.secNis))}&sec_rec=${encodeURIComponent(String(p.secRec))}&f_fact=${f}`;
-    const path = p.electronica === false ? "v4/suministro/facturaPdf" : "v5/suministro/facturaElectronicaPdf";
-    return conClientKey(`${ANDE_OPEN_PDF}${path}?${qs}`);
+function loadGrecaptchaAnde(): Promise<{ execute: (key: string, opts: { action: string }) => Promise<string> }> {
+  const w = window as Window & { grecaptcha?: { ready: (cb: () => void) => void; execute: (key: string, opts: { action: string }) => Promise<string> } };
+  if (w.grecaptcha?.execute) {
+    return new Promise((resolve) => w.grecaptcha!.ready(() => resolve(w.grecaptcha!)));
   }
-  if (p?.origen === "penultima") {
-    return conClientKey(`${ANDE_OPEN_PDF}v5/suministro/penultimaFacturaElectronicaPendientePdf?nis=${nisClean}`);
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>("script[data-ande-recaptcha]");
+    const onReady = () => {
+      const g = (window as typeof w).grecaptcha;
+      if (!g?.execute) {
+        reject(new Error("grecaptcha"));
+        return;
+      }
+      g.ready(() => resolve(g));
+    };
+    if (existing) {
+      existing.addEventListener("load", onReady, { once: true });
+      return;
+    }
+    const s = document.createElement("script");
+    s.src = `https://www.google.com/recaptcha/api.js?render=${ANDE_RECAPTCHA_SITE_KEY}`;
+    s.async = true;
+    s.dataset.andeRecaptcha = "1";
+    s.onload = onReady;
+    s.onerror = () => reject(new Error("grecaptcha script"));
+    document.head.appendChild(s);
+  });
+}
+
+async function tokenRecaptchaAnde(): Promise<string | null> {
+  try {
+    const g = await loadGrecaptchaAnde();
+    const token = await g.execute(ANDE_RECAPTCHA_SITE_KEY, { action: "submit" });
+    return token || null;
+  } catch {
+    return null;
   }
-  return conClientKey(`${ANDE_OPEN_PDF}v5/suministro/ultimaFacturaElectronicaPendientePdf?nis=${nisClean}`);
 }
 
 function tiempoEmisionAnde(raw?: string | null) {
@@ -127,23 +151,58 @@ function tiempoEmisionAnde(raw?: string | null) {
   return Number.isNaN(d.getTime()) ? 0 : d.getTime();
 }
 
-function abrirFacturaPdf(
+async function abrirFacturaPdf(
   nis: string,
-  _inquilino = "",
-  _duplex = "",
+  inquilino = "",
+  duplex = "",
   pdfParams?: AndePdfParams
 ) {
-  const nisClean = String(nis || "").trim();
+  const nisClean = String(nis || "").replace(/\D/g, "");
   if (!nisClean) {
     toast.error("NIS inválido. Revisá el medidor de la unidad.");
     return;
   }
 
-  const urlOficial = urlFacturaOficialAnde(nisClean, pdfParams);
-  // Una sola pestaña. No usar "noopener" acá: en Chrome window.open(..., "noopener")
-  // devuelve null aunque sí abrió, y el fallback duplicaba la ventana.
-  window.open(urlOficial, "_blank", "noreferrer");
-  toast.success("Se abrió el comprobante oficial de ANDE. Desde ahí podés descargarlo.");
+  const toastId = toast.loading("Obteniendo comprobante oficial de ANDE…");
+  try {
+    const recapt = await tokenRecaptchaAnde();
+    const qs = new URLSearchParams();
+    if (inquilino) qs.set("inquilino", inquilino);
+    if (duplex) qs.set("duplex", duplex);
+    if (pdfParams?.secNis) qs.set("secNis", String(pdfParams.secNis));
+    if (pdfParams?.secRec) qs.set("secRec", String(pdfParams.secRec));
+    if (pdfParams?.fFact) qs.set("fFact", fechaFacturaAnde(pdfParams.fFact));
+    if (pdfParams?.electronica === false) qs.set("electronica", "false");
+    if (pdfParams?.origen) qs.set("origen", pdfParams.origen);
+
+    const headers: Record<string, string> = {};
+    if (recapt) headers["X-Ande-Recapt"] = recapt;
+
+    const res = await fetch(
+      `${ANDE_API}/factura-pdf/${encodeURIComponent(nisClean)}?${qs}`,
+      { headers }
+    );
+    if (res.status === 401) {
+      toast.error("Faltan credenciales ANDE. Configurá usuario y contraseña de Mi Cuenta.", { id: toastId });
+      return;
+    }
+    if (!res.ok) {
+      toast.error("No se pudo obtener el PDF oficial de ANDE. Reintentá en un momento.", { id: toastId });
+      return;
+    }
+
+    const buf = await res.arrayBuffer();
+    if (!esPdfBytes(buf)) {
+      toast.error("ANDE no devolvió el PDF oficial. Reintentá en un momento.", { id: toastId });
+      return;
+    }
+
+    const url = URL.createObjectURL(new Blob([buf], { type: "application/pdf" }));
+    window.open(url, "_blank", "noreferrer");
+    toast.success("Comprobante oficial listo.", { id: toastId });
+  } catch {
+    toast.error("Error al obtener el PDF oficial de ANDE.", { id: toastId });
+  }
 }
 
 export function AndeDesgloseFacturasModal({
