@@ -84,7 +84,10 @@ export function pdfParamsDeFactura(
 }
 
 const ANDE_API = `${API_BASE}/api/Ande`;
+const ANDE_OPEN_PDF = "https://prod2.ande.gov.py:8581/sigaWs/api/open/";
+const ANDE_CLIENT_KEY = "iBLQWFskMfSF5oGhD2a1UYNZyuYo0tdh";
 const ANDE_RECAPTCHA_SITE_KEY = "6LcND9ohAAAAALizDIFfkfpSjHm3Xtr0DwLOLc60";
+const MSG_ANDE_FALLAS = "ANDE con fallas";
 
 function fechaFacturaAnde(raw?: string | null) {
   const s = String(raw || "").trim();
@@ -138,6 +141,31 @@ async function tokenRecaptchaAnde(): Promise<string | null> {
   }
 }
 
+/** Mismo endpoint que usa el portal ANDE cuando el KUDE sí abre. */
+function urlComprobanteOficialAnde(nis: string, p?: AndePdfParams, recapt?: string | null) {
+  const fields = new URLSearchParams();
+  fields.set("clientKey", ANDE_CLIENT_KEY);
+  fields.set("nis", nis);
+  fields.set("nro_nis", nis);
+  if (recapt) fields.set("recapt", recapt);
+
+  let path = "v5/suministro/ultimaFacturaElectronicaPendientePdf";
+  if (p?.secNis && p?.secRec && p.fFact) {
+    path = p.electronica === false ? "v4/suministro/facturaPdf" : "v5/suministro/facturaElectronicaPdf";
+    fields.set("sec_nis", String(p.secNis));
+    fields.set("sec_rec", String(p.secRec));
+    fields.set("f_fact", fechaFacturaAnde(p.fFact));
+  } else if (p?.origen === "penultima") {
+    path = "v5/suministro/penultimaFacturaElectronicaPendientePdf";
+  }
+  return `${ANDE_OPEN_PDF}${path}?${fields.toString()}`;
+}
+
+function mostrarPdf(buf: ArrayBuffer) {
+  const url = URL.createObjectURL(new Blob([buf], { type: "application/pdf" }));
+  window.open(url, "_blank", "noreferrer");
+}
+
 function tiempoEmisionAnde(raw?: string | null) {
   const s = String(raw || "").trim();
   if (!s) return 0;
@@ -182,26 +210,32 @@ async function abrirFacturaPdf(
       `${ANDE_API}/factura-pdf/${encodeURIComponent(nisClean)}?${qs}`,
       { headers }
     );
+
     if (res.status === 401) {
       toast.error("Faltan credenciales ANDE. Configurá usuario y contraseña de Mi Cuenta.", { id: toastId });
       return;
     }
-    if (!res.ok) {
-      toast.error("No se pudo obtener el PDF oficial de ANDE. Reintentá en un momento.", { id: toastId });
+
+    if (res.ok) {
+      const buf = await res.arrayBuffer();
+      if (esPdfBytes(buf)) {
+        mostrarPdf(buf);
+        toast.success("Comprobante oficial de ANDE.", { id: toastId });
+        return;
+      }
+    }
+
+    // El servidor a veces no puede (GCP). Si ANDE está bien, el navegador sí puede
+    // pedir el mismo KUDE que muestra ande.gov.py/servicios.
+    if (recapt) {
+      window.open(urlComprobanteOficialAnde(nisClean, pdfParams, recapt), "_blank", "noreferrer");
+      toast.success("Comprobante oficial de ANDE.", { id: toastId });
       return;
     }
 
-    const buf = await res.arrayBuffer();
-    if (!esPdfBytes(buf)) {
-      toast.error("ANDE no devolvió el PDF oficial. Reintentá en un momento.", { id: toastId });
-      return;
-    }
-
-    const url = URL.createObjectURL(new Blob([buf], { type: "application/pdf" }));
-    window.open(url, "_blank", "noreferrer");
-    toast.success("Comprobante oficial listo.", { id: toastId });
+    toast.error(MSG_ANDE_FALLAS, { id: toastId });
   } catch {
-    toast.error("Error al obtener el PDF oficial de ANDE.", { id: toastId });
+    toast.error(MSG_ANDE_FALLAS, { id: toastId });
   }
 }
 
