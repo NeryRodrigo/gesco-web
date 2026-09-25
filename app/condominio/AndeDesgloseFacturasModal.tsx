@@ -83,6 +83,8 @@ export function pdfParamsDeFactura(
 }
 
 const ANDE_OPEN_PDF = "https://prod2.ande.gov.py:8581/sigaWs/api/open/";
+/** Misma clientKey pública del portal ANDE (www.ande.gov.py). Sin esto responde "Client Key no válido". */
+const ANDE_CLIENT_KEY = "iBLQWFskMfSF5oGhD2a1UYNZyuYo0tdh";
 
 function fechaFacturaAnde(raw?: string | null) {
   const s = String(raw || "").trim();
@@ -92,6 +94,11 @@ function fechaFacturaAnde(raw?: string | null) {
   return s;
 }
 
+function conClientKey(url: string) {
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}clientKey=${encodeURIComponent(ANDE_CLIENT_KEY)}`;
+}
+
 /** URL del KUDE oficial. Se abre en el navegador del usuario (ANDE bloquea el servidor). */
 function urlFacturaOficialAnde(nis: string, p?: AndePdfParams) {
   const nisClean = nis.replace(/\D/g, "");
@@ -99,12 +106,12 @@ function urlFacturaOficialAnde(nis: string, p?: AndePdfParams) {
     const f = fechaFacturaAnde(p.fFact);
     const qs = `nro_nis=${nisClean}&sec_nis=${encodeURIComponent(String(p.secNis))}&sec_rec=${encodeURIComponent(String(p.secRec))}&f_fact=${f}`;
     const path = p.electronica === false ? "v4/suministro/facturaPdf" : "v5/suministro/facturaElectronicaPdf";
-    return `${ANDE_OPEN_PDF}${path}?${qs}`;
+    return conClientKey(`${ANDE_OPEN_PDF}${path}?${qs}`);
   }
   if (p?.origen === "penultima") {
-    return `${ANDE_OPEN_PDF}v5/suministro/penultimaFacturaElectronicaPendientePdf?nis=${nisClean}`;
+    return conClientKey(`${ANDE_OPEN_PDF}v5/suministro/penultimaFacturaElectronicaPendientePdf?nis=${nisClean}`);
   }
-  return `${ANDE_OPEN_PDF}v5/suministro/ultimaFacturaElectronicaPendientePdf?nis=${nisClean}`;
+  return conClientKey(`${ANDE_OPEN_PDF}v5/suministro/ultimaFacturaElectronicaPendientePdf?nis=${nisClean}`);
 }
 
 function tiempoEmisionAnde(raw?: string | null) {
@@ -133,16 +140,9 @@ function abrirFacturaPdf(
   }
 
   const urlOficial = urlFacturaOficialAnde(nisClean, pdfParams);
-  const win = window.open(urlOficial, "_blank", "noopener,noreferrer");
-  if (!win) {
-    const a = document.createElement("a");
-    a.href = urlOficial;
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  }
+  // Una sola pestaña. No usar "noopener" acá: en Chrome window.open(..., "noopener")
+  // devuelve null aunque sí abrió, y el fallback duplicaba la ventana.
+  window.open(urlOficial, "_blank", "noreferrer");
   toast.success("Se abrió el comprobante oficial de ANDE. Desde ahí podés descargarlo.");
 }
 
