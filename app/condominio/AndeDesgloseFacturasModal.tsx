@@ -104,25 +104,6 @@ function mostrarPdf(buf: ArrayBuffer) {
   window.open(url, "_blank", "noreferrer");
 }
 
-function postComprobanteOficial(action: string, fields: Record<string, string>) {
-  const form = document.createElement("form");
-  form.method = "POST";
-  form.action = action;
-  form.target = "_blank";
-  form.acceptCharset = "UTF-8";
-  for (const [name, value] of Object.entries(fields || {})) {
-    if (value == null || value === "") continue;
-    const input = document.createElement("input");
-    input.type = "hidden";
-    input.name = name;
-    input.value = String(value);
-    form.appendChild(input);
-  }
-  document.body.appendChild(form);
-  form.submit();
-  form.remove();
-}
-
 function tiempoEmisionAnde(raw?: string | null) {
   const s = String(raw || "").trim();
   if (!s) return 0;
@@ -191,8 +172,9 @@ async function abrirFacturaPdf(
     }
     if (linkRes.ok) {
       const data = await linkRes.json();
-      if (data?.action && data?.fields) {
-        postComprobanteOficial(String(data.action), data.fields as Record<string, string>);
+      const url = String(data?.url || "");
+      if (url.startsWith("https://")) {
+        window.open(url, "_blank", "noreferrer");
         toast.success("Comprobante oficial de ANDE.", { id: toastId });
         return;
       }
