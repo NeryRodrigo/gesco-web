@@ -162,24 +162,7 @@ async function abrirFacturaPdf(
       }
     }
 
-    // En el servidor GCP a veces ANDE bloquea la API. El navegador (misma IP que local) pide el KUDE.
-    const linkRes = await fetch(
-      `${ANDE_API}/comprobante-oficial/${encodeURIComponent(nisClean)}?${qs}`
-    );
-    if (linkRes.status === 401) {
-      toast.error("Faltan credenciales ANDE. Configurá usuario y contraseña de Mi Cuenta.", { id: toastId });
-      return;
-    }
-    if (linkRes.ok) {
-      const data = await linkRes.json();
-      const url = String(data?.url || "");
-      if (url.startsWith("https://")) {
-        window.open(url, "_blank", "noreferrer");
-        toast.success("Comprobante oficial de ANDE.", { id: toastId });
-        return;
-      }
-    }
-
+    // No abrir URLs de ANDE: en el servidor dan captcha JSON, no el KUDE.
     toast.error(MSG_ANDE_FALLAS, { id: toastId });
   } catch {
     toast.error(MSG_ANDE_FALLAS, { id: toastId });

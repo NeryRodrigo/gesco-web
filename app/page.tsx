@@ -463,7 +463,7 @@ export default function OimaDashboard() {
               </div>
             ) : isUsuarioCondominio ? (
               <img
-                src="/fontana-png.png"
+                src="/fontana-logo.jpeg"
                 alt="Fontana Di Luque"
                 className="w-[7.5rem] lg:w-[9.5rem] h-auto object-contain drop-shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-transform duration-500 hover:scale-105"
               />
