@@ -312,7 +312,7 @@ export default function OimaDashboard() {
 
   const tituloDeVista = (v: string) => {
     if (isUsuarioVordia && VORDIA_HQ_TITULOS[v]) return VORDIA_HQ_TITULOS[v];
-    if (v === "inicio") return isUsuarioAgro ? "Agrofield · Confinamiento" : "Inicio";
+    if (v === "inicio") return isUsuarioAgro ? "Agrofield" : "Inicio";
     if (v === "condominio") return "Gestión de unidades";
     if (v === "fontana") return "Fontana · Condominio Agus";
     return v.replace(/_/g, " ");
@@ -428,7 +428,7 @@ export default function OimaDashboard() {
 
         <div className="shrink-0 px-6 pt-6 pb-3 lg:px-8 lg:pt-8 lg:pb-6 flex flex-col items-center">
           
-          <div className={`${isUsuarioVordia ? "mb-3 lg:mb-9" : "mb-4 lg:mb-12"} w-full flex justify-start lg:justify-center cursor-pointer`} onClick={() => { irA("inicio"); setIsMobileMenuOpen(false); }}>
+          <div className={`${isUsuarioVordia || isUsuarioAgro ? "mb-3 lg:mb-9" : "mb-4 lg:mb-12"} w-full flex justify-start lg:justify-center cursor-pointer`} onClick={() => { irA("inicio"); setIsMobileMenuOpen(false); }}>
             {isUsuarioVordia ? (
               <div
                 role="img"
@@ -452,14 +452,16 @@ export default function OimaDashboard() {
                 />
               </div>
             ) : isUsuarioAgro ? (
-              <div className="flex items-center gap-3 w-full justify-start">
-                <div className="h-9 w-9 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                  <Sprout size={18} />
-                </div>
-                <div className="leading-tight">
-                  <p className="text-[10px] font-black tracking-[0.28em] text-emerald-400 uppercase">Vordia Agro</p>
-                  <p className="text-sm font-bold tracking-[0.08em] text-white uppercase">Agrofield</p>
-                </div>
+              <div
+                role="img"
+                aria-label="Vordia Agro"
+                className="w-[140px] lg:w-[180px] mx-auto flex flex-col items-center transition-transform duration-500 hover:scale-[1.03]"
+              >
+                <img
+                  src="/images/vordia-products/agro.png"
+                  alt="Vordia Agro"
+                  className="w-full h-auto object-contain drop-shadow-[0_0_28px_rgba(16,185,129,0.35)]"
+                />
               </div>
             ) : isUsuarioCondominio ? (
               <img
@@ -479,8 +481,8 @@ export default function OimaDashboard() {
 
           <nav className="flex-1 min-h-0 w-full space-y-1 overflow-y-auto overflow-x-hidden px-6 lg:px-8 custom-scrollbar overscroll-contain">
             {!isUsuarioVordia && (
-              <p className="text-[10px] font-black uppercase text-[#007bff] tracking-[0.2em] mb-4 lg:mb-6 ml-2">
-                {isUsuarioAgro ? "Agrofield" : "Módulo de gestión"}
+              <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-4 lg:mb-6 ml-2 ${isUsuarioAgro ? "text-emerald-400" : "text-[#007bff]"}`}>
+                {isUsuarioAgro ? "Operación de campo" : "Módulo de gestión"}
               </p>
             )}
             
@@ -508,12 +510,14 @@ export default function OimaDashboard() {
                     icon={<Sprout size={18} />}
                     label="Confinamiento"
                     active={vistaActual === "inicio"}
+                    accent="emerald"
                     onClick={() => { irA("inicio"); setIsMobileMenuOpen(false); }}
                   />
                   <SidebarItem
                     icon={<Settings size={18} />}
                     label="Configuración"
                     active={vistaActual === "configuracion"}
+                    accent="emerald"
                     onClick={() => { irA("configuracion"); setIsMobileMenuOpen(false); }}
                   />
                   {esAdminSistema && (
@@ -521,6 +525,7 @@ export default function OimaDashboard() {
                       icon={<Users size={18} />}
                       label="Usuarios / Roles"
                       active={vistaActual === "usuarios"}
+                      accent="emerald"
                       onClick={() => { irA("usuarios"); setIsMobileMenuOpen(false); }}
                     />
                   )}
@@ -625,12 +630,12 @@ export default function OimaDashboard() {
             </div>
           )}
           <div className="flex items-center gap-3 min-w-0">
-            <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-xs shadow-lg shadow-blue-600/20 shrink-0">
+            <div className={`h-9 w-9 rounded-xl flex items-center justify-center font-bold text-xs shadow-lg shrink-0 ${isUsuarioAgro ? "bg-emerald-600 shadow-emerald-600/20" : "bg-blue-600 shadow-blue-600/20"}`}>
               {usuarioActivo?.nombre?.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 overflow-hidden text-left min-w-0">
               <p className="text-xs font-bold truncate text-white">{usuarioActivo?.nombre}</p>
-              <p className="text-[9px] text-blue-400 font-black uppercase tracking-widest truncate">
+              <p className={`text-[9px] font-black uppercase tracking-widest truncate ${isUsuarioAgro ? "text-emerald-400" : "text-blue-400"}`}>
                 {isUsuarioVordia ? (usuarioActivo?.rol || "Dirección") : usuarioActivo?.rol}
               </p>
             </div>
@@ -707,7 +712,7 @@ export default function OimaDashboard() {
               {isUsuarioVordia && VORDIA_HQ_TITULOS[vistaActual]
                 ? VORDIA_HQ_TITULOS[vistaActual]
                 : isUsuarioAgro
-                  ? (vistaActual === "inicio" ? "Agrofield · Confinamiento" : vistaActual === "configuracion" ? "Configuración" : vistaActual)
+                  ? (vistaActual === "inicio" ? "Agrofield" : vistaActual === "configuracion" ? "Configuración" : vistaActual)
                   : vistaActual === "inicio"
                     ? "Resumen operativo"
                     : vistaActual === "condominio"
@@ -735,7 +740,7 @@ export default function OimaDashboard() {
                 <Search size={16} />
                 <input
                   type="text"
-                  placeholder={isUsuarioVordia ? "Buscar en VORDIA HQ…" : "Buscar…"}
+                  placeholder={isUsuarioVordia ? "Buscar en VORDIA HQ…" : isUsuarioAgro ? "Buscar en Agrofield…" : "Buscar…"}
                   className="bg-transparent border-none outline-none text-xs w-40"
                 />
             </div>
@@ -776,9 +781,7 @@ export default function OimaDashboard() {
           )}
 
           {vistaActual === "inicio" && isUsuarioAgro && (
-            <div className="-m-3 sm:-m-4 lg:-m-6">
-              <AgroPage />
-            </div>
+            <AgroPage />
           )}
 
           {vistaActual === "inicio" && !isUsuarioVordia && !isUsuarioAgro && condoDashboardData && (
@@ -1012,20 +1015,22 @@ export default function OimaDashboard() {
 }
 
 // Sub-componente SidebarItem (Estilo Vordia Premium)
-function SidebarItem({ icon, label, active = false, onClick }: { icon: ReactNode, label: string, active?: boolean, onClick?: () => void }) {
+function SidebarItem({ icon, label, active = false, onClick, accent = "blue" }: { icon: ReactNode, label: string, active?: boolean, onClick?: () => void, accent?: "blue" | "emerald" }) {
+  const activeCls = accent === "emerald"
+    ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/25 font-bold"
+    : "bg-[#007bff] text-white shadow-lg shadow-[#007bff]/30 font-bold";
+  const iconIdle = accent === "emerald" ? "group-hover:text-emerald-400" : "group-hover:text-blue-400";
   return (
     <button
       onClick={onClick}
       className={`w-full flex items-center gap-4 px-5 py-3 rounded-2xl transition-all duration-300 group ${
-        active 
-        ? 'bg-[#007bff] text-white shadow-lg shadow-[#007bff]/30 font-bold' 
-        : 'text-slate-400 hover:bg-white/5 hover:text-white'
+        active ? activeCls : "text-slate-400 hover:bg-white/5 hover:text-white"
       }`}
     >
-      <div className={`${active ? 'text-white' : 'text-slate-500 group-hover:text-blue-400'} transition-colors`}>
+      <div className={`${active ? "text-white" : `text-slate-500 ${iconIdle}`} transition-colors`}>
         {icon}
       </div>
-      <span className={`text-[11px] sm:text-xs uppercase italic tracking-tight text-left leading-snug ${active ? 'text-white' : ''}`}>{label}</span>
+      <span className={`text-[11px] sm:text-xs uppercase italic tracking-tight text-left leading-snug ${active ? "text-white" : ""}`}>{label}</span>
     </button>
   );
 }
