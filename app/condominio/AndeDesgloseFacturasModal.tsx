@@ -6,7 +6,6 @@ import { Zap, FileText, Loader2, X } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { API_BASE } from "@/lib/api";
 
 export type AndeFacturaDesglose = {
   monto: number;
@@ -83,25 +82,11 @@ export function pdfParamsDeFactura(
   };
 }
 
-const ANDE_API = `${API_BASE}/api/Ande`;
-const MSG_ANDE_FALLAS = "ANDE con fallas";
-
-function fechaFacturaAnde(raw?: string | null) {
-  const s = String(raw || "").trim();
-  if (!s) return "";
-  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
-  return s;
-}
-
-function esPdfBytes(buf: ArrayBuffer) {
-  const u = new Uint8Array(buf.slice(0, 5));
-  return u.length >= 4 && u[0] === 0x25 && u[1] === 0x50 && u[2] === 0x44 && u[3] === 0x46;
-}
-
-function mostrarPdf(buf: ArrayBuffer) {
-  const url = URL.createObjectURL(new Blob([buf], { type: "application/pdf" }));
-  window.open(url, "_blank", "noreferrer");
+function mensajeConsultarAnde(nis?: string) {
+  const n = String(nis || "").replace(/\D/g, "");
+  return n
+    ? `Consultá la página de ANDE (ande.gov.py/servicios) con el NIS ${n} para descargar la factura consultada.`
+    : "Consultá la página de ANDE (ande.gov.py/servicios) con el NIS correspondiente para descargar la factura consultada.";
 }
 
 function tiempoEmisionAnde(raw?: string | null) {
@@ -119,9 +104,9 @@ function tiempoEmisionAnde(raw?: string | null) {
 
 async function abrirFacturaPdf(
   nis: string,
-  inquilino = "",
-  duplex = "",
-  pdfParams?: AndePdfParams
+  _inquilino = "",
+  _duplex = "",
+  _pdfParams?: AndePdfParams
 ) {
   const nisClean = String(nis || "").replace(/\D/g, "");
   if (!nisClean) {
@@ -129,44 +114,7 @@ async function abrirFacturaPdf(
     return;
   }
 
-  const toastId = toast.loading("Obteniendo comprobante oficial de ANDE…");
-  try {
-    const qs = new URLSearchParams();
-    if (inquilino) qs.set("inquilino", inquilino);
-    if (duplex) qs.set("duplex", duplex);
-    if (pdfParams?.secNis) qs.set("secNis", String(pdfParams.secNis));
-    if (pdfParams?.secRec) qs.set("secRec", String(pdfParams.secRec));
-    if (pdfParams?.fFact) qs.set("fFact", fechaFacturaAnde(pdfParams.fFact));
-    if (pdfParams?.electronica === false) qs.set("electronica", "false");
-    if (pdfParams?.origen) qs.set("origen", pdfParams.origen);
-
-    const ac = new AbortController();
-    const timeout = window.setTimeout(() => ac.abort(), 180000);
-    const res = await fetch(
-      `${ANDE_API}/factura-pdf/${encodeURIComponent(nisClean)}?${qs}`,
-      { signal: ac.signal }
-    );
-    window.clearTimeout(timeout);
-
-    if (res.status === 401) {
-      toast.error("Faltan credenciales ANDE. Configurá usuario y contraseña de Mi Cuenta.", { id: toastId });
-      return;
-    }
-
-    if (res.ok) {
-      const buf = await res.arrayBuffer();
-      if (esPdfBytes(buf)) {
-        mostrarPdf(buf);
-        toast.success("Comprobante oficial de ANDE.", { id: toastId });
-        return;
-      }
-    }
-
-    // No abrir URLs de ANDE: en el servidor dan captcha JSON, no el KUDE.
-    toast.error(MSG_ANDE_FALLAS, { id: toastId });
-  } catch {
-    toast.error(MSG_ANDE_FALLAS, { id: toastId });
-  }
+  toast.info(mensajeConsultarAnde(nisClean));
 }
 
 export function AndeDesgloseFacturasModal({
