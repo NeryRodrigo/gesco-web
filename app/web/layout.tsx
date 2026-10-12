@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { VORDIA_SITIO } from "@/lib/vordiaEntornos";
 
 const TITLE = "VORDIA | Software de gestión empresarial en Paraguay";
 const DESCRIPTION =
@@ -8,13 +9,13 @@ export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
   applicationName: "VORDIA",
-  metadataBase: new URL("https://www.vordia.com.py"),
-  alternates: { canonical: "https://www.vordia.com.py/" },
-  robots: { index: true, follow: true },
+  metadataBase: new URL(VORDIA_SITIO),
+  alternates: { canonical: VORDIA_SITIO },
+  robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
   openGraph: {
     title: TITLE,
     description: DESCRIPTION,
-    url: "https://www.vordia.com.py",
+    url: VORDIA_SITIO,
     siteName: "VORDIA",
     locale: "es_PY",
     type: "website",
@@ -32,8 +33,8 @@ const JSON_LD = {
     {
       "@type": "Organization",
       name: "VORDIA",
-      url: "https://www.vordia.com.py",
-      logo: "https://www.vordia.com.py/images/web/lockup-wordmark.png",
+      url: VORDIA_SITIO,
+      logo: `${VORDIA_SITIO}/images/web/lockup-wordmark.png`,
       areaServed: "PY",
       sameAs: [
         "https://www.linkedin.com/in/vordia-py-4ab885439/",
@@ -45,7 +46,7 @@ const JSON_LD = {
     {
       "@type": "WebSite",
       name: "VORDIA",
-      url: "https://www.vordia.com.py",
+      url: VORDIA_SITIO,
       inLanguage: "es-PY",
     },
   ],

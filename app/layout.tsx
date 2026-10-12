@@ -25,6 +25,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.vordia.com.py"),
   title: "Vordia",
   applicationName: "Vordia",
   description: "Sistema operativo de gestión inteligente",

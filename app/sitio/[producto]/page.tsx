@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { VordiaProductoPage } from "@/app/web-institucional/VordiaProductoPage";
+import { VORDIA_SITIO } from "@/lib/vordiaEntornos";
 import { productoPorSlug, VORDIA_PRODUCTO_SLUGS } from "@/lib/vordiaProductos";
 
 type Props = { params: Promise<{ producto: string }> };
@@ -13,7 +14,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { producto } = await params;
   const p = productoPorSlug(producto);
   if (!p) return {};
-  const url = `https://www.vordia.com.py/${p.slug}`;
+  const url = `${VORDIA_SITIO}/${p.slug}`;
   return {
     title: p.title,
     description: p.description,
@@ -42,12 +43,12 @@ function jsonLd(producto: NonNullable<ReturnType<typeof productoPorSlug>>) {
       {
         "@type": "BreadcrumbList",
         itemListElement: [
-          { "@type": "ListItem", position: 1, name: "VORDIA", item: "https://www.vordia.com.py/" },
+          { "@type": "ListItem", position: 1, name: "VORDIA", item: VORDIA_SITIO },
           {
             "@type": "ListItem",
             position: 2,
             name: `VORDIA ${producto.codigo}`,
-            item: `https://www.vordia.com.py/${producto.slug}`,
+            item: `${VORDIA_SITIO}/${producto.slug}`,
           },
         ],
       },
@@ -57,7 +58,7 @@ function jsonLd(producto: NonNullable<ReturnType<typeof productoPorSlug>>) {
         applicationCategory: "BusinessApplication",
         operatingSystem: "Web",
         description: producto.description,
-        url: `https://www.vordia.com.py/${producto.slug}`,
+        url: `${VORDIA_SITIO}/${producto.slug}`,
       },
     ],
   };

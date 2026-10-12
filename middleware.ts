@@ -4,10 +4,10 @@ import {
   VORDIA_ALIAS_CANONICO,
   VORDIA_MODULOS_HQ,
   VORDIA_RESERVADOS,
+  VORDIA_SITIO,
   VORDIA_SLUGS_PRODUCTO,
 } from "@/lib/vordiaEntornos";
 
-const CANONICAL = "https://www.vordia.com.py";
 const SITIO_PUBLICO = new Set(["vordia.com.py", "www.vordia.com.py"]);
 
 function hostname(request: NextRequest) {
@@ -23,7 +23,36 @@ function noIndex(res: NextResponse) {
   return res;
 }
 
+function protoDe(request: NextRequest) {
+  return (
+    request.headers.get("x-forwarded-proto") ||
+    request.nextUrl.protocol.replace(":", "") ||
+    "https"
+  )
+    .split(",")[0]
+    .trim()
+    .toLowerCase();
+}
+
+/** Una sola URL indexable: https://www.vordia.com.py (sin http, sin apex, sin barra final). */
+function redirigirCanonico(request: NextRequest): NextResponse | null {
+  const host = hostname(request);
+  if (!SITIO_PUBLICO.has(host)) return null;
+
+  const { pathname, search } = request.nextUrl;
+  const proto = protoDe(request);
+  const slashDeMas = pathname.length > 1 && pathname.endsWith("/");
+  const hayQueMover = host !== "www.vordia.com.py" || proto === "http" || slashDeMas;
+  if (!hayQueMover) return null;
+
+  const path = `${slashDeMas ? pathname.slice(0, -1) : pathname}${search}`;
+  return NextResponse.redirect(`${VORDIA_SITIO}${path}`, 308);
+}
+
 export function middleware(request: NextRequest) {
+  const canon = redirigirCanonico(request);
+  if (canon) return canon;
+
   const host = hostname(request);
   const publico = SITIO_PUBLICO.has(host);
   const { pathname } = request.nextUrl;
@@ -36,7 +65,7 @@ export function middleware(request: NextRequest) {
   }
 
   if (host.endsWith("duckdns.org") && (pathname === "/web" || pathname === "/web/")) {
-    return NextResponse.redirect(`${CANONICAL}/`, 308);
+    return NextResponse.redirect(`${VORDIA_SITIO}/`, 308);
   }
 
   if (publico && (pathname === "/web-institucional" || pathname.startsWith("/web-institucional/"))) {
