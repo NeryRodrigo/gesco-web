@@ -1,3 +1,6 @@
+/** Origen canónico del sitio público. Sin barra final (coincide con el <link rel="canonical"> de Next). */
+export const VORDIA_SITIO = "https://www.vordia.com.py";
+
 /** Slug de URL → código de solución (entorno) en la landing. */
 export const VORDIA_ENTORNOS: Record<string, string> = {
   habitat: "HABITAT",

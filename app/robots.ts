@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { VORDIA_SITIO } from "@/lib/vordiaEntornos";
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -7,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       disallow: ["/login", "/api/", "/acceso", "/acceso/", "/sitio/", "/web-institucional"],
     },
-    sitemap: "https://www.vordia.com.py/sitemap.xml",
-    host: "https://www.vordia.com.py",
+    sitemap: `${VORDIA_SITIO}/sitemap.xml`,
+    host: VORDIA_SITIO,
   };
 }

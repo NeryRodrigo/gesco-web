@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight } from "lucide-react";
-import type { VordiaProductoPublico } from "@/lib/vordiaProductos";
+import { VORDIA_PRODUCTOS, type VordiaProductoPublico } from "@/lib/vordiaProductos";
 import { BtnDemo, Kicker, Title, VordiaSitioChrome, useVordiaSitio } from "./VordiaSitioChrome";
 
 export function VordiaProductoPage({ producto }: { producto: VordiaProductoPublico }) {
@@ -86,6 +86,23 @@ function ProductoContenido({ producto }: { producto: VordiaProductoPublico }) {
           >
             Ver el ecosistema VORDIA <ArrowRight size={14} />
           </a>
+        </div>
+      </section>
+
+      <section className="border-t border-white/[0.08] py-14 sm:py-16">
+        <div className="mx-auto max-w-[1180px] px-5 sm:px-8">
+          <Kicker>Otras soluciones</Kicker>
+          <nav aria-label="Otras soluciones VORDIA" className="mt-6 flex flex-wrap gap-3">
+            {VORDIA_PRODUCTOS.filter((p) => p.slug !== producto.slug).map((p) => (
+              <a
+                key={p.slug}
+                href={`/${p.slug}`}
+                className="rounded-full border border-white/12 px-4 py-2 text-[12px] font-semibold tracking-[0.12em] text-white/70 hover:border-[#5eb0ff]/50 hover:text-white"
+              >
+                {p.codigo}
+              </a>
+            ))}
+          </nav>
         </div>
       </section>
 
