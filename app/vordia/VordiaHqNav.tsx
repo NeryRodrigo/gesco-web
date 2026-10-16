@@ -28,6 +28,7 @@ import {
   LineChart,
   Target,
   UserCog,
+  Radar,
 } from "lucide-react";
 
 export type VordiaHqVista =
@@ -54,6 +55,7 @@ export type VordiaHqVista =
   | "vordia_documentos"
   | "vordia_automatizaciones"
   | "vordia_roadmap"
+  | "vordia_mercado"
   | "vordia_reportes"
   | "configuracion"
   | "usuarios";
@@ -82,6 +84,7 @@ export const VORDIA_HQ_TITULOS: Record<string, string> = {
   vordia_documentos: "Documentos",
   vordia_automatizaciones: "Automatizaciones",
   vordia_roadmap: "Roadmap · Ideas & Alianzas",
+  vordia_mercado: "Necesidades del Mercado",
   vordia_reportes: "Reportes",
   configuracion: "Configuración",
   usuarios: "Usuarios / Roles",
@@ -193,6 +196,12 @@ export function VordiaHqSidebarNav({
           />
         </div>
       )}
+      <HqItem
+        icon={<Radar size={16} />}
+        label="Necesidades del Mercado"
+        active={vistaActual === "vordia_mercado"}
+        onClick={() => go("vordia_mercado")}
+      />
       <HqItem
         icon={<TrendingUp size={16} />}
         label="Vendedores"

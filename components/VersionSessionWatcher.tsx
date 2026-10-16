@@ -7,6 +7,8 @@ import { clearVordiaSession } from "@/lib/utils";
 
 const EPOCH_KEY = "VORDIA_session_epoch";
 const POLL_MS = 45_000;
+/** Páginas que abren clientes sin sesión (ej. link de un pedido): no se avisa ni se recarga. */
+const RUTAS_PUBLICAS = ["/pedido/"];
 
 type VersionPayload = {
   sessionEpoch?: string;
@@ -20,6 +22,7 @@ export function VersionSessionWatcher() {
   const notifyingRef = useRef(false);
 
   useEffect(() => {
+    if (RUTAS_PUBLICAS.some((r) => window.location.pathname.startsWith(r))) return;
     let cancelled = false;
     let timer: ReturnType<typeof setInterval> | null = null;
 
