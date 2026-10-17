@@ -11,7 +11,6 @@ import {
 import { Card } from "@/components/ui/card";
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { API_BASE, setAuthToken, installAuthFetch } from "@/lib/api";
 import { empresaPorSlug, normalizarEmpresa, slugEmpresa, type EmpresaLogin } from "@/lib/vordiaEntornos";
 
@@ -33,6 +32,17 @@ function slugDesdeUrl() {
   return partes[0] ? slugEmpresa(partes[0]) : "";
 }
 
+/** Refleja el entorno elegido en la barra de direcciones (/acceso/{entorno}) sin recargar la página. */
+function reflejarEntornoEnUrl(empresa: EmpresaLogin | undefined) {
+  if (typeof window === "undefined" || !empresa) return;
+  const slug = slugEmpresa(empresa.razonSocial);
+  if (!slug) return;
+  const destino = `/acceso/${slug}`;
+  if (window.location.pathname !== destino || window.location.search) {
+    window.history.replaceState(window.history.state, "", destino);
+  }
+}
+
 export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: Usuario) => void }) {
   // --- ESTADOS ---
   const [isLogin, setIsLogin] = useState(true);
@@ -42,10 +52,6 @@ export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: 
   const [empresas, setEmpresas] = useState<EmpresaLogin[]>([]);
   const [tempUserData, setTempUserData] = useState<Usuario | null>(null);
 
-  const [showGoogleModal, setShowGoogleModal] = useState(false);
-  const [googleEmail, setGoogleEmail] = useState("rody.moran.py@gmail.com");
-  const [googleNombre, setGoogleNombre] = useState("Rody Moran");
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [loginError, setLoginError] = useState("");
 
   const [formData, setFormData] = useState({
@@ -76,7 +82,10 @@ export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: 
             setEmpresas(lista);
             const porUrl = empresaPorSlug(lista, slugDesdeUrl());
             const elegida = porUrl ?? lista[0];
-            if (elegida) setFormData(prev => ({ ...prev, empresaId: elegida.empresaId }));
+            if (elegida) {
+              setFormData(prev => ({ ...prev, empresaId: elegida.empresaId }));
+              reflejarEntornoEnUrl(elegida);
+            }
         })
         .catch(() => toast.error("Error al conectar con el servidor"));
   }, []);
@@ -165,26 +174,6 @@ export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: 
     } catch (error) { toast.error("Fallo de comunicación"); } finally { setLoading(false); }
   };
 
-  // --- LÓGICA GOOGLE ---
-  const handleGoogleSubmit = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setGoogleLoading(true);
-    try {
-      const response = await fetch(`${API_URL}/api/Auth/google-login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: googleEmail.trim(), nombre: googleNombre.trim(), googleId: "google-" + Date.now() })
-      });
-      if (response.ok) {
-        const data = await response.json();
-        persistToken(data);
-        toast.success(`Bienvenido ${data.nombre}`);
-        setShowGoogleModal(false);
-        onLoginSuccess(data);
-      } else { toast.error("Error Google Login"); }
-    } catch (err) { toast.error("Error de servidor Google"); } finally { setGoogleLoading(false); }
-  };
-
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-[#000205] relative overflow-hidden font-sans">
       
@@ -237,7 +226,13 @@ export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: 
               <>
                 <div className="space-y-2">
                   <Label className="text-gray-400 text-[10px] uppercase font-bold tracking-widest ml-1 flex items-center gap-2">Entorno de Trabajo <Info className="w-3 h-3 opacity-30" /></Label>
-                  <Select value={formData.empresaId ? String(formData.empresaId) : undefined} onValueChange={(v) => setFormData({...formData, empresaId: parseInt(v)})}>
+                  <Select value={formData.empresaId ? String(formData.empresaId) : undefined} onValueChange={(v) => {
+                    // Radix emite "" al montar el select antes de tener opciones: no borrar el entorno elegido
+                    const id = parseInt(v);
+                    if (!Number.isFinite(id) || id <= 0) return;
+                    setFormData({...formData, empresaId: id});
+                    reflejarEntornoEnUrl(empresas.find((e) => e.empresaId === id));
+                  }}>
                     <SelectTrigger className="w-full bg-[#0a1120]/60 border-white/[0.1] text-white h-14 rounded-2xl px-5 font-bold">
                         <div className="flex items-center gap-3"><Building2 className="w-5 h-5 text-gray-500" /><SelectValue placeholder="Seleccioná tu entorno" /></div>
                     </SelectTrigger>
@@ -293,16 +288,9 @@ export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: 
 
           {!isResetting && (
             <div className="mt-10 space-y-8 text-center">
-              <div className="relative flex items-center"><div className="flex-grow border-t border-white/5"></div><span className="flex-shrink mx-6 text-[9px] text-gray-600 uppercase font-bold tracking-[0.3em]">O continuá con</span><div className="flex-grow border-t border-white/5"></div></div>
-              
-              <Button type="button" variant="outline" onClick={() => setShowGoogleModal(true)} className="w-full h-14 bg-transparent hover:bg-white/[0.02] border-white/10 text-white rounded-2xl font-bold text-[11px] tracking-[0.2em] gap-5 uppercase">
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
-                Continuar con Google
-              </Button>
-
               <div className="flex flex-col items-center gap-6 pt-4">
                   <p className="text-gray-500 text-[11px] font-bold tracking-[0.1em] uppercase">
-                    ¿Tu empresa aún no está en Vordia? <button className="text-[#0052FF] font-black ml-1" onClick={() => setIsLogin(!isLogin)}>{isLogin ? "SOLICITAR ACCESO" : "VOLVER AL LOGIN"}</button>
+                    ¿Tu empresa aún no está en Vordia? <a href="https://www.vordia.com.py/#contacto" className="text-[#0052FF] font-black ml-1">SOLICITAR ACCESO</a>
                   </p>
                   <div className="flex items-center gap-3 opacity-70 border-t border-white/5 pt-8 w-full justify-center">
                     <ShieldCheck className="text-[#0052FF]" size={22} />
@@ -314,17 +302,6 @@ export default function AuthScreen({ onLoginSuccess }: { onLoginSuccess: (user: 
         </Card>
       </div>
 
-      {/* MODAL GOOGLE */}
-      <Dialog open={showGoogleModal} onOpenChange={setShowGoogleModal}>
-        <DialogContent className="max-w-md p-8 rounded-[2.5rem] bg-[#0c1421] border-white/10 text-white shadow-2xl z-[100]">
-          <DialogHeader><DialogTitle className="text-lg font-black italic flex items-center gap-3"><Mail className="text-blue-500" /> Autenticación Google</DialogTitle></DialogHeader>
-          <form onSubmit={handleGoogleSubmit} className="space-y-5 pt-4">
-            <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Email</Label><Input type="email" value={googleEmail} onChange={(e) => setGoogleEmail(e.target.value)} className="bg-secondary border-white/10 h-12 rounded-xl" required /></div>
-            <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Nombre</Label><Input type="text" value={googleNombre} onChange={(e) => setGoogleNombre(e.target.value)} className="bg-secondary border-white/10 h-12 rounded-xl" required /></div>
-            <Button type="submit" disabled={googleLoading} className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 rounded-xl font-black uppercase">{googleLoading ? "..." : "Acceder"}</Button>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

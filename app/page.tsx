@@ -7,7 +7,7 @@ import {
   ExternalLink, Save, X, DollarSign, Ruler, ShieldCheck, XCircle, 
   Search, Filter, Sparkles, User, Building2, Wallet, LogOut, 
   Activity, Users, FileText, Cpu, Lock, History, Settings, List, CheckSquare, Menu, Bed,
-  Package, FolderKanban, Truck, BarChart3, CreditCard, LineChart, Sprout, Bell, CalendarDays, ChevronDown
+  Package, FolderKanban, Truck, BarChart3, CreditCard, LineChart, Bell, CalendarDays, ChevronDown
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -57,7 +57,9 @@ import { VordiaCuentasPagarPage } from "./vordia/VordiaCuentasPagarPage";
 import { VordiaProyectosPage } from "./vordia/VordiaProyectosPage";
 import { VordiaConfiguracionPage } from "./vordia/VordiaConfiguracionPage";
 import { VordiaRoadmapPage } from "./vordia/VordiaRoadmapPage";
-import AgroPage from "./agro/page";
+import { VordiaMercadoPage } from "./vordia/VordiaMercadoPage";
+import AgroApp from "./agro/_components/AgroApp";
+import { AgroSidebarNav } from "./agro/_components/navStore";
 import AuthScreen from "./login/Registro";
 import { RegistroUsuarioModal } from "./login/RegistroUsuarioModal";
 import { EditarUsuarioModal } from "./login/EditarUsuarioModal";
@@ -120,6 +122,7 @@ type Vista =
   | "vordia_documentos"
   | "vordia_automatizaciones"
   | "vordia_roadmap"
+  | "vordia_mercado"
   | "vordia_reportes";
 
 export default function OimaDashboard() {
@@ -506,13 +509,11 @@ export default function OimaDashboard() {
                 />
               ) : isUsuarioAgro ? (
                 <>
-                  <SidebarItem
-                    icon={<Sprout size={18} />}
-                    label="Confinamiento"
-                    active={vistaActual === "inicio"}
-                    accent="emerald"
-                    onClick={() => { irA("inicio"); setIsMobileMenuOpen(false); }}
+                  <AgroSidebarNav
+                    resaltar={vistaActual === "inicio"}
+                    onNavigate={() => { irA("inicio"); setIsMobileMenuOpen(false); }}
                   />
+                  <div className="my-3 border-t border-white/5" />
                   <SidebarItem
                     icon={<Settings size={18} />}
                     label="Configuración"
@@ -781,7 +782,7 @@ export default function OimaDashboard() {
           )}
 
           {vistaActual === "inicio" && isUsuarioAgro && (
-            <AgroPage />
+            <AgroApp embebido />
           )}
 
           {vistaActual === "inicio" && !isUsuarioVordia && !isUsuarioAgro && condoDashboardData && (
@@ -909,6 +910,9 @@ export default function OimaDashboard() {
           )}
           {vistaActual === "vordia_roadmap" && isUsuarioVordia && (
             <VordiaRoadmapPage empresaId={empresaId} usuario={usuarioActivo} />
+          )}
+          {vistaActual === "vordia_mercado" && isUsuarioVordia && (
+            <VordiaMercadoPage empresaId={empresaId} usuario={usuarioActivo} onNavigate={(v) => irA(v as Vista)} />
           )}
 
           {vistaActual === "condominio" && !isUsuarioVordia && (

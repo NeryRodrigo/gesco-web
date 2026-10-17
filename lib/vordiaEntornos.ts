@@ -89,6 +89,9 @@ export const VORDIA_RESERVADOS = new Set([
   "recursos",
   "robots.txt",
   "sitemap.xml",
+  "privacidad",
+  "terminos",
+  "baja",
 ]);
 
 export function esRecursoEstatico(pathname: string) {

@@ -7,9 +7,10 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
-import { ArrowRight, Instagram, Linkedin, Menu, Youtube, X } from "lucide-react";
+import { ArrowRight, Instagram, Linkedin, LockKeyhole, Menu, Youtube, X } from "lucide-react";
 import { apiUrl } from "@/lib/api";
 import { VORDIA_PRODUCTOS } from "@/lib/vordiaProductos";
+import { identificacionVordia } from "@/lib/vordiaLegal";
 
 export const FONDO = "#020407";
 export const LOCKUP = "/images/web/lockup-wordmark.png";
@@ -194,10 +195,19 @@ export function VordiaSitioChrome({
               ))}
             </nav>
             <div className="flex items-center justify-end gap-2">
+              <a
+                href="/acceso"
+                rel="nofollow"
+                aria-label="Iniciar sesión"
+                className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-white/15 bg-white/[0.04] px-3 py-2 text-[12px] font-semibold text-white/85 transition-colors hover:border-white/30 hover:bg-white/[0.08] hover:text-white sm:px-4 sm:text-[13px]"
+              >
+                <LockKeyhole size={14} className="text-[#5eb0ff]" />
+                <span className="hidden xl:inline">Iniciar sesión</span>
+              </a>
               <button
                 type="button"
                 onClick={() => abrirDemo()}
-                className="inline-flex items-center gap-2 rounded-full border border-[#006CFF] px-3 py-2 text-[12px] font-semibold text-white shadow-[0_0_22px_rgba(0,108,255,0.28)] hover:bg-[#006CFF]/12 sm:px-5 sm:text-[13px]"
+                className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-[#006CFF] px-3 py-2 text-[12px] font-semibold text-white shadow-[0_0_22px_rgba(0,108,255,0.28)] hover:bg-[#006CFF]/12 sm:px-5 sm:text-[13px]"
               >
                 Solicitar una demo <ArrowRight size={14} />
               </button>
@@ -213,6 +223,9 @@ export function VordiaSitioChrome({
                   {l.label}
                 </a>
               ))}
+              <a href="/acceso" rel="nofollow" className="flex items-center gap-2 border-t border-white/10 pt-3 text-[15px] font-semibold text-white">
+                <LockKeyhole size={16} className="text-[#5eb0ff]" /> Iniciar sesión
+              </a>
             </div>
           )}
         </header>
@@ -264,7 +277,13 @@ export function VordiaSitioChrome({
                   </a>
                 ))}
               </nav>
-              <p className="text-[11px] text-white/30">© 2026 VORDIA. Paraguay. Todos los derechos reservados.</p>
+              <div className="flex flex-col gap-1.5 text-[11px] text-white/30 sm:items-end">
+                <nav aria-label="Legal" className="flex gap-4 text-white/45">
+                  <a href="/privacidad" className="hover:text-white">Privacidad</a>
+                  <a href="/terminos" className="hover:text-white">Términos y condiciones</a>
+                </nav>
+                <p>© 2026 {identificacionVordia()}. Todos los derechos reservados.</p>
+              </div>
             </div>
           </div>
         </footer>
@@ -375,9 +394,18 @@ export function VordiaSitioChrome({
                     </>
                   )}
                   <input name="sitio" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden="true" />
-                  <p className="text-[12px] leading-relaxed text-white/35">
-                    Usamos estos datos solo para contactarte sobre VORDIA.
-                  </p>
+                  {!sent && (
+                    <label className="flex items-start gap-2.5 text-[12px] leading-relaxed text-white/50">
+                      <input type="checkbox" name="consentimiento" required className="mt-0.5 accent-[#006CFF]" />
+                      <span>
+                        Acepto que VORDIA use estos datos para contactarme sobre mi solicitud, según la{" "}
+                        <a href="/privacidad" target="_blank" className="text-[#5eb0ff] underline-offset-2 hover:underline">
+                          Política de Privacidad
+                        </a>
+                        .
+                      </span>
+                    </label>
+                  )}
                   {error && <p className="text-[13px] text-red-300/80">{error}</p>}
                 </form>
               )}
