@@ -13,5 +13,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly" as const,
       priority: slug === "habitat" ? 0.9 : 0.8,
     })),
+    ...["privacidad", "terminos"].map((p) => ({
+      url: `${VORDIA_SITIO}/${p}`,
+      changeFrequency: "yearly" as const,
+      priority: 0.3,
+    })),
   ];
 }

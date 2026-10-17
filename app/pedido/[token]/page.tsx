@@ -147,6 +147,11 @@ export default function PedidoPublicoPage() {
                   <p className="flex items-center justify-center gap-1.5 text-xs text-slate-400">
                     <ShieldCheck size={13} /> Aceptar no realiza ningún cobro: coordinamos el pago con vos.
                   </p>
+                  <p className="text-center text-[11px] leading-relaxed text-slate-400">
+                    Al aceptar confirmás el pedido según los{" "}
+                    <a href="/terminos" target="_blank" className="underline hover:text-slate-600">Términos y Condiciones</a> y la{" "}
+                    <a href="/privacidad" target="_blank" className="underline hover:text-slate-600">Política de Privacidad</a> de VORDIA.
+                  </p>
                 </div>
               )}
 
