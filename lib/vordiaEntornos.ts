@@ -92,6 +92,8 @@ export const VORDIA_RESERVADOS = new Set([
   "privacidad",
   "terminos",
   "baja",
+  "estudio",
+  "herramientas",
 ]);
 
 export function esRecursoEstatico(pathname: string) {

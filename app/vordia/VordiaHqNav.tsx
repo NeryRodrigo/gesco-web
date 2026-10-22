@@ -29,6 +29,7 @@ import {
   Target,
   UserCog,
   Radar,
+  Tags,
 } from "lucide-react";
 
 export type VordiaHqVista =
@@ -56,6 +57,7 @@ export type VordiaHqVista =
   | "vordia_automatizaciones"
   | "vordia_roadmap"
   | "vordia_mercado"
+  | "vordia_precios"
   | "vordia_reportes"
   | "configuracion"
   | "usuarios";
@@ -85,6 +87,7 @@ export const VORDIA_HQ_TITULOS: Record<string, string> = {
   vordia_automatizaciones: "Automatizaciones",
   vordia_roadmap: "Roadmap · Ideas & Alianzas",
   vordia_mercado: "Necesidades del Mercado",
+  vordia_precios: "Estudio de precios",
   vordia_reportes: "Reportes",
   configuracion: "Configuración",
   usuarios: "Usuarios / Roles",
@@ -201,6 +204,12 @@ export function VordiaHqSidebarNav({
         label="Necesidades del Mercado"
         active={vistaActual === "vordia_mercado"}
         onClick={() => go("vordia_mercado")}
+      />
+      <HqItem
+        icon={<Tags size={16} />}
+        label="Estudio de precios"
+        active={vistaActual === "vordia_precios"}
+        onClick={() => go("vordia_precios")}
       />
       <HqItem
         icon={<TrendingUp size={16} />}

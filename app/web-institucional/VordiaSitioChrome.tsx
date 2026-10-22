@@ -19,6 +19,7 @@ export const AZUL = "#006CFF";
 const NAV = [
   { href: "/#soluciones", label: "Soluciones" },
   { href: "/#como-trabajamos", label: "Cómo trabajamos" },
+  { href: "/herramientas", label: "Herramientas gratis" },
   { href: "/#contacto", label: "Contacto" },
 ];
 
@@ -177,7 +178,7 @@ export function VordiaSitioChrome({
     <SitioContext.Provider value={{ abrirDemo, sector }}>
       <div className="min-h-screen overflow-x-hidden font-sans text-[#F5F7FA]" style={{ background: FONDO }}>
         <header className="fixed inset-x-0 top-0 z-40 bg-[#020407]/70 backdrop-blur-xl">
-          <div className="mx-auto grid h-[72px] max-w-[1180px] grid-cols-[1fr_auto] items-center px-5 md:grid-cols-[1fr_auto_1fr] sm:px-8">
+          <div className="mx-auto grid h-[72px] max-w-[1180px] grid-cols-[1fr_auto] items-center px-5 xl:grid-cols-[auto_1fr_auto] xl:gap-8 sm:px-8">
             <a href="/" className="justify-self-start" aria-label="VORDIA inicio">
               <img
                 src={LOCKUP}
@@ -187,7 +188,7 @@ export function VordiaSitioChrome({
                 className="h-8 w-auto object-contain mix-blend-screen"
               />
             </a>
-            <nav className="hidden items-center gap-10 md:flex">
+            <nav className="hidden items-center gap-9 justify-self-center xl:flex">
               {NAV.map((l) => (
                 <a key={l.href} href={l.href} className="text-[13px] text-white/65 transition-colors hover:text-white">
                   {l.label}
@@ -211,13 +212,13 @@ export function VordiaSitioChrome({
               >
                 Solicitar una demo <ArrowRight size={14} />
               </button>
-              <button type="button" className="p-2 md:hidden" onClick={() => setMenu((v) => !v)} aria-label="Menú">
+              <button type="button" className="p-2 xl:hidden" onClick={() => setMenu((v) => !v)} aria-label="Menú">
                 {menu ? <X size={20} /> : <Menu size={20} />}
               </button>
             </div>
           </div>
           {menu && (
-            <div className="space-y-2 border-t border-white/10 bg-[#020407] px-5 py-4 md:hidden">
+            <div className="space-y-2 border-t border-white/10 bg-[#020407] px-5 py-4 xl:hidden">
               {NAV.map((l) => (
                 <a key={l.href} href={l.href} onClick={() => setMenu(false)} className="block py-2 text-[15px] text-white/80">
                   {l.label}
