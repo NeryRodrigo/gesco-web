@@ -30,6 +30,7 @@ import {
   UserCog,
   Radar,
   Tags,
+  MailCheck,
 } from "lucide-react";
 
 export type VordiaHqVista =
@@ -58,6 +59,7 @@ export type VordiaHqVista =
   | "vordia_roadmap"
   | "vordia_mercado"
   | "vordia_precios"
+  | "vordia_secuencias"
   | "vordia_reportes"
   | "configuracion"
   | "usuarios";
@@ -88,6 +90,7 @@ export const VORDIA_HQ_TITULOS: Record<string, string> = {
   vordia_roadmap: "Roadmap · Ideas & Alianzas",
   vordia_mercado: "Necesidades del Mercado",
   vordia_precios: "Estudio de precios",
+  vordia_secuencias: "Secuencias de correo",
   vordia_reportes: "Reportes",
   configuracion: "Configuración",
   usuarios: "Usuarios / Roles",
@@ -210,6 +213,12 @@ export function VordiaHqSidebarNav({
         label="Estudio de precios"
         active={vistaActual === "vordia_precios"}
         onClick={() => go("vordia_precios")}
+      />
+      <HqItem
+        icon={<MailCheck size={16} />}
+        label="Secuencias de correo"
+        active={vistaActual === "vordia_secuencias"}
+        onClick={() => go("vordia_secuencias")}
       />
       <HqItem
         icon={<TrendingUp size={16} />}

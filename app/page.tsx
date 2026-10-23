@@ -59,6 +59,7 @@ import { VordiaConfiguracionPage } from "./vordia/VordiaConfiguracionPage";
 import { VordiaRoadmapPage } from "./vordia/VordiaRoadmapPage";
 import { VordiaMercadoPage } from "./vordia/VordiaMercadoPage";
 import { VordiaEstudioPreciosPage } from "./vordia/VordiaEstudioPreciosPage";
+import { VordiaSecuenciasPage } from "./vordia/VordiaSecuenciasPage";
 import AgroApp from "./agro/_components/AgroApp";
 import { AgroSidebarNav } from "./agro/_components/navStore";
 import AuthScreen from "./login/Registro";
@@ -125,6 +126,7 @@ type Vista =
   | "vordia_roadmap"
   | "vordia_mercado"
   | "vordia_precios"
+  | "vordia_secuencias"
   | "vordia_reportes";
 
 export default function OimaDashboard() {
@@ -917,6 +919,7 @@ export default function OimaDashboard() {
             <VordiaMercadoPage empresaId={empresaId} usuario={usuarioActivo} onNavigate={(v) => irA(v as Vista)} />
           )}
           {vistaActual === "vordia_precios" && isUsuarioVordia && <VordiaEstudioPreciosPage empresaId={empresaId} />}
+          {vistaActual === "vordia_secuencias" && isUsuarioVordia && <VordiaSecuenciasPage empresaId={empresaId} usuario={usuarioActivo} />}
 
           {vistaActual === "condominio" && !isUsuarioVordia && (
              <div className="animate-in fade-in duration-500">
