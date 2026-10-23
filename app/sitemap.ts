@@ -13,6 +13,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly" as const,
       priority: slug === "habitat" ? 0.9 : 0.8,
     })),
+    ...["herramientas", "herramientas/morosidad", "herramientas/costo-por-kilo", "herramientas/facturacion"].map((p) => ({
+      url: `${VORDIA_SITIO}/${p}`,
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
+    })),
     ...["privacidad", "terminos"].map((p) => ({
       url: `${VORDIA_SITIO}/${p}`,
       changeFrequency: "yearly" as const,
