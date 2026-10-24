@@ -88,7 +88,7 @@ function FilaBorrador({ c, empresaId, onCambio }: { c: Contacto; empresaId: numb
 
 /** HQ · Secuencias de correo: la IA redacta, una persona aprueba y los seguimientos salen solos. */
 export function VordiaSecuenciasPage({ empresaId, usuario }: { empresaId: number; usuario?: { nombre?: string; email?: string } | null }) {
-  const [datos, setDatos] = useState<{ iaConfigurada: boolean; secuencias: Resumen[] } | null>(null);
+  const [datos, setDatos] = useState<{ iaConfigurada: boolean; iaProveedores?: string; secuencias: Resumen[] } | null>(null);
   const [selId, setSelId] = useState<number | null>(null);
   const [contactos, setContactos] = useState<Contacto[]>([]);
   const [form, setForm] = useState<typeof NUEVA | null>(null);
@@ -99,7 +99,7 @@ export function VordiaSecuenciasPage({ empresaId, usuario }: { empresaId: number
 
   useEffect(() => {
     let vivo = true;
-    api<{ iaConfigurada: boolean; secuencias: Resumen[] }>(`/api/Secuencias?empresaId=${empresaId}`)
+    api<{ iaConfigurada: boolean; iaProveedores?: string; secuencias: Resumen[] }>(`/api/Secuencias?empresaId=${empresaId}`)
       .then((d) => {
         if (!vivo) return;
         setDatos(d);
@@ -159,7 +159,7 @@ export function VordiaSecuenciasPage({ empresaId, usuario }: { empresaId: number
         </div>
         <div className="flex items-center gap-2">
           <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] ${datos?.iaConfigurada ? "bg-emerald-500/10 text-emerald-200" : "bg-amber-500/10 text-amber-200"}`}>
-            <Bot size={13} /> {datos?.iaConfigurada ? "IA activa (Gemini)" : "IA sin configurar: se usa plantilla"}
+            <Bot size={13} /> {datos?.iaConfigurada ? `IA gratuita activa (${datos.iaProveedores})` : "IA sin configurar: se usa plantilla"}
           </span>
           <button type="button" onClick={() => setForm({ ...NUEVA, firma: usuario?.nombre ?? "", responderA: usuario?.email ?? "" })} className="inline-flex items-center gap-1.5 rounded-xl bg-[#007bff] px-3 py-2 text-[13px] font-semibold text-white hover:bg-[#0069d9]">
             <Plus size={14} /> Nueva secuencia
