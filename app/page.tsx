@@ -61,6 +61,7 @@ import { VordiaMercadoPage } from "./vordia/VordiaMercadoPage";
 import { VordiaEstudioPreciosPage } from "./vordia/VordiaEstudioPreciosPage";
 import { VordiaSecuenciasPage } from "./vordia/VordiaSecuenciasPage";
 import AgroApp from "./agro/_components/AgroApp";
+import ContaApp from "./conta/_components/ContaApp";
 import { AgroSidebarNav } from "./agro/_components/navStore";
 import AuthScreen from "./login/Registro";
 import { RegistroUsuarioModal } from "./login/RegistroUsuarioModal";
@@ -127,6 +128,7 @@ type Vista =
   | "vordia_mercado"
   | "vordia_precios"
   | "vordia_secuencias"
+  | "vordia_conta"
   | "vordia_reportes";
 
 export default function OimaDashboard() {
@@ -163,6 +165,7 @@ export default function OimaDashboard() {
   const rubroUpper = String(usuarioActivo?.rubro || "").toUpperCase();
   const isUsuarioVordia = rubroUpper === "VORDIA";
   const isUsuarioAgro = rubroUpper === "AGRO";
+  const isUsuarioConta = rubroUpper === "CONTA";
   const isUsuarioCondominio = !isUsuarioVordia && !isUsuarioAgro; // Fontana/Agus
   const canManagePasswords = isAdminFontana(usuarioActivo) || isUsuarioVordia || isUsuarioAgro || isRolAdministrador(usuarioActivo);
   const esAdminSistema = isRolAdministrador(usuarioActivo);
@@ -406,6 +409,11 @@ export default function OimaDashboard() {
         }}
       />
     );
+  }
+
+  // Estudios contables: VORDIA CONTA a pantalla completa, con su propio menú
+  if (isUsuarioConta) {
+    return <ContaApp onLogout={handleLogoutConfirmation} />;
   }
 
   return (
@@ -920,6 +928,7 @@ export default function OimaDashboard() {
           )}
           {vistaActual === "vordia_precios" && isUsuarioVordia && <VordiaEstudioPreciosPage empresaId={empresaId} />}
           {vistaActual === "vordia_secuencias" && isUsuarioVordia && <VordiaSecuenciasPage empresaId={empresaId} usuario={usuarioActivo} />}
+          {vistaActual === "vordia_conta" && isUsuarioVordia && <ContaApp embebido />}
 
           {vistaActual === "condominio" && !isUsuarioVordia && (
              <div className="animate-in fade-in duration-500">

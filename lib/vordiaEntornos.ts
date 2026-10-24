@@ -24,6 +24,9 @@ export const VORDIA_ENTORNOS: Record<string, string> = {
   logistica: "OPS",
   agro: "AGRO",
   agricola: "AGRO",
+  conta: "CONTA",
+  contable: "CONTA",
+  contadores: "CONTA",
 };
 
 export const VORDIA_ENTORNO_CANONICOS = [
@@ -34,6 +37,7 @@ export const VORDIA_ENTORNO_CANONICOS = [
   "boutique",
   "ops",
   "agro",
+  "conta",
 ] as const;
 
 export type VordiaProductoSlug = (typeof VORDIA_ENTORNO_CANONICOS)[number];
@@ -56,6 +60,8 @@ export const VORDIA_ALIAS_CANONICO: Record<string, VordiaProductoSlug> = {
   moda: "boutique",
   logistica: "ops",
   agricola: "agro",
+  contable: "conta",
+  contadores: "conta",
 };
 
 /** Rutas del HQ que no deben convertirse en login ni en landing. */
@@ -94,6 +100,7 @@ export const VORDIA_RESERVADOS = new Set([
   "baja",
   "estudio",
   "herramientas",
+  "subir",
 ]);
 
 export function esRecursoEstatico(pathname: string) {

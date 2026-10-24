@@ -135,6 +135,24 @@ export const VORDIA_PRECIOS: VordiaPrecioProducto[] = [
       { nombre: "CONNECT (collares, balanzas, sensores)", precioGs: 9_000, unidad: "por dispositivo/mes" },
     ],
   },
+  {
+    slug: "conta",
+    metrica: "RUC (empresas) que lleva el estudio",
+    planes: [
+      {
+        codigo: "CONTA_INICIO", nombre: "Inicio", precioMensualGs: 249_000, limite: "Hasta 10 RUC",
+        incluye: ["Carga por XML y QR del SIFEN", "Validación de RUC e IVA", "Libros de compras y ventas", "Archivo RG90"],
+      },
+      {
+        codigo: "CONTA_ESTUDIO", nombre: "Estudio", precioMensualGs: 590_000, limite: "Hasta 40 RUC", recomendado: true,
+        incluye: ["Todo lo de Inicio", "Link para que cada cliente mande fotos de sus facturas", "Panel con semáforo y vencimientos por RUC", "Pedido de facturas por WhatsApp"],
+      },
+      {
+        codigo: "CONTA_PRO", nombre: "Estudio Pro", precioMensualGs: 12_900, porUnidad: "por RUC", minimoMensualGs: 690_000, limite: "Más de 40 RUC",
+        incluye: ["Todo lo de Estudio", "Varios usuarios del estudio", "Soporte prioritario"],
+      },
+    ],
+  },
 ];
 
 /** Precio anual con el descuento de VORDIA_CONDICIONES (se pagan 10 meses). */

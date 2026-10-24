@@ -132,6 +132,22 @@ export const VORDIA_PRODUCTOS: VordiaProductoPublico[] = [
     ctaSecundario: "Ver el ecosistema VORDIA",
     paraQuien: "Para producciones agrícolas que necesitan seguir lotes, etapas y campañas.",
   },
+  {
+    slug: "conta",
+    codigo: "CONTA",
+    nombre: "Estudios contables",
+    texto: "Tu cliente le saca foto al QR de la factura y el RG90 sale solo.",
+    pills: ["XML y QR del SIFEN", "Libros e IVA", "Archivo RG90"],
+    imagen: "/images/web/conta-estudio.svg",
+    imagenAlt: "Factura electrónica con código QR que representa VORDIA CONTA",
+    title: "Software para estudios contables en Paraguay | VORDIA CONTA",
+    h1: "Tu cliente manda la foto del QR. El RG90 sale solo.",
+    description:
+      "CONTA lee las facturas electrónicas del SIFEN por XML o QR, valida RUC e IVA, arma los libros de compras y ventas y genera el archivo RG90 para Marangatu.",
+    ctaPrincipal: "Quiero una demo de CONTA",
+    ctaSecundario: "Ver cómo funciona",
+    paraQuien: "Para estudios contables que llevan muchos RUC y quieren dejar de cargar facturas a mano.",
+  },
 ];
 
 export function productoPorSlug(slug: string | null | undefined) {

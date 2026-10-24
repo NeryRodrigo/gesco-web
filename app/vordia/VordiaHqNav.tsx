@@ -31,6 +31,7 @@ import {
   Radar,
   Tags,
   MailCheck,
+  Calculator,
 } from "lucide-react";
 
 export type VordiaHqVista =
@@ -60,6 +61,7 @@ export type VordiaHqVista =
   | "vordia_mercado"
   | "vordia_precios"
   | "vordia_secuencias"
+  | "vordia_conta"
   | "vordia_reportes"
   | "configuracion"
   | "usuarios";
@@ -91,6 +93,7 @@ export const VORDIA_HQ_TITULOS: Record<string, string> = {
   vordia_mercado: "Necesidades del Mercado",
   vordia_precios: "Estudio de precios",
   vordia_secuencias: "Secuencias de correo",
+  vordia_conta: "VORDIA CONTA (demo)",
   vordia_reportes: "Reportes",
   configuracion: "Configuración",
   usuarios: "Usuarios / Roles",
@@ -219,6 +222,12 @@ export function VordiaHqSidebarNav({
         label="Secuencias de correo"
         active={vistaActual === "vordia_secuencias"}
         onClick={() => go("vordia_secuencias")}
+      />
+      <HqItem
+        icon={<Calculator size={16} />}
+        label="VORDIA CONTA (demo)"
+        active={vistaActual === "vordia_conta"}
+        onClick={() => go("vordia_conta")}
       />
       <HqItem
         icon={<TrendingUp size={16} />}

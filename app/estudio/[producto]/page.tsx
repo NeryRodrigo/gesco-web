@@ -16,6 +16,7 @@ const PROBLEMAS: Record<string, string[]> = {
   boutique: ["Stock por talle y color", "Facturación electrónica", "Temporadas y liquidaciones", "Clientes frecuentes"],
   ops: ["Seguimiento de vehículos", "Órdenes de trabajo", "Costos por viaje", "Mantenimiento de flota"],
   agro: ["Pesajes y ganancia diaria", "Sanidad y vacunas", "Costos por cabeza", "Trazabilidad"],
+  conta: ["Cargar facturas a mano", "Que el cliente mande las facturas a tiempo", "Armar el RG90 sin errores", "Controlar vencimientos de muchos RUC"],
 };
 const INTENCION = ["Seguro que no", "Probablemente no", "No sé", "Probablemente sí", "Seguro que sí"];
 
