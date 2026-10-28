@@ -10,6 +10,7 @@ export const ESTUDIO_TAMANO: Record<VordiaProductoSlug, string> = {
   boutique: "¿Cuántas cajas o puntos de venta tenés?",
   ops: "¿Cuántos vehículos o equipos tenés en la calle?",
   agro: "¿Cuántas cabezas de ganado manejás?",
+  conta: "¿Cuántas empresas (RUC) lleva tu estudio?",
 };
 
 /** Multiplicadores del precio recomendado que se muestran al azar (Gabor-Granger). */

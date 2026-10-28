@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect, useState } from "react";
 import { API_BASE } from "@/lib/api";
-import {
+import { Gem,
   LayoutDashboard,
   Users,
   List,
@@ -30,6 +30,8 @@ import {
   UserCog,
   Radar,
   Tags,
+  MailCheck,
+  Calculator,
 } from "lucide-react";
 
 export type VordiaHqVista =
@@ -58,6 +60,9 @@ export type VordiaHqVista =
   | "vordia_roadmap"
   | "vordia_mercado"
   | "vordia_precios"
+  | "vordia_secuencias"
+  | "vordia_conta"
+  | "vordia_boutique"
   | "vordia_reportes"
   | "configuracion"
   | "usuarios";
@@ -88,6 +93,9 @@ export const VORDIA_HQ_TITULOS: Record<string, string> = {
   vordia_roadmap: "Roadmap · Ideas & Alianzas",
   vordia_mercado: "Necesidades del Mercado",
   vordia_precios: "Estudio de precios",
+  vordia_secuencias: "Secuencias de correo",
+  vordia_conta: "VORDIA CONTA (demo)",
+  vordia_boutique: "VORDIA BOUTIQUE (demo)",
   vordia_reportes: "Reportes",
   configuracion: "Configuración",
   usuarios: "Usuarios / Roles",
@@ -210,6 +218,24 @@ export function VordiaHqSidebarNav({
         label="Estudio de precios"
         active={vistaActual === "vordia_precios"}
         onClick={() => go("vordia_precios")}
+      />
+      <HqItem
+        icon={<MailCheck size={16} />}
+        label="Secuencias de correo"
+        active={vistaActual === "vordia_secuencias"}
+        onClick={() => go("vordia_secuencias")}
+      />
+      <HqItem
+        icon={<Calculator size={16} />}
+        label="VORDIA CONTA (demo)"
+        active={vistaActual === "vordia_conta"}
+        onClick={() => go("vordia_conta")}
+      />
+      <HqItem
+        icon={<Gem size={16} />}
+        label="VORDIA BOUTIQUE (demo)"
+        active={vistaActual === "vordia_boutique"}
+        onClick={() => go("vordia_boutique")}
       />
       <HqItem
         icon={<TrendingUp size={16} />}

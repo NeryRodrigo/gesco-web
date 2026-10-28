@@ -16,6 +16,8 @@ export type VordiaProductoPublico = {
   description: string;
   ctaPrincipal: string;
   ctaSecundario: string;
+  /** Destino del enlace secundario (por defecto, cómo trabajamos). */
+  ctaSecundarioHref?: string;
   paraQuien: string;
 };
 
@@ -87,18 +89,19 @@ export const VORDIA_PRODUCTOS: VordiaProductoPublico[] = [
   {
     slug: "boutique",
     codigo: "BOUTIQUE",
-    nombre: "Moda",
-    texto: "Gestión especializada para el mundo de la moda, venta y alquiler.",
-    pills: ["Variantes", "Venta", "Alquiler"],
+    nombre: "Boutiques y moda",
+    texto: "Tu boutique ordenada por talle y color, y vendiendo también en VORDIA Closet.",
+    pills: ["Talles y colores", "Apartados y alquiler", "Marketplace"],
     imagen: "/images/web/boutique-moda.png",
     imagenAlt: "Local de moda que representa VORDIA BOUTIQUE",
-    title: "Software para moda | VORDIA BOUTIQUE",
-    h1: "Gestión de moda: variantes, venta y alquiler",
+    title: "Sistema para boutiques con marketplace | VORDIA BOUTIQUE",
+    h1: "Tu boutique vende en el local y en VORDIA Closet, con el mismo stock",
     description:
-      "BOUTIQUE está pensado para operaciones de moda que combinan variantes, venta y alquiler.",
-    ctaPrincipal: "Quiero conocer BOUTIQUE",
-    ctaSecundario: "Ver el ecosistema VORDIA",
-    paraQuien: "Para operaciones de moda que combinan variantes, venta y alquiler.",
+      "VORDIA BOUTIQUE ordena tu stock por talle y color, la caja, los apartados con seña y los alquileres por fecha. Tus prendas aparecen solas en VORDIA Closet, el marketplace de las boutiques de Asunción y Gran Asunción, donde las clientas reservan su prueba.",
+    ctaPrincipal: "Quiero sumar mi boutique",
+    ctaSecundario: "Ver VORDIA Closet",
+    ctaSecundarioHref: "/closet",
+    paraQuien: "Para boutiques de Asunción y Gran Asunción que venden y alquilan ropa, vestidos de fiesta y accesorios.",
   },
   {
     slug: "ops",
@@ -131,6 +134,22 @@ export const VORDIA_PRODUCTOS: VordiaProductoPublico[] = [
     ctaPrincipal: "Quiero conocer AGRO",
     ctaSecundario: "Ver el ecosistema VORDIA",
     paraQuien: "Para producciones agrícolas que necesitan seguir lotes, etapas y campañas.",
+  },
+  {
+    slug: "conta",
+    codigo: "CONTA",
+    nombre: "Estudios contables",
+    texto: "Tu cliente le saca foto al QR de la factura y el RG90 sale solo.",
+    pills: ["XML y QR del SIFEN", "Libros e IVA", "Archivo RG90"],
+    imagen: "/images/web/conta-estudio.svg",
+    imagenAlt: "Factura electrónica con código QR que representa VORDIA CONTA",
+    title: "Software para estudios contables en Paraguay | VORDIA CONTA",
+    h1: "Tu cliente manda la foto del QR. El RG90 sale solo.",
+    description:
+      "CONTA lee las facturas electrónicas del SIFEN por XML o QR, valida RUC e IVA, arma los libros de compras y ventas y genera el archivo RG90 para Marangatu.",
+    ctaPrincipal: "Quiero una demo de CONTA",
+    ctaSecundario: "Ver cómo funciona",
+    paraQuien: "Para estudios contables que llevan muchos RUC y quieren dejar de cargar facturas a mano.",
   },
 ];
 

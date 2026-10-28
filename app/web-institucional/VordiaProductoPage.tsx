@@ -31,7 +31,7 @@ function ProductoContenido({ producto }: { producto: VordiaProductoPublico }) {
               <BtnDemo onClick={() => abrirDemo(producto.codigo)} className="px-6 py-3 text-[14px]">
                 {producto.ctaPrincipal} <ArrowRight size={16} />
               </BtnDemo>
-              <a href="/#como-trabajamos" className="text-[14px] font-medium text-[#5eb0ff] hover:text-white">
+              <a href={producto.ctaSecundarioHref ?? "/#como-trabajamos"} className="text-[14px] font-medium text-[#5eb0ff] hover:text-white">
                 {producto.ctaSecundario}
               </a>
             </div>
