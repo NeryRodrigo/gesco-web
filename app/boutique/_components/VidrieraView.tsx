@@ -41,11 +41,11 @@ export function VidrieraView({ ctx }: { ctx: ContextoBoutique }) {
       </div>
 
       {link && (
-        <div className={`${DEGRADE} rounded-[28px] p-5 text-white shadow-[0_20px_50px_-25px_rgba(214,51,132,0.8)]`}>
+        <div className={`${DEGRADE} rounded-[28px] p-5 text-white shadow-[var(--btq-brillo)]`}>
           <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-white/80">Tu link para Instagram y WhatsApp</p>
           <p className={`${SERIF} mt-1 break-all text-[20px] font-semibold`}>{link.replace(/^https?:\/\//, "")}</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" onClick={() => { navigator.clipboard?.writeText(link); toast.success("Link copiado: pegalo en la bio de Instagram"); }} className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-[13px] font-semibold text-[#B0135E]"><Copy size={14} /> Copiar</button>
+            <button type="button" onClick={() => { navigator.clipboard?.writeText(link); toast.success("Link copiado: pegalo en la bio de Instagram"); }} className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--btq-card)] px-3.5 py-2 text-[13px] font-semibold text-[color:var(--btq-rosa)]"><Copy size={14} /> Copiar</button>
             <a href={link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full border border-white/60 px-3.5 py-2 text-[13px] font-semibold"><ExternalLink size={14} /> Ver como clienta</a>
             <a href={linkWhatsapp("", `Mirá lo nuevo de ${p?.nombreComercial} 💜 ${link}`)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full border border-white/60 px-3.5 py-2 text-[13px] font-semibold"><MessageCircle size={14} /> Compartir en estados</a>
           </div>
@@ -69,8 +69,8 @@ export function VidrieraView({ ctx }: { ctx: ContextoBoutique }) {
           <Campo label="Estilo">
             <select className={CAMPO} value={f.estilo} onChange={(e) => set("estilo", e.target.value)}>{ESTILOS.map((c) => <option key={c}>{c}</option>)}</select>
           </Campo>
-          <label className="flex items-center gap-2 self-end rounded-2xl border border-[#E6D6F2] bg-white px-3.5 py-2.5 text-[13px]">
-            <input type="checkbox" checked={f.publicada} onChange={(e) => set("publicada", e.target.checked)} className="h-4 w-4 accent-[#C77DD8]" />
+          <label className="flex items-center gap-2 self-end rounded-2xl border border-[color:var(--btq-borde)] bg-[color:var(--btq-card)] px-3.5 py-2.5 text-[13px]">
+            <input type="checkbox" checked={f.publicada} onChange={(e) => set("publicada", e.target.checked)} className="h-4 w-4 accent-[color:var(--btq-acento)]" />
             Mostrar mi boutique en VORDIA CLOSET
           </label>
         </div>
@@ -81,7 +81,7 @@ export function VidrieraView({ ctx }: { ctx: ContextoBoutique }) {
         </div>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
           <p className={`flex items-center gap-1.5 text-[12.5px] ${TEXTO_SUAVE}`}>
-            <BadgeCheck size={15} className={p?.verificada ? "text-[#6A4BC4]" : "text-[#C9B8DA]"} />
+            <BadgeCheck size={15} className={p?.verificada ? "text-[color:var(--btq-lila)]" : "text-[color:var(--btq-tenue)]"} />
             {p?.verificada ? "Boutique verificada por VORDIA" : "La insignia de verificada la da VORDIA tras confirmar tu local y RUC"}
           </p>
           <button type="button" onClick={guardar} disabled={guardando || !f.nombreComercial.trim()} className={BOTON_PRIMARIO}>

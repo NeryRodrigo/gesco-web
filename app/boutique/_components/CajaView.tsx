@@ -124,16 +124,16 @@ export function CajaView({ ctx }: { ctx: ContextoBoutique }) {
       <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
         <div className="space-y-3">
           <div className="relative">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#B3A3C4]" />
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[color:var(--btq-tenue)]" />
             <input className={`${CAMPO} pl-10`} placeholder="Buscar prenda" value={buscar} onChange={(e) => setBuscar(e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
             {vendibles.map((p) => (
-              <button key={p.prenda.prendaId} type="button" disabled={p.stock === 0} onClick={() => setElegida(p)} className="flex items-center gap-2.5 rounded-2xl border border-[#EBDDF5] bg-white/85 p-2 text-left transition hover:border-[#C9A7EB] disabled:opacity-45">
+              <button key={p.prenda.prendaId} type="button" disabled={p.stock === 0} onClick={() => setElegida(p)} className="flex items-center gap-2.5 rounded-2xl border border-[color:var(--btq-borde)] bg-[color:var(--btq-card)] p-2 text-left transition hover:border-[color:var(--btq-foco)] disabled:opacity-45">
                 <div className="h-14 w-11 shrink-0 overflow-hidden rounded-xl"><FotoAdmin empresaId={ctx.empresaId} fotoId={p.fotos[0]} categoria={p.prenda.categoria} color={p.prenda.colorHex} /></div>
                 <div className="min-w-0">
                   <p className="line-clamp-2 text-[12.5px] font-semibold leading-tight">{p.prenda.nombre}</p>
-                  <p className="text-[12px] tabular-nums text-[#6A4BC4]">{gs(p.prenda.precioVenta)}</p>
+                  <p className="text-[12px] tabular-nums text-[color:var(--btq-lila)]">{gs(p.prenda.precioVenta)}</p>
                   <p className={`text-[11px] ${TEXTO_SUAVE}`}>{p.stock ? `${p.stock} en stock` : "Sin stock"}</p>
                 </div>
               </button>
@@ -142,11 +142,11 @@ export function CajaView({ ctx }: { ctx: ContextoBoutique }) {
         </div>
 
         <Tarjeta className="h-fit lg:sticky lg:top-6">
-          <p className={`${SERIF} flex items-center gap-2 text-[19px] font-semibold`}><ShoppingBag size={18} className="text-[#C77DD8]" /> Bolsa</p>
+          <p className={`${SERIF} flex items-center gap-2 text-[19px] font-semibold`}><ShoppingBag size={18} className="text-[color:var(--btq-acento)]" /> Bolsa</p>
           {bolsa.length === 0 ? (
             <p className={`mt-2 text-[13px] ${TEXTO_SUAVE}`}>Vacía. Tocá una prenda para agregarla.</p>
           ) : (
-            <ul className="mt-2 divide-y divide-[#F1E6FA]">
+            <ul className="mt-2 divide-y divide-[color:var(--btq-borde)]">
               {bolsa.map((i) => (
                 <li key={i.variante.varianteId} className="flex items-center gap-2 py-2">
                   <span className="h-3 w-3 shrink-0 rounded-full border border-black/10" style={{ background: i.variante.colorHex ?? "#ccc" }} />
@@ -155,16 +155,16 @@ export function CajaView({ ctx }: { ctx: ContextoBoutique }) {
                     <p className={`text-[11.5px] ${TEXTO_SUAVE}`}>{i.variante.talle} · {i.variante.color}</p>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button type="button" aria-label="Uno menos" onClick={() => setBolsa((b) => b.flatMap((x) => (x === i ? (x.cantidad > 1 ? [{ ...x, cantidad: x.cantidad - 1 }] : []) : [x])))} className="rounded-full border border-[#E6D6F2] p-1"><Minus size={11} /></button>
+                    <button type="button" aria-label="Uno menos" onClick={() => setBolsa((b) => b.flatMap((x) => (x === i ? (x.cantidad > 1 ? [{ ...x, cantidad: x.cantidad - 1 }] : []) : [x])))} className="rounded-full border border-[color:var(--btq-borde)] p-1"><Minus size={11} /></button>
                     <span className="w-5 text-center text-[13px] tabular-nums">{i.cantidad}</span>
-                    <button type="button" aria-label="Uno más" onClick={() => agregar(i.prenda, i.variante)} className="rounded-full border border-[#E6D6F2] p-1"><Plus size={11} /></button>
+                    <button type="button" aria-label="Uno más" onClick={() => agregar(i.prenda, i.variante)} className="rounded-full border border-[color:var(--btq-borde)] p-1"><Plus size={11} /></button>
                   </div>
                   <span className="w-24 text-right text-[13px] tabular-nums">{gs(i.prenda.prenda.precioVenta * i.cantidad)}</span>
                 </li>
               ))}
             </ul>
           )}
-          <div className="mt-2 flex items-baseline justify-between border-t border-[#EBDDF5] pt-3">
+          <div className="mt-2 flex items-baseline justify-between border-t border-[color:var(--btq-borde)] pt-3">
             <span className={`text-[13px] ${TEXTO_SUAVE}`}>Total</span>
             <span className={`${SERIF} text-[26px] font-semibold tabular-nums`}>{gs(total)}</span>
           </div>
@@ -183,7 +183,7 @@ export function CajaView({ ctx }: { ctx: ContextoBoutique }) {
               {["Tienda", "WhatsApp", "Instagram", "Marketplace"].map((c) => <Chip key={c} activo={canal === c} onClick={() => setCanal(c)}>{c}</Chip>)}
             </div>
             <label className="flex items-center gap-2 text-[13px]">
-              <input type="checkbox" checked={apartado} onChange={(e) => setApartado(e.target.checked)} className="h-4 w-4 accent-[#C77DD8]" />
+              <input type="checkbox" checked={apartado} onChange={(e) => setApartado(e.target.checked)} className="h-4 w-4 accent-[color:var(--btq-acento)]" />
               Apartado con seña (la prenda queda reservada)
             </label>
             {apartado && (
@@ -208,7 +208,7 @@ export function CajaView({ ctx }: { ctx: ContextoBoutique }) {
             {apartados.map((v) => {
               const vencido = v.venta.venceApartado && new Date(v.venta.venceApartado) < new Date(new Date().toDateString());
               return (
-                <li key={v.venta.ventaId} className={`rounded-2xl px-3.5 py-2.5 ${vencido ? "bg-[#FFE3F0]" : "bg-[#FFF7FB]"}`}>
+                <li key={v.venta.ventaId} className={`rounded-2xl px-3.5 py-2.5 ${vencido ? "bg-[color:var(--btq-rosa-bg)]" : "bg-[color:var(--btq-tinte)]"}`}>
                   <div className="flex flex-wrap items-center justify-between gap-1">
                     <p className="text-[13.5px] font-semibold">{v.clienta ?? "Clienta"}</p>
                     <p className="text-[12px] tabular-nums">Saldo <b>{gs(v.venta.total - v.venta.pagado)}</b> de {gs(v.venta.total)}</p>
@@ -225,7 +225,7 @@ export function CajaView({ ctx }: { ctx: ContextoBoutique }) {
         </Tarjeta>
         <Tarjeta>
           <p className={`${SERIF} text-[19px] font-semibold`}>Últimas ventas</p>
-          <ul className="mt-2 divide-y divide-[#F1E6FA]">
+          <ul className="mt-2 divide-y divide-[color:var(--btq-borde)]">
             {recientes.length === 0 && <li className={`py-2 text-[13px] ${TEXTO_SUAVE}`}>Sin ventas en los últimos 7 días.</li>}
             {recientes.map((v) => (
               <li key={v.venta.ventaId} className="flex items-center justify-between gap-2 py-2">
@@ -248,7 +248,7 @@ export function CajaView({ ctx }: { ctx: ContextoBoutique }) {
           <p className={`mb-3 text-[13px] ${TEXTO_SUAVE}`}>Elegí talle y color</p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {elegida.variantes.map((v) => (
-              <button key={v.varianteId} type="button" disabled={v.stock - enBolsa(v.varianteId) <= 0} onClick={() => agregar(elegida, v)} className="flex items-center gap-2 rounded-2xl border border-[#E6D6F2] bg-white px-3 py-2.5 text-left hover:border-[#B58BE0] disabled:opacity-40">
+              <button key={v.varianteId} type="button" disabled={v.stock - enBolsa(v.varianteId) <= 0} onClick={() => agregar(elegida, v)} className="flex items-center gap-2 rounded-2xl border border-[color:var(--btq-borde)] bg-[color:var(--btq-card)] px-3 py-2.5 text-left hover:border-[color:var(--btq-foco)] disabled:opacity-40">
                 <span className="h-5 w-5 shrink-0 rounded-full border border-black/10" style={{ background: v.colorHex ?? "#ccc" }} />
                 <span className="min-w-0">
                   <span className="block text-[14px] font-semibold">{v.talle}</span>
@@ -263,7 +263,7 @@ export function CajaView({ ctx }: { ctx: ContextoBoutique }) {
       {hecha && (
         <Modal titulo={hecha.apartado ? "¡Prenda apartada!" : "¡Venta registrada!"} onClose={() => setHecha(null)}>
           <div className="space-y-3 text-center">
-            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-[#F4EEFF] text-[#6A4BC4]"><CheckCircle2 size={32} /></div>
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-[color:var(--btq-lila-bg)] text-[color:var(--btq-lila)]"><CheckCircle2 size={32} /></div>
             <p className="text-[14px]">{hecha.detalle}</p>
             <p className={`${SERIF} text-[26px] font-semibold`}>{gs(hecha.pagado)}</p>
             {hecha.apartado && <p className={`text-[13px] ${TEXTO_SUAVE}`}>Saldo pendiente: {gs(hecha.total - hecha.pagado)}</p>}

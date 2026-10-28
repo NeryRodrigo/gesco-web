@@ -43,8 +43,8 @@ export function ClientasView({ ctx }: { ctx: ContextoBoutique }) {
       </div>
 
       {cumpleMes.length > 0 && (
-        <Tarjeta className="bg-[linear-gradient(120deg,#FFE6F2,#EFE5FF)]">
-          <p className={`${SERIF} flex items-center gap-2 text-[18px] font-semibold`}><Cake size={18} className="text-[#D63384]" /> Cumplen años este mes</p>
+        <Tarjeta className="bg-[image:var(--btq-tinte-fuerte)]">
+          <p className={`${SERIF} flex items-center gap-2 text-[18px] font-semibold`}><Cake size={18} className="text-[color:var(--btq-rosa)]" /> Cumplen años este mes</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {cumpleMes.map((c) => (
               <a key={c.clientaId} target="_blank" rel="noreferrer" className={BOTON} href={linkWhatsapp(c.whatsapp, `¡Feliz cumpleaños, ${c.nombre.split(" ")[0]}! 🎉 En ${tienda} te regalamos 10% de descuento en tu próxima compra este mes. ¡Te esperamos! 💜`)}>
@@ -57,7 +57,7 @@ export function ClientasView({ ctx }: { ctx: ContextoBoutique }) {
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[220px] flex-1">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#B3A3C4]" />
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[color:var(--btq-tenue)]" />
           <input className={`${CAMPO} pl-10`} placeholder="Buscar por nombre o número" value={buscar} onChange={(e) => setBuscar(e.target.value)} />
         </div>
         <div className="flex gap-1.5 overflow-x-auto">
@@ -67,8 +67,8 @@ export function ClientasView({ ctx }: { ctx: ContextoBoutique }) {
       </div>
 
       {talle && lista.length > 0 && vidriera && (
-        <p className={`rounded-2xl bg-white/70 px-4 py-2.5 text-[13px] ${TEXTO_SUAVE}`}>
-          <Sparkles size={14} className="mr-1 inline text-[#C77DD8]" /> Tocá “Avisar” para mandarle a cada clienta talle {talle} el link de tu vidriera filtrado en su talle.
+        <p className={`rounded-2xl bg-[color:var(--btq-card)] px-4 py-2.5 text-[13px] ${TEXTO_SUAVE}`}>
+          <Sparkles size={14} className="mr-1 inline text-[color:var(--btq-acento)]" /> Tocá “Avisar” para mandarle a cada clienta talle {talle} el link de tu vidriera filtrado en su talle.
         </p>
       )}
 
@@ -79,13 +79,13 @@ export function ClientasView({ ctx }: { ctx: ContextoBoutique }) {
       ) : (
         <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
           {lista.map((c) => (
-            <div key={c.clientaId} className="rounded-3xl border border-[#EBDDF5] bg-white/85 p-3.5">
+            <div key={c.clientaId} className="rounded-3xl border border-[color:var(--btq-borde)] bg-[color:var(--btq-card)] p-3.5">
               <div className="flex items-start justify-between gap-2">
                 <button type="button" onClick={() => setEditando(c)} className="min-w-0 text-left">
                   <p className="truncate text-[14px] font-semibold">{c.nombre}</p>
                   <p className={`text-[12px] ${TEXTO_SUAVE}`}>{c.whatsapp ?? "Sin WhatsApp"}</p>
                 </button>
-                {c.talle && <span className="rounded-full bg-[#F4EEFF] px-2 py-0.5 text-[11.5px] font-semibold text-[#5B3DB0]">{c.talle}</span>}
+                {c.talle && <span className="rounded-full bg-[color:var(--btq-lila-bg)] px-2 py-0.5 text-[11.5px] font-semibold text-[color:var(--btq-lila)]">{c.talle}</span>}
               </div>
               <div className="mt-2 flex items-center justify-between gap-2">
                 <span className={`text-[11.5px] ${TEXTO_SUAVE}`}>{c.origen === "Marketplace" ? "Llegó por VORDIA CLOSET" : c.origen === "Caja" ? "Clienta de la tienda" : "Cargada a mano"}</span>
@@ -93,7 +93,7 @@ export function ClientasView({ ctx }: { ctx: ContextoBoutique }) {
                   <a
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 rounded-full bg-[#2B1B3D] px-2.5 py-1 text-[11.5px] text-white"
+                    className="inline-flex items-center gap-1 rounded-full bg-[color:var(--btq-activo-bg)] px-2.5 py-1 text-[11.5px] text-white"
                     href={linkWhatsapp(c.whatsapp, talle && vidriera
                       ? `¡Hola ${c.nombre.split(" ")[0]}! Llegaron prendas nuevas en tu talle (${talle}) a ${tienda} 💜 Miralas acá: ${vidriera}?talle=${encodeURIComponent(talle)}`
                       : `¡Hola ${c.nombre.split(" ")[0]}! Te escribimos de ${tienda} 💜`)}
@@ -148,7 +148,7 @@ function ClientaForm({ ctx, clienta, onClose }: { ctx: ContextoBoutique; clienta
           <Campo label="Cumpleaños"><input className={CAMPO} type="date" value={cumple} onChange={(e) => setCumple(e.target.value)} /></Campo>
         </div>
         <div>
-          <span className="mb-1.5 block text-[12px] font-semibold text-[#4A3466]">Talle</span>
+          <span className="mb-1.5 block text-[12px] font-semibold text-[color:var(--btq-ink2)]">Talle</span>
           <div className="flex flex-wrap gap-1.5">{TALLES_COMUNES.map((t) => <Chip key={t} activo={talle === t} onClick={() => setTalle(talle === t ? "" : t)}>{t}</Chip>)}</div>
         </div>
         <Campo label="Notas" ayuda="Gustos, colores que le quedan, medidas, ajustes">

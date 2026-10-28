@@ -84,7 +84,7 @@ export function AgendaView({ ctx }: { ctx: ContextoBoutique }) {
                 const d = new Date(hoy.getTime() + i * 86_400_000);
                 const finde = d.getDay() === 0 || d.getDay() === 6;
                 return (
-                  <div key={i} className={`py-1 text-center text-[10.5px] ${i === 0 ? "font-bold text-[#B0135E]" : finde ? "text-[#6A4BC4]" : TEXTO_SUAVE}`}>
+                  <div key={i} className={`py-1 text-center text-[10.5px] ${i === 0 ? "font-bold text-[color:var(--btq-rosa)]" : finde ? "text-[color:var(--btq-lila)]" : TEXTO_SUAVE}`}>
                     {d.toLocaleDateString("es-PY", { weekday: "narrow" })}<br />{d.getDate()}
                   </div>
                 );
@@ -95,13 +95,13 @@ export function AgendaView({ ctx }: { ctx: ContextoBoutique }) {
               const ini = Math.max(0, difDias(dia(a.alquiler.desde), hoy));
               const fin = Math.min(DIAS_LINEA - 1, difDias(dia(a.alquiler.hasta), hoy));
               return (
-                <div key={a.alquiler.alquilerId} className="grid items-center border-t border-[#F4EAFB] py-1.5" style={{ gridTemplateColumns: `200px repeat(${DIAS_LINEA}, 1fr)` }}>
+                <div key={a.alquiler.alquilerId} className="grid items-center border-t border-[color:var(--btq-borde)] py-1.5" style={{ gridTemplateColumns: `200px repeat(${DIAS_LINEA}, 1fr)` }}>
                   <div className="min-w-0 pr-2">
                     <p className="truncate text-[12.5px] font-semibold">{a.prenda}</p>
                     <p className={`truncate text-[11px] ${TEXTO_SUAVE}`}>{a.talle} · {a.color} · {a.alquiler.clientaNombre}</p>
                   </div>
                   <div
-                    className={`h-7 rounded-full px-2 text-[11px] font-semibold leading-7 text-white shadow ${a.alquiler.estado === "Retirado" ? "bg-[#6A4BC4]" : "bg-[linear-gradient(120deg,#EC6FA8,#C77DD8)]"}`}
+                    className={`h-7 rounded-full px-2 text-[11px] font-semibold leading-7 text-white shadow ${a.alquiler.estado === "Retirado" ? "bg-[color:var(--btq-g3)]" : "bg-[image:linear-gradient(120deg,var(--btq-g1),var(--btq-g2))]"}`}
                     style={{ gridColumn: `${ini + 2} / ${fin + 3}` }}
                     title={`${fechaCorta(a.alquiler.desde)} al ${fechaCorta(a.alquiler.hasta)}`}
                   >
@@ -120,7 +120,7 @@ export function AgendaView({ ctx }: { ctx: ContextoBoutique }) {
           <ul className="mt-2 space-y-2">
             {porRetirar.length === 0 && <li className={`text-[13px] ${TEXTO_SUAVE}`}>Nada reservado.</li>}
             {porRetirar.map((a) => (
-              <li key={a.alquiler.alquilerId} className="rounded-2xl bg-[#FFF7FB] px-3.5 py-2.5">
+              <li key={a.alquiler.alquilerId} className="rounded-2xl bg-[color:var(--btq-tinte)] px-3.5 py-2.5">
                 <div className="flex flex-wrap items-center justify-between gap-1">
                   <p className="text-[13.5px] font-semibold">{a.alquiler.clientaNombre}</p>
                   <p className={`text-[12px] ${TEXTO_SUAVE}`}>{fechaCorta(a.alquiler.desde)} → {fechaCorta(a.alquiler.hasta)}</p>
@@ -146,7 +146,7 @@ export function AgendaView({ ctx }: { ctx: ContextoBoutique }) {
             {enLaCalle.map((a) => {
               const atraso = difDias(hoy, dia(a.alquiler.hasta));
               return (
-                <li key={a.alquiler.alquilerId} className={`rounded-2xl px-3.5 py-2.5 ${atraso > 0 ? "bg-[#FFE3F0]" : "bg-[#F4EEFF]"}`}>
+                <li key={a.alquiler.alquilerId} className={`rounded-2xl px-3.5 py-2.5 ${atraso > 0 ? "bg-[color:var(--btq-rosa-bg)]" : "bg-[color:var(--btq-lila-bg)]"}`}>
                   <div className="flex flex-wrap items-center justify-between gap-1">
                     <p className="text-[13.5px] font-semibold">{a.alquiler.clientaNombre}</p>
                     <p className="text-[12px] font-semibold">{atraso > 0 ? `${atraso} día${atraso === 1 ? "" : "s"} de atraso` : `Vuelve el ${fechaCorta(a.alquiler.hasta)}`}</p>
@@ -173,7 +173,7 @@ export function AgendaView({ ctx }: { ctx: ContextoBoutique }) {
         <ul className="mt-3 grid gap-2 md:grid-cols-2">
           {proximasPruebas.length === 0 && <li className={`text-[13px] ${TEXTO_SUAVE}`}>No hay pruebas pendientes.</li>}
           {proximasPruebas.map((p) => (
-            <li key={p.prueba.pruebaId} className="rounded-2xl border border-[#EBDDF5] bg-white px-3.5 py-3">
+            <li key={p.prueba.pruebaId} className="rounded-2xl border border-[color:var(--btq-borde)] bg-[color:var(--btq-card)] px-3.5 py-3">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-[13.5px] font-semibold">{p.prueba.nombre}</p>
                 <Estado estado={p.prueba.estado} />
@@ -182,7 +182,7 @@ export function AgendaView({ ctx }: { ctx: ContextoBoutique }) {
               <p className={`text-[12px] ${TEXTO_SUAVE}`}>
                 {p.prenda}{p.variante ? ` · ${p.variante}` : ""}{p.prueba.fechaEvento ? ` · evento el ${fechaCorta(p.prueba.fechaEvento)}` : ""}
               </p>
-              {p.prueba.mensaje && <p className="mt-1 rounded-xl bg-[#FFF7FB] px-2.5 py-1.5 text-[12px] italic">“{p.prueba.mensaje}”</p>}
+              {p.prueba.mensaje && <p className="mt-1 rounded-xl bg-[color:var(--btq-tinte)] px-2.5 py-1.5 text-[12px] italic">“{p.prueba.mensaje}”</p>}
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {p.prueba.estado === "Pedida" && (
                   <a
@@ -280,7 +280,7 @@ function NuevoAlquiler({ ctx, onClose }: { ctx: ContextoBoutique; onClose: () =>
             <Campo label="Devuelve el" ayuda={`${dias} días de alquiler`}><input className={CAMPO} value={fechaCorta(hasta)} readOnly /></Campo>
           </div>
           {varianteId && libres !== null && (
-            <p className={`rounded-2xl px-3.5 py-2 text-[13px] font-medium ${libres > 0 ? "bg-[#F4EEFF] text-[#5B3DB0]" : "bg-[#FFE3F0] text-[#B0135E]"}`}>
+            <p className={`rounded-2xl px-3.5 py-2 text-[13px] font-medium ${libres > 0 ? "bg-[color:var(--btq-lila-bg)] text-[color:var(--btq-lila)]" : "bg-[color:var(--btq-rosa-bg)] text-[color:var(--btq-rosa)]"}`}>
               {libres > 0 ? `✓ Libre en esas fechas (${libres} pieza${libres === 1 ? "" : "s"})` : "✗ Ocupada en esas fechas: probá otro talle, color o fecha"}
             </p>
           )}

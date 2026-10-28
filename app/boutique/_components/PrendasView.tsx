@@ -63,7 +63,7 @@ export function PrendasView({ ctx }: { ctx: ContextoBoutique }) {
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[220px] flex-1">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#B3A3C4]" />
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[color:var(--btq-tenue)]" />
           <input className={`${CAMPO} pl-10`} placeholder="Buscar por nombre o color" value={buscar} onChange={(e) => setBuscar(e.target.value)} />
         </div>
         <div className="flex gap-1.5 overflow-x-auto">
@@ -77,16 +77,16 @@ export function PrendasView({ ctx }: { ctx: ContextoBoutique }) {
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {lista.map((p) => (
-            <button key={p.prenda.prendaId} type="button" onClick={() => setEditando(p)} className="group overflow-hidden rounded-3xl border border-[#EBDDF5] bg-white/85 text-left shadow-[0_14px_40px_-28px_rgba(142,108,207,0.6)] transition hover:-translate-y-0.5">
+            <button key={p.prenda.prendaId} type="button" onClick={() => setEditando(p)} className="group overflow-hidden rounded-3xl border border-[color:var(--btq-borde)] bg-[color:var(--btq-card)] text-left shadow-[var(--btq-sombra)] transition hover:-translate-y-0.5">
               <div className="relative aspect-[4/5] overflow-hidden">
                 <FotoAdmin empresaId={ctx.empresaId} fotoId={p.fotos[0]} categoria={p.prenda.categoria} color={p.prenda.colorHex} className="transition duration-500 group-hover:scale-[1.03]" />
-                <span className="absolute left-2 top-2 rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-[#4A3466]">{p.prenda.modalidad === "Ambos" ? "Venta y alquiler" : p.prenda.modalidad}</span>
-                {!p.prenda.publicada && <span className="absolute right-2 top-2 rounded-full bg-[#2B1B3D]/80 p-1 text-white" title="No se muestra en el marketplace"><EyeOff size={13} /></span>}
-                {p.stock === 0 && <span className="absolute inset-x-0 bottom-0 bg-[#B0135E]/85 py-1 text-center text-[11.5px] font-semibold text-white">Sin stock</span>}
+                <span className="absolute left-2 top-2 rounded-full bg-[color:var(--btq-card)] px-2 py-0.5 text-[11px] font-semibold text-[color:var(--btq-ink2)]">{p.prenda.modalidad === "Ambos" ? "Venta y alquiler" : p.prenda.modalidad}</span>
+                {!p.prenda.publicada && <span className="absolute right-2 top-2 rounded-full bg-black/70 p-1 text-white" title="No se muestra en el marketplace"><EyeOff size={13} /></span>}
+                {p.stock === 0 && <span className="absolute inset-x-0 bottom-0 bg-[color:var(--btq-rosa-fuerte)] py-1 text-center text-[11.5px] font-semibold text-white">Sin stock</span>}
               </div>
               <div className="space-y-1 p-3">
                 <p className="line-clamp-1 text-[13.5px] font-semibold">{p.prenda.nombre}</p>
-                <p className="text-[12.5px] tabular-nums text-[#6A4BC4]">
+                <p className="text-[12.5px] tabular-nums text-[color:var(--btq-lila)]">
                   {p.prenda.precioVenta > 0 && gs(p.prenda.precioVenta)}
                   {p.prenda.precioVenta > 0 && p.prenda.precioAlquiler > 0 && " · "}
                   {p.prenda.precioAlquiler > 0 && `Alq. ${gs(p.prenda.precioAlquiler)}`}
@@ -94,7 +94,7 @@ export function PrendasView({ ctx }: { ctx: ContextoBoutique }) {
                 <div className="flex flex-wrap gap-1">
                   {Array.from(new Set(p.variantes.map((v) => v.talle))).map((t) => {
                     const st = p.variantes.filter((v) => v.talle === t).reduce((s, v) => s + v.stock, 0);
-                    return <span key={t} className={`rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold ${st === 0 ? "bg-slate-100 text-slate-400 line-through" : "bg-[#F4EEFF] text-[#5B3DB0]"}`}>{t} {st > 0 && <span className="font-normal">×{st}</span>}</span>;
+                    return <span key={t} className={`rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold ${st === 0 ? "bg-slate-500/15 text-[color:var(--btq-suave)] line-through" : "bg-[color:var(--btq-lila-bg)] text-[color:var(--btq-lila)]"}`}>{t} {st > 0 && <span className="font-normal">×{st}</span>}</span>;
                   })}
                 </div>
               </div>
@@ -226,7 +226,7 @@ function PrendaForm({ ctx, fila, onClose }: { ctx: ContextoBoutique; fila: BtqPr
       <div className="grid gap-5 md:grid-cols-[200px_1fr]">
         {/* Fotos */}
         <div className="space-y-2">
-          <div className="aspect-[4/5] overflow-hidden rounded-3xl border border-[#EBDDF5]">
+          <div className="aspect-[4/5] overflow-hidden rounded-3xl border border-[color:var(--btq-borde)]">
             <FotoAdmin empresaId={ctx.empresaId} fotoId={fotos[0]} categoria={categoria} color={variantes[0]?.colorHex} />
           </div>
           {fotos.length > 1 && (
@@ -234,7 +234,7 @@ function PrendaForm({ ctx, fila, onClose }: { ctx: ContextoBoutique; fila: BtqPr
               {fotos.slice(1).map((f) => (
                 <div key={f} className="relative aspect-square overflow-hidden rounded-xl">
                   <FotoAdmin empresaId={ctx.empresaId} fotoId={f} categoria={categoria} />
-                  <button type="button" onClick={() => borrarFoto(f)} className="absolute right-0.5 top-0.5 rounded-full bg-white/90 p-0.5" aria-label="Borrar foto"><X size={11} /></button>
+                  <button type="button" onClick={() => borrarFoto(f)} className="absolute right-0.5 top-0.5 rounded-full bg-[color:var(--btq-card)] p-0.5" aria-label="Borrar foto"><X size={11} /></button>
                 </div>
               ))}
             </div>
@@ -245,7 +245,7 @@ function PrendaForm({ ctx, fila, onClose }: { ctx: ContextoBoutique; fila: BtqPr
               <button type="button" onClick={() => inputFoto.current?.click()} disabled={subiendo} className={`${BOTON} w-full`}>
                 {subiendo ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />} {fotos.length ? "Agregar fotos" : "Sacar o subir fotos"}
               </button>
-              {fotos[0] && <button type="button" onClick={() => borrarFoto(fotos[0])} className={`w-full text-[12px] ${TEXTO_SUAVE} hover:text-[#B0135E]`}>Quitar foto principal</button>}
+              {fotos[0] && <button type="button" onClick={() => borrarFoto(fotos[0])} className={`w-full text-[12px] ${TEXTO_SUAVE} hover:text-[color:var(--btq-rosa)]`}>Quitar foto principal</button>}
             </>
           ) : (
             <p className={`text-[12px] ${TEXTO_SUAVE}`}>Guardá la prenda y después le agregás las fotos. Mientras tanto se muestra este dibujo en su color.</p>
@@ -262,7 +262,7 @@ function PrendaForm({ ctx, fila, onClose }: { ctx: ContextoBoutique; fila: BtqPr
           </div>
 
           <div>
-            <span className="mb-1.5 block text-[12px] font-semibold text-[#4A3466]">¿Para qué ocasiones?</span>
+            <span className="mb-1.5 block text-[12px] font-semibold text-[color:var(--btq-ink2)]">¿Para qué ocasiones?</span>
             <div className="flex flex-wrap gap-1.5">
               {OCASIONES.map((o) => (
                 <Chip key={o} activo={ocasiones.includes(o)} onClick={() => setOcasiones((os) => (os.includes(o) ? os.filter((x) => x !== o) : [...os, o]))}>{o}</Chip>
@@ -271,7 +271,7 @@ function PrendaForm({ ctx, fila, onClose }: { ctx: ContextoBoutique; fila: BtqPr
           </div>
 
           <div>
-            <span className="mb-1.5 block text-[12px] font-semibold text-[#4A3466]">¿Se vende, se alquila o las dos?</span>
+            <span className="mb-1.5 block text-[12px] font-semibold text-[color:var(--btq-ink2)]">¿Se vende, se alquila o las dos?</span>
             <div className="flex flex-wrap gap-1.5">
               {(["Venta", "Alquiler", "Ambos"] as Modalidad[]).map((m) => (
                 <Chip key={m} activo={modalidad === m} onClick={() => setModalidad(m)}>{m === "Ambos" ? "Venta y alquiler" : m}</Chip>
@@ -298,17 +298,17 @@ function PrendaForm({ ctx, fila, onClose }: { ctx: ContextoBoutique; fila: BtqPr
           </div>
 
           {/* Talles × colores */}
-          <div className="rounded-3xl border border-[#EBDDF5] bg-white p-3.5">
-            <p className="text-[12px] font-semibold text-[#4A3466]">Talles, colores y stock</p>
+          <div className="rounded-3xl border border-[color:var(--btq-borde)] bg-[color:var(--btq-card)] p-3.5">
+            <p className="text-[12px] font-semibold text-[color:var(--btq-ink2)]">Talles, colores y stock</p>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               {TALLES_COMUNES.filter((t) => !talles.includes(t)).map((t) => (
-                <button key={t} type="button" onClick={() => agregarTalle(t)} className="rounded-full border border-dashed border-[#DCC8F0] px-2.5 py-1 text-[12px] text-[#7A6690] hover:border-[#B58BE0]">+ {t}</button>
+                <button key={t} type="button" onClick={() => agregarTalle(t)} className="rounded-full border border-dashed border-[color:var(--btq-borde)] px-2.5 py-1 text-[12px] text-[color:var(--btq-suave)] hover:border-[color:var(--btq-foco)]">+ {t}</button>
               ))}
               <input className={`${SELECT_CORTO} w-24`} placeholder="Otro: 38" value={nuevoTalle} onChange={(e) => setNuevoTalle(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); agregarTalle(nuevoTalle); setNuevoTalle(""); } }} />
             </div>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {COLORES_SUGERIDOS.filter((c) => !colores.some(([n]) => n === c.nombre)).map((c) => (
-                <button key={c.nombre} type="button" onClick={() => agregarColor(c)} title={c.nombre} className="h-6 w-6 rounded-full border-2 border-white shadow ring-1 ring-[#E6D6F2] hover:scale-110" style={{ background: c.hex }} aria-label={`Agregar color ${c.nombre}`} />
+                <button key={c.nombre} type="button" onClick={() => agregarColor(c)} title={c.nombre} className="h-6 w-6 rounded-full border-2 border-white shadow ring-1 ring-[color:var(--btq-borde)] hover:scale-110" style={{ background: c.hex }} aria-label={`Agregar color ${c.nombre}`} />
               ))}
             </div>
             {talles.length > 0 && colores.length > 0 && (
@@ -316,10 +316,10 @@ function PrendaForm({ ctx, fila, onClose }: { ctx: ContextoBoutique; fila: BtqPr
                 <table className="w-full text-[12.5px]">
                   <thead>
                     <tr>
-                      <th className="p-1 text-left font-medium text-[#7A6690]">Color \ Talle</th>
+                      <th className="p-1 text-left font-medium text-[color:var(--btq-suave)]">Color \ Talle</th>
                       {talles.map((t) => (
                         <th key={t} className="p-1 font-semibold">
-                          <span className="inline-flex items-center gap-1">{t}<button type="button" onClick={() => quitarTalle(t)} aria-label={`Quitar talle ${t}`} className="text-[#B3A3C4] hover:text-[#B0135E]"><X size={11} /></button></span>
+                          <span className="inline-flex items-center gap-1">{t}<button type="button" onClick={() => quitarTalle(t)} aria-label={`Quitar talle ${t}`} className="text-[color:var(--btq-tenue)] hover:text-[color:var(--btq-rosa)]"><X size={11} /></button></span>
                         </th>
                       ))}
                     </tr>
@@ -328,16 +328,16 @@ function PrendaForm({ ctx, fila, onClose }: { ctx: ContextoBoutique; fila: BtqPr
                     {colores.filter(([c]) => c).map(([c, hex]) => (
                       <tr key={c}>
                         <td className="p-1">
-                          <span className="inline-flex items-center gap-1.5 whitespace-nowrap"><span className="h-3.5 w-3.5 rounded-full border border-black/10" style={{ background: hex ?? "#ccc" }} />{c}<button type="button" onClick={() => quitarColor(c)} aria-label={`Quitar color ${c}`} className="text-[#B3A3C4] hover:text-[#B0135E]"><X size={11} /></button></span>
+                          <span className="inline-flex items-center gap-1.5 whitespace-nowrap"><span className="h-3.5 w-3.5 rounded-full border border-black/10" style={{ background: hex ?? "#ccc" }} />{c}<button type="button" onClick={() => quitarColor(c)} aria-label={`Quitar color ${c}`} className="text-[color:var(--btq-tenue)] hover:text-[color:var(--btq-rosa)]"><X size={11} /></button></span>
                         </td>
                         {talles.map((t) => {
                           const v = variantes.find((x) => x.talle === t && x.color === c);
                           return (
                             <td key={t} className="p-1 text-center">
                               {v ? (
-                                <input aria-label={`Stock ${c} ${t}`} className="w-14 rounded-xl border border-[#E6D6F2] px-1.5 py-1 text-center tabular-nums focus:border-[#B58BE0] focus:outline-none" inputMode="numeric" value={v.stock} onChange={(e) => cambiarStock(t, c, Number(e.target.value.replace(/\D/g, "")) || 0)} />
+                                <input aria-label={`Stock ${c} ${t}`} className="w-14 rounded-xl border border-[color:var(--btq-borde)] px-1.5 py-1 text-center tabular-nums focus:border-[color:var(--btq-foco)] focus:outline-none" inputMode="numeric" value={v.stock} onChange={(e) => cambiarStock(t, c, Number(e.target.value.replace(/\D/g, "")) || 0)} />
                               ) : (
-                                <button type="button" onClick={() => setVariantes((vs) => [...vs, { talle: t, color: c, colorHex: hex, stock: 1 }])} className="text-[#B3A3C4]">+</button>
+                                <button type="button" onClick={() => setVariantes((vs) => [...vs, { talle: t, color: c, colorHex: hex, stock: 1 }])} className="text-[color:var(--btq-tenue)]">+</button>
                               )}
                             </td>
                           );
@@ -353,8 +353,8 @@ function PrendaForm({ ctx, fila, onClose }: { ctx: ContextoBoutique; fila: BtqPr
 
           <div className="grid gap-3 sm:grid-cols-2">
             <Campo label="Material"><input className={CAMPO} value={material} onChange={(e) => setMaterial(e.target.value)} placeholder="Satén de seda con forro" /></Campo>
-            <label className="flex items-center gap-2 self-end rounded-2xl border border-[#E6D6F2] bg-white px-3.5 py-2.5 text-[13px]">
-              <input type="checkbox" checked={publicada} onChange={(e) => setPublicada(e.target.checked)} className="h-4 w-4 accent-[#C77DD8]" />
+            <label className="flex items-center gap-2 self-end rounded-2xl border border-[color:var(--btq-borde)] bg-[color:var(--btq-card)] px-3.5 py-2.5 text-[13px]">
+              <input type="checkbox" checked={publicada} onChange={(e) => setPublicada(e.target.checked)} className="h-4 w-4 accent-[color:var(--btq-acento)]" />
               Mostrar en el marketplace VORDIA CLOSET
             </label>
           </div>
@@ -363,7 +363,7 @@ function PrendaForm({ ctx, fila, onClose }: { ctx: ContextoBoutique; fila: BtqPr
           </Campo>
 
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-            {p ? <button type="button" onClick={eliminar} className={`${BOTON} text-[#B0135E]`}><Trash2 size={14} /> Quitar</button> : <span />}
+            {p ? <button type="button" onClick={eliminar} className={`${BOTON} text-[color:var(--btq-rosa)]`}><Trash2 size={14} /> Quitar</button> : <span />}
             <div className="flex gap-2">
               <button type="button" onClick={onClose} className={BOTON}>Cancelar</button>
               <button type="button" onClick={guardar} disabled={guardando || !nombre.trim()} className={BOTON_PRIMARIO}>

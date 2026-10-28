@@ -48,8 +48,8 @@ export function PrendaArte({ categoria, color, className = "" }: { categoria: st
     <svg viewBox="0 0 200 260" className={className} role="img" aria-label={`Ilustración de ${categoria.toLowerCase()}`}>
       <defs>
         <linearGradient id={`${id}f`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#FFF4FA" />
-          <stop offset="1" stopColor="#F1E8FF" />
+          <stop offset="0" style={{ stopColor: "var(--btq-arte-a, #FFF4FA)" }} />
+          <stop offset="1" style={{ stopColor: "var(--btq-arte-b, #F1E8FF)" }} />
         </linearGradient>
         <linearGradient id={`${id}p`} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor={tono(base, 0.28)} />
@@ -58,8 +58,10 @@ export function PrendaArte({ categoria, color, className = "" }: { categoria: st
         </linearGradient>
       </defs>
       <rect width="200" height="260" fill={`url(#${id}f)`} />
-      <ellipse cx="100" cy="244" rx="70" ry="7" fill="#2B1B3D" opacity="0.07" />
+      <ellipse cx="100" cy="244" rx="70" ry="7" fill="#000" opacity="0.12" />
       <path d={cuerpo} fill={`url(#${id}p)`} fillRule="evenodd" stroke={tono(base, -0.35)} strokeWidth="1.2" strokeLinejoin="round" />
+      {/* Contorno de luz para que las prendas oscuras se lean sobre el tema oscuro */}
+      <path d={cuerpo} fill="none" fillRule="evenodd" style={{ stroke: "var(--btq-arte-borde, transparent)" }} strokeWidth="1.5" />
       {detalle && <path d={detalle} fill="none" stroke={tono(base, 0.45)} strokeWidth="1.6" strokeLinecap="round" opacity="0.8" />}
       <path d={cuerpo} fill="none" stroke="#fff" strokeWidth="5" opacity="0.12" transform="translate(-3 -2)" />
     </svg>

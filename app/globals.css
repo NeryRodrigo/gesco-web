@@ -754,3 +754,84 @@ html {
   }
 }
 
+
+/* =========================================================
+   VORDIA BOUTIQUE · temas
+   .btq-claro → VORDIA Closet (marketplace público, rosado a lila)
+   .btq-neon  → app de la boutique (esquema VORDIA HQ, rosa neón sobre oscuro)
+   ========================================================= */
+.btq-claro {
+  --btq-fondo: linear-gradient(160deg, #FFF1F7 0%, #FBEFFF 45%, #EFE7FF 100%);
+  --btq-panel: rgba(255, 255, 255, 0.55);
+  --btq-card: rgba(255, 255, 255, 0.82);
+  --btq-modal: #FFFBFE;
+  --btq-campo: #FFFFFF;
+  --btq-ink: #2B1B3D;
+  --btq-ink2: #4A3466;
+  --btq-suave: #7A6690;
+  --btq-tenue: #B3A3C4;
+  --btq-borde: #EBDDF5;
+  --btq-campo-borde: #E6D6F2;
+  --btq-foco: #B58BE0;
+  --btq-anillo: #E9DBFF;
+  --btq-hover: #F7EFFE;
+  --btq-tinte: #FFF4FA;
+  --btq-tinte-fuerte: linear-gradient(120deg, #FFE6F2, #EFE5FF);
+  --btq-rosa: #B0135E;
+  --btq-rosa-fuerte: rgba(176, 19, 94, 0.85);
+  --btq-rosa-bg: #FFE3F0;
+  --btq-lila: #5B3DB0;
+  --btq-lila-bg: #F1EAFF;
+  --btq-acento: #C77DD8;
+  --btq-activo-bg: #2B1B3D;
+  --btq-activo-ink: #FFFFFF;
+  --btq-activo-borde: transparent;
+  --btq-g1: #EC6FA8;
+  --btq-g2: #C77DD8;
+  --btq-g3: #9B7BE0;
+  --btq-sombra: 0 14px 40px -26px rgba(142, 108, 207, 0.55);
+  --btq-brillo: 0 10px 24px -12px rgba(214, 51, 132, 0.7);
+  --btq-arte-a: #FFF4FA;
+  --btq-arte-b: #F1E8FF;
+  --btq-titulo: var(--font-fraunces);
+  color-scheme: light;
+}
+
+.btq-neon {
+  --btq-fondo: radial-gradient(1200px 600px at 85% -10%, rgba(255, 61, 200, 0.10), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(124, 92, 255, 0.08), transparent 60%), #0A0714;
+  --btq-panel: #0D0919;
+  --btq-card: #130D22;
+  --btq-modal: #140E24;
+  --btq-campo: #0B0716;
+  --btq-ink: #F6F0FB;
+  --btq-ink2: #DCCFEA;
+  --btq-suave: #9E8FB3;
+  --btq-tenue: #6F6287;
+  --btq-borde: rgba(255, 61, 200, 0.13);
+  --btq-campo-borde: rgba(255, 255, 255, 0.10);
+  --btq-foco: #FF3DC8;
+  --btq-anillo: rgba(255, 61, 200, 0.22);
+  --btq-hover: rgba(255, 255, 255, 0.05);
+  --btq-tinte: rgba(255, 61, 200, 0.06);
+  --btq-tinte-fuerte: linear-gradient(120deg, rgba(255, 61, 200, 0.16), rgba(124, 92, 255, 0.14));
+  --btq-rosa: #FF5CCF;
+  --btq-rosa-fuerte: rgba(255, 61, 200, 0.85);
+  --btq-rosa-bg: rgba(255, 61, 200, 0.14);
+  --btq-lila: #B9A2FF;
+  --btq-lila-bg: rgba(124, 92, 255, 0.16);
+  --btq-acento: #FF3DC8;
+  --btq-activo-bg: rgba(255, 61, 200, 0.16);
+  --btq-activo-ink: #FFFFFF;
+  --btq-activo-borde: rgba(255, 61, 200, 0.45);
+  --btq-g1: #FF3DC8;
+  --btq-g2: #D63AF9;
+  --btq-g3: #7C5CFF;
+  --btq-sombra: 0 0 0 1px rgba(255, 61, 200, 0.04), 0 18px 40px -24px rgba(255, 61, 200, 0.28);
+  --btq-brillo: 0 0 22px rgba(255, 61, 200, 0.45);
+  --btq-arte-a: #1B1030;
+  --btq-arte-b: #110A20;
+  --btq-arte-borde: rgba(255, 92, 207, 0.45);
+  --btq-titulo: var(--font-montserrat);
+  color-scheme: dark;
+}

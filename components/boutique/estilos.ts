@@ -1,14 +1,16 @@
-/** Clases compartidas de VORDIA BOUTIQUE y VORDIA CLOSET (módulo sin "use client": sirve también en componentes de servidor). */
-export const FONDO = "bg-[linear-gradient(160deg,#FFF1F7_0%,#FBEFFF_45%,#EFE7FF_100%)] text-[#2B1B3D]";
-export const SERIF = "font-[family-name:var(--font-fraunces)]";
-export const DEGRADE = "bg-[linear-gradient(120deg,#EC6FA8_0%,#C77DD8_50%,#9B7BE0_100%)]";
-export const TEXTO_SUAVE = "text-[#7A6690]";
+/**
+ * Clases compartidas de VORDIA BOUTIQUE y VORDIA CLOSET (módulo sin "use client": sirve también en componentes de servidor).
+ * Los colores salen de variables de tema (app/globals.css): `.btq-claro` para el marketplace y `.btq-neon` para la app.
+ */
+export const FONDO = "[background:var(--btq-fondo)] text-[color:var(--btq-ink)]";
+export const SERIF = "font-[family-name:var(--btq-titulo)]";
+export const DEGRADE = "bg-[image:linear-gradient(120deg,var(--btq-g1)_0%,var(--btq-g2)_50%,var(--btq-g3)_100%)]";
+export const TEXTO_SUAVE = "text-[color:var(--btq-suave)]";
 export const CAMPO =
-  "w-full rounded-2xl border border-[#E6D6F2] bg-white px-3.5 py-2.5 text-[14px] text-[#2B1B3D] placeholder:text-[#B3A3C4] focus:border-[#B58BE0] focus:outline-none focus:ring-4 focus:ring-[#E9DBFF]";
+  "w-full rounded-2xl border border-[color:var(--btq-campo-borde)] bg-[color:var(--btq-campo)] px-3.5 py-2.5 text-[14px] text-[color:var(--btq-ink)] placeholder:text-[color:var(--btq-tenue)] focus:border-[color:var(--btq-foco)] focus:outline-none focus:ring-4 focus:ring-[color:var(--btq-anillo)]";
 export const SELECT_CORTO =
-  "w-auto max-w-full rounded-2xl border border-[#E6D6F2] bg-white px-3 py-2 text-[13px] text-[#2B1B3D] focus:border-[#B58BE0] focus:outline-none";
+  "w-auto max-w-full rounded-2xl border border-[color:var(--btq-campo-borde)] bg-[color:var(--btq-campo)] px-3 py-2 text-[13px] text-[color:var(--btq-ink)] focus:border-[color:var(--btq-foco)] focus:outline-none";
 export const BOTON =
-  "inline-flex items-center justify-center gap-1.5 rounded-full border border-[#E6D6F2] bg-white/80 px-3.5 py-2 text-[13px] font-medium text-[#4A3466] hover:border-[#C9A7EB] hover:bg-white disabled:opacity-50";
+  "inline-flex items-center justify-center gap-1.5 rounded-full border border-[color:var(--btq-campo-borde)] bg-[color:var(--btq-card)] px-3.5 py-2 text-[13px] font-medium text-[color:var(--btq-ink2)] hover:border-[color:var(--btq-foco)] hover:bg-[color:var(--btq-hover)] disabled:opacity-50";
 export const BOTON_PRIMARIO =
-  `inline-flex items-center justify-center gap-1.5 rounded-full ${DEGRADE} px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_10px_24px_-12px_rgba(214,51,132,0.7)] hover:brightness-105 disabled:opacity-50`;
-
+  `inline-flex items-center justify-center gap-1.5 rounded-full ${DEGRADE} px-4 py-2.5 text-[13px] font-semibold text-white shadow-[var(--btq-brillo)] hover:brightness-110 disabled:opacity-50`;

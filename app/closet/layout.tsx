@@ -20,7 +20,7 @@ export const viewport: Viewport = { themeColor: "#FCEAF4" };
 
 export default function ClosetLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className={`${fraunces.variable} ${FONDO} min-h-dvh`}>
+    <div className={`${fraunces.variable} btq-claro ${FONDO} min-h-dvh`}>
       <ClosetHeader />
       {children}
       <ClosetFooter />
