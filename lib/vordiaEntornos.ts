@@ -101,6 +101,7 @@ export const VORDIA_RESERVADOS = new Set([
   "estudio",
   "herramientas",
   "subir",
+  "closet",
 ]);
 
 export function esRecursoEstatico(pathname: string) {

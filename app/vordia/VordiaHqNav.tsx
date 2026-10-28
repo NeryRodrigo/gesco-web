@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect, useState } from "react";
 import { API_BASE } from "@/lib/api";
-import {
+import { Gem,
   LayoutDashboard,
   Users,
   List,
@@ -62,6 +62,7 @@ export type VordiaHqVista =
   | "vordia_precios"
   | "vordia_secuencias"
   | "vordia_conta"
+  | "vordia_boutique"
   | "vordia_reportes"
   | "configuracion"
   | "usuarios";
@@ -94,6 +95,7 @@ export const VORDIA_HQ_TITULOS: Record<string, string> = {
   vordia_precios: "Estudio de precios",
   vordia_secuencias: "Secuencias de correo",
   vordia_conta: "VORDIA CONTA (demo)",
+  vordia_boutique: "VORDIA BOUTIQUE (demo)",
   vordia_reportes: "Reportes",
   configuracion: "Configuración",
   usuarios: "Usuarios / Roles",
@@ -228,6 +230,12 @@ export function VordiaHqSidebarNav({
         label="VORDIA CONTA (demo)"
         active={vistaActual === "vordia_conta"}
         onClick={() => go("vordia_conta")}
+      />
+      <HqItem
+        icon={<Gem size={16} />}
+        label="VORDIA BOUTIQUE (demo)"
+        active={vistaActual === "vordia_boutique"}
+        onClick={() => go("vordia_boutique")}
       />
       <HqItem
         icon={<TrendingUp size={16} />}
